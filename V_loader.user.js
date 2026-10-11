@@ -6,6 +6,7 @@
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
 // @match        https://s5.fourmizzz.fr/*
+// @match        *s5.fourmizzz.fr*
 // @grant        none
 // ==/UserScript==
 
