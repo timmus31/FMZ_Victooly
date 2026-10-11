@@ -1,4 +1,8 @@
 alert("Victooly.js est bien chargé !");
+window.onerror = function(msg, url, line) {
+    alert("Erreur JS : " + msg + "\nLigne : " + line);
+    return false;
+};
 
 'use strict';
 
