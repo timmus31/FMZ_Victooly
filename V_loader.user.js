@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.5.3
+// @version      1.5.4
 // @description  Loader for Victooly
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
