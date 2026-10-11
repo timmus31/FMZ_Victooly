@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.5.4
-// @description  Loader for Victooly
+// @version      1.6.0
+// @description  Loader for Victooly (No-Cache Fix)
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
 // @match        https://s5.fourmizzz.fr/*
@@ -16,6 +16,7 @@
     const REPO = 'FMZ_Victooly';
     const FILE_PATH = 'Victooly.js';
 
+    // On force l'API GitHub à ne jamais mettre en cache la vérification du commit
     const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
 
     fetch(apiUrl, { cache: 'no-store' })
@@ -25,22 +26,18 @@
         })
         .then(commits => {
             const latestCommitSha = commits[0].sha;
-            const cachedSha = localStorage.getItem('victooly_commit_sha');
-
-            let scriptUrl;
-
-            if (cachedSha !== latestCommitSha) {
-                localStorage.setItem('victooly_commit_sha', latestCommitSha);
-                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}?v=${latestCommitSha}`;
-            } else {
-                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`;
-            }
+            
+            // On injecte TOUJOURS le SHA du dernier commit dans l'URL.
+            // Si le code n'a pas changé, jsDelivr sert le fichier rapidement.
+            // Si tu viens de pusher, le SHA est différent et le nouveau code s'exécute INSTANTANÉMENT.
+            const scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}?v=${latestCommitSha}`;
 
             injectScript(scriptUrl);
         })
         .catch(err => {
             console.warn('[Victooly Loader] Erreur API GitHub, chargement de secours :', err);
-            injectScript(`https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`);
+            // En cas de panne API, on passe le timestamp actuel pour forcer le rafraîchissement
+            injectScript(`https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}?v=${Date.now()}`);
         });
 
     function injectScript(url) {
