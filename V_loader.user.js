@@ -1,8 +1,9 @@
 // ==UserScript==
-// @name         Fourmizzz - Testeur
+// @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
-// @description  Gestionnaire de Convois & Panneau Admin
+// @version      1.0
+// @description  Loader for the Victooly helper tool
+// @author       Stroke
 // @match        *s5.fourmizzz.fr/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
