@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.3
 // @description  Loader for the Victooly helper tool
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
@@ -14,44 +14,43 @@
 
     const USERNAME = 'timmus31';
     const REPO = 'FMZ_Vitooly';
-    const BRANCH = 'main';
+    const FILE_PATH = 'Victooly.js';
 
-    // 1. URL du fichier de version (contourne toujours le cache pour être sûr)
-    const versionUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@${BRANCH}/version.json?nocache=${Date.now()}`;
+    // API GitHub pour récupérer les infos du dernier commit sur Victooly.js (sans cache)
+    const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
 
-    fetch(versionUrl)
-        .then(response => response.json())
-        .then(data => {
-            const remoteVersion = data.version;
-            const localVersion = localStorage.getItem('victooly_script_version');
+    fetch(apiUrl)
+        .then(res => res.json())
+        .then(commits => {
+            // SHA unique du dernier commit (ex: "a1b2c3d...")
+            const latestCommitSha = commits[0].sha;
+            const cachedSha = localStorage.getItem('victooly_commit_sha');
 
             let scriptUrl;
 
-            if (localVersion !== remoteVersion) {
-                // Discrépance détectée ! On force le rechargement en passant la nouvelle version en paramètre
-                console.log(`[Victooly] Mise à jour détectée : v${localVersion} -> v${remoteVersion}`);
-                localStorage.setItem('victooly_script_version', remoteVersion);
-                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@${BRANCH}/Victooly.js?v=${remoteVersion}`;
+            if (cachedSha !== latestCommitSha) {
+                console.log(`[Victooly] Nouveau commit détecté (${latestCommitSha.substring(0, 7)}). Chargement du nouveau code.`);
+                localStorage.setItem('victooly_commit_sha', latestCommitSha);
+                // On passe le SHA unique en paramètre pour forcer le téléchargement du nouveau code
+                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}?v=${latestCommitSha}`;
             } else {
-                // La version est identique : on charge l'URL fixe, le navigateur utilise son CACHE local
-                console.log(`[Victooly] Version à jour (v${localVersion}). Chargement depuis le cache.`);
-                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@${BRANCH}/Victooly.js`;
+                console.log(`[Victooly] Code déjà à jour. Chargement depuis le cache.`);
+                // URL fixe sans paramètre : le navigateur utilise son cache local
+                scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`;
             }
 
-            // 2. Injection du script dans la page
-            let script = document.createElement('script');
-            script.src = scriptUrl;
-            script.type = 'text/javascript';
-            script.id = 'Victooly';
-            document.head.appendChild(script);
+            injectScript(scriptUrl);
         })
         .catch(err => {
-            console.error('[Victooly] Erreur de vérification de version, chargement secours :', err);
-            // En cas d'erreur réseau sur version.json, on charge le script standard
-            let script = document.createElement('script');
-            script.src = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@${BRANCH}/Victooly.js`;
-            script.type = 'text/javascript';
-            script.id = 'Victooly';
-            document.head.appendChild(script);
+            console.error('[Victooly] Erreur API GitHub, chargement de secours :', err);
+            injectScript(`https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`);
         });
+
+    function injectScript(url) {
+        let script = document.createElement('script');
+        script.src = url;
+        script.type = 'text/javascript';
+        script.id = 'Victooly';
+        document.head.appendChild(script);
+    }
 })();
