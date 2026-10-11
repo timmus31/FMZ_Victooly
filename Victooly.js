@@ -4,12 +4,18 @@ const SUPABASE_URL = "https://dwtpxurffahnbwekmtjw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Ctcgp3OXPzErZw879wL1eg_jWtgqgSe";
 const ADMIN_PSEUDO = "stroke";
 
-const targetElement = document.getElementById('alliance');
-const menuAlliance = document.getElementById('menuAlliance');
-
 let originalContent = null;
 let currentPlayer = null;
 let deviceUuid = getOrCreateDeviceUuid();
+
+// --- Helpers DOM dynamiques ---
+function getTargetElement() {
+    return document.getElementById('alliance');
+}
+
+function getMenuAlliance() {
+    return document.getElementById('menuAlliance');
+}
 
 // --- Console de Débogage Mobile ---
 function logToScreen(message, type = 'info') {
@@ -30,7 +36,7 @@ function logToScreen(message, type = 'info') {
     consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
-unction getOrCreateDeviceUuid() {
+function getOrCreateDeviceUuid() {
     let uuid = localStorage.getItem("fourmizzz_device_uuid");
     if (!uuid) {
         uuid = 'device_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -48,14 +54,19 @@ function getCleanPlayerName() {
     return titleEl.textContent.trim().replace(/^\s*S\d+\s+/i, '');
 }
 
-if (menuAlliance) {
-    const customLi = document.createElement('li');
-    customLi.innerHTML = `<a class="boutonListeAmis" href="alliance.php#custom"><span></span>Convois</a>`;
-    menuAlliance.appendChild(customLi);
-    window.addEventListener('hashchange', checkViewMode);
+function initMenu() {
+    const menuAlliance = getMenuAlliance();
+    if (menuAlliance && !document.getElementById('nav-convois-item')) {
+        const customLi = document.createElement('li');
+        customLi.id = 'nav-convois-item';
+        customLi.innerHTML = `<a class="boutonListeAmis" href="alliance.php#custom"><span></span>Convois</a>`;
+        menuAlliance.appendChild(customLi);
+        window.addEventListener('hashchange', checkViewMode);
+    }
 }
 
 function checkViewMode() {
+    const targetElement = getTargetElement();
     if (!targetElement) return;
 
     const isAlliancePage = window.location.pathname.includes('alliance.php');
@@ -72,6 +83,9 @@ function checkViewMode() {
 }
 
 function renderCustomView() {
+    const targetElement = getTargetElement();
+    if (!targetElement) return;
+
     currentPlayer = getCleanPlayerName();
     const isAdmin = currentPlayer && currentPlayer.toLowerCase() === ADMIN_PSEUDO;
 
@@ -117,12 +131,12 @@ function switchTab(tabName) {
     const container = document.getElementById('tab-content-container');
 
     if (tabName === 'convoys') {
-        convoysBtn.style.background = '#3498db';
+        if (convoysBtn) convoysBtn.style.background = '#3498db';
         if (adminBtn) adminBtn.style.background = '#95a5a6';
         container.innerHTML = '<div id="main-status-content">Vérification des convois...</div>';
         checkDeviceAndLoadData();
     } else if (tabName === 'admin') {
-        convoysBtn.style.background = '#95a5a6';
+        if (convoysBtn) convoysBtn.style.background = '#95a5a6';
         if (adminBtn) adminBtn.style.background = '#e74c3c';
         container.innerHTML = '<div id="admin-status-content">Chargement du panneau admin...</div>';
         loadAdminPanel();
@@ -130,13 +144,12 @@ function switchTab(tabName) {
 }
 
 function renderOriginalView() {
-    if (originalContent !== null) {
+    const targetElement = getTargetElement();
+    if (originalContent !== null && targetElement) {
         targetElement.innerHTML = originalContent;
         originalContent = null;
     }
 }
-
-checkViewMode();
 
 // --- CONVOIS ---
 
@@ -144,30 +157,33 @@ function checkDeviceAndLoadData() {
     const contentDiv = document.getElementById('main-status-content');
     logToScreen("Vérification accès convois...", "info");
 
-    GM_xmlhttpRequest({
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
         method: "POST",
-        url: `${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`,
         headers: {
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
             "Content-Type": "application/json"
         },
-        data: JSON.stringify({ p_pseudo: currentPlayer, p_device_uuid: deviceUuid }),
-        onload: function(res) {
-            logToScreen(`RPC get_my_convoys (HTTP ${res.status})`, res.status === 200 ? "success" : "warn");
-            if (res.status === 200) {
-                renderConvoysDashboard(JSON.parse(res.responseText));
+        body: JSON.stringify({ p_pseudo: currentPlayer, p_device_uuid: deviceUuid })
+    })
+    .then(async (res) => {
+        const text = await res.text();
+        logToScreen(`RPC get_my_convoys (HTTP ${res.status})`, res.status === 200 ? "success" : "warn");
+
+        if (res.status === 200) {
+            renderConvoysDashboard(JSON.parse(text));
+        } else {
+            if (text.includes("Device not registered")) {
+                renderDeviceRegistrationForm();
+            } else if (text.includes("pending_admin")) {
+                contentDiv.innerHTML = `<div style="background: #fef9e7; border: 1px solid #f39c12; padding: 15px; border-radius: 6px;">⏳ <strong>Appareil en attente de validation par l'admin.</strong></div>`;
             } else {
-                const errText = res.responseText;
-                if (errText.includes("Device not registered")) {
-                    renderDeviceRegistrationForm();
-                } else if (errText.includes("pending_admin")) {
-                    contentDiv.innerHTML = `<div style="background: #fef9e7; border: 1px solid #f39c12; padding: 15px; border-radius: 6px;">⏳ <strong>Appareil en attente de validation par l'admin.</strong></div>`;
-                } else {
-                    contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">🚫 <strong>Accès refusé.</strong></div>`;
-                }
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">🚫 <strong>Accès refusé.</strong></div>`;
             }
         }
+    })
+    .catch(err => {
+        logToScreen(`Erreur réseau convois : ${err.message}`, "error");
     });
 }
 
@@ -191,19 +207,22 @@ function renderDeviceRegistrationForm() {
 
 function registerNewDevice(label) {
     logToScreen("Demande d'enregistrement d'appareil...", "info");
-    GM_xmlhttpRequest({
+
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/register_device`, {
         method: "POST",
-        url: `${SUPABASE_URL}/rest/v1/rpc/register_device`,
         headers: {
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
             "Content-Type": "application/json"
         },
-        data: JSON.stringify({ p_pseudo: currentPlayer, p_device_uuid: deviceUuid, p_device_label: label }),
-        onload: function(res) {
-            logToScreen(`Réponse enregistrement (HTTP ${res.status})`, res.status === 200 ? "success" : "error");
-            if (res.status === 200) checkDeviceAndLoadData();
-        }
+        body: JSON.stringify({ p_pseudo: currentPlayer, p_device_uuid: deviceUuid, p_device_label: label })
+    })
+    .then(res => {
+        logToScreen(`Réponse enregistrement (HTTP ${res.status})`, res.status === 200 ? "success" : "error");
+        if (res.status === 200) checkDeviceAndLoadData();
+    })
+    .catch(err => {
+        logToScreen(`Erreur enregistrement : ${err.message}`, "error");
     });
 }
 
@@ -226,13 +245,17 @@ function renderConvoysDashboard(convoys) {
     contentDiv.querySelectorAll('.btn-complete-convoy').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = this.getAttribute('data-id');
-            GM_xmlhttpRequest({
+            fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
                 method: "POST",
-                url: `${SUPABASE_URL}/rest/v1/rpc/complete_convoy`,
-                headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
-                data: JSON.stringify({ p_convoy_id: id, p_pseudo: currentPlayer, p_device_uuid: deviceUuid }),
-                onload: () => checkDeviceAndLoadData()
-            });
+                headers: { 
+                    "apikey": SUPABASE_ANON_KEY, 
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify({ p_convoy_id: id, p_pseudo: currentPlayer, p_device_uuid: deviceUuid })
+            })
+            .then(() => checkDeviceAndLoadData())
+            .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
         });
     });
 }
@@ -259,19 +282,26 @@ function loadAdminPanel() {
     const container = document.getElementById('admin-status-content');
     logToScreen("Chargement de la liste des appareils (Admin)...", "info");
 
-    GM_xmlhttpRequest({
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/get_admin_devices_list`, {
         method: "POST",
-        url: `${SUPABASE_URL}/rest/v1/rpc/get_admin_devices_list`,
-        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
-        data: JSON.stringify({ p_admin_pseudo: currentPlayer, p_admin_uuid: deviceUuid }),
-        onload: function(res) {
-            logToScreen(`RPC get_admin_devices_list (HTTP ${res.status}) : ${res.responseText}`, res.status === 200 ? "success" : "error");
-            if (res.status === 200) {
-                renderAdminTable(JSON.parse(res.responseText));
-            } else {
-                container.innerHTML = `<div style="color:red; font-weight:bold;">Erreur de chargement des données admin. Consulter les logs ci-dessous.</div>`;
-            }
+        headers: { 
+            "apikey": SUPABASE_ANON_KEY, 
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+            "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ p_admin_pseudo: currentPlayer, p_admin_uuid: deviceUuid })
+    })
+    .then(async (res) => {
+        const text = await res.text();
+        logToScreen(`RPC get_admin_devices_list (HTTP ${res.status})`, res.status === 200 ? "success" : "error");
+        if (res.status === 200) {
+            renderAdminTable(JSON.parse(text));
+        } else {
+            container.innerHTML = `<div style="color:red; font-weight:bold;">Erreur de chargement des données admin. Consulter les logs ci-dessous.</div>`;
         }
+    })
+    .catch(err => {
+        logToScreen(`Erreur chargement admin : ${err.message}`, "error");
     });
 }
 
@@ -339,22 +369,26 @@ function renderAdminSubTable(list, isPending) {
 
 function executeAdminAction(action, deviceId, playerId) {
     logToScreen(`Action Admin : ${action}...`, "info");
-    GM_xmlhttpRequest({
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/manage_player_device`, {
         method: "POST",
-        url: `${SUPABASE_URL}/rest/v1/rpc/manage_player_device`,
-        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
-        data: JSON.stringify({
+        headers: { 
+            "apikey": SUPABASE_ANON_KEY, 
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+            "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
             p_admin_pseudo: currentPlayer,
             p_admin_uuid: deviceUuid,
             p_action: action,
             p_target_device_id: deviceId ? parseInt(deviceId) : null,
             p_target_player_id: playerId ? parseInt(playerId) : null
-        }),
-        onload: function(res) {
-            logToScreen(`Réponse action (HTTP ${res.status})`, res.status === 200 ? "success" : "error");
-            if (res.status === 200) loadAdminPanel();
-        }
-    });
+        })
+    })
+    .then(res => {
+        logToScreen(`Réponse action (HTTP ${res.status})`, res.status === 200 ? "success" : "error");
+        if (res.status === 200) loadAdminPanel();
+    })
+    .catch(err => logToScreen(`Erreur action admin : ${err.message}`, "error"));
 }
 
 function escapeHtml(str) {
@@ -392,3 +426,6 @@ function showNotification(message, isError = true) {
     }, 3000);
 }
 
+// Initialisation au chargement du script
+initMenu();
+checkViewMode();
