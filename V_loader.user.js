@@ -18,7 +18,7 @@
 
     const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
 
-    fetch(apiUrl)
+    fetch(apiUrl, { cache: 'no-store' })
         .then(res => {
             if (!res.ok) throw new Error(`API GitHub HTTP ${res.status}`);
             return res.json();
