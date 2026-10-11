@@ -427,3 +427,5 @@ function showNotification(message, isError = true) {
 // Initialisation au chargement du script
 initMenu();
 checkViewMode();
+
+// Fin du script
