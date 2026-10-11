@@ -30,14 +30,14 @@ function logToScreen(message, type = 'info') {
     consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
-function getOrCreateDeviceUuid() {
-    let uuid = GM_getValue("fourmizzz_device_uuid", null);
+unction getOrCreateDeviceUuid() {
+    let uuid = localStorage.getItem("fourmizzz_device_uuid");
     if (!uuid) {
         uuid = 'device_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
-        GM_setValue("fourmizzz_device_uuid", uuid);
+        localStorage.setItem("fourmizzz_device_uuid", uuid);
     }
     return uuid;
 }
