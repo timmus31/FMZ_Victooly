@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Victooly Helper Loader (Debug)
+// @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.5.2
-// @description  Loader for Victooly with debug alerts
+// @version      1.5.3
+// @description  Loader for Victooly
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
 // @match        https://s5.fourmizzz.fr/*
@@ -18,7 +18,6 @@
 
     const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
 
-    // 3. Récupération du commit avec gestion d'erreur
     fetch(apiUrl)
         .then(res => {
             if (!res.ok) throw new Error(`API GitHub HTTP ${res.status}`);
@@ -37,11 +36,10 @@
                 scriptUrl = `https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`;
             }
 
-            alert("🌐 URL à charger : " + scriptUrl);
             injectScript(scriptUrl);
         })
         .catch(err => {
-            alert("⚠️ Erreur API GitHub : " + err.message + "\nTentative de chargement direct...");
+            console.warn('[Victooly Loader] Erreur API GitHub, chargement de secours :', err);
             injectScript(`https://cdn.jsdelivr.net/gh/${USERNAME}/${REPO}@main/${FILE_PATH}`);
         });
 
@@ -50,15 +48,6 @@
         script.src = url;
         script.type = 'text/javascript';
         script.id = 'Victooly';
-
-        // 4. Événements de confirmation ou d'échec sur la balise <script>
-        script.onload = function() {
-            alert("✅ Victooly.js a été téléchargé avec succès par le navigateur !");
-        };
-
-        script.onerror = function() {
-            alert("❌ ÉCHEC DU TÉLÉCHARGEMENT de Victooly.js (Erreur Réseau ou CORS)");
-        };
 
         document.head.appendChild(script);
     }
