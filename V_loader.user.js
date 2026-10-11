@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Loader for the Victooly helper tool
 // @author       Stroke
-// @match        *s5.fourmizzz.fr/*
-// @grant        GM_xmlhttpRequest
-// @grant        GM_setValue
-// @grant        GM_getValue
+// @match        http://s5.fourmizzz.fr/*
+// @match        https://s5.fourmizzz.fr/*
 // ==/UserScript==
 
 (function() {
