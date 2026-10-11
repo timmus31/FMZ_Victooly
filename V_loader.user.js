@@ -12,15 +12,6 @@
 (function() {
     'use strict';
 
-    // 1. Alerte pour confirmer que le loader s'exécute bien
-    alert("🟢 Loader exécuté sur la page !");
-
-    // 2. Capture des erreurs globales du loader
-    window.onerror = function(msg, url, line) {
-        alert("❌ Erreur JS globale : " + msg + "\nLigne : " + line);
-        return false;
-    };
-
     const USERNAME = 'timmus31';
     const REPO = 'FMZ_Victooly';
     const FILE_PATH = 'Victooly.js';
