@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Victooly Helper Loader (Debug)
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.5.1
 // @description  Loader for Victooly with debug alerts
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
@@ -22,7 +22,7 @@
     };
 
     const USERNAME = 'timmus31';
-    const REPO = 'FMZ_Vitooly';
+    const REPO = 'FMZ_Victooly';
     const FILE_PATH = 'Victooly.js';
 
     const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
