@@ -1,3 +1,5 @@
+alert("Victooly.js est bien chargé !");
+
 'use strict';
 
 const SUPABASE_URL = "https://dwtpxurffahnbwekmtjw.supabase.co";
