@@ -91,7 +91,7 @@ function renderCustomView() {
     `;
 
     logToScreen(`Page chargée. Joueur : "${currentPlayer}"`, "info");
-    checkAuthAndLoadConvoys();
+    authenticateAndLoadConvoys();
 }
 
 function renderOriginalView() {
@@ -102,20 +102,20 @@ function renderOriginalView() {
     }
 }
 
-// --- CONVOIS & AUTHENTIFICATION NATIVE ---
+// --- AUTHENTIFICATION SÉCURISÉE & CONVOIS ---
 
 function authenticateAndLoadConvoys() {
     const contentDiv = document.getElementById('main-status-content');
-    logToScreen("Obtention du token de session...", "info");
+    logToScreen("Obtention du token Fourmizzz...", "info");
 
-    // 1. Récupérer un token éphémère du navigateur
+    // 1. Récupération d'un token éphémère du navigateur
     fetch('/api.php?getToken')
         .then(res => res.json())
         .then(tokenData => {
             const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Envoi à Supabase pour vérification serveur...`, "info");
+            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Transmis à Supabase pour validation serveur...`, "info");
 
-            // 2. Envoyer le token brut à Supabase (Postgres se charge de le valider)
+            // 2. Transmettre le token brut à Supabase (PostgreSQL interrogera lui-même Fourmizzz)
             return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                 method: "POST",
                 headers: {
@@ -133,11 +133,13 @@ function authenticateAndLoadConvoys() {
             if (res.status === 200) {
                 renderConvoysDashboard(JSON.parse(text));
             } else {
-                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou expiré.</strong></div>`;
+                logToScreen(`Échec RPC : ${text}`, "error");
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou joueur non autorisé.</strong></div>`;
             }
         })
         .catch(err => {
             logToScreen(`Erreur : ${err.message}`, "error");
+            contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Erreur de réseau ou d'authentification.</strong></div>`;
         });
 }
 
@@ -182,19 +184,24 @@ function renderTable(list, isSender) {
 }
 
 function completeConvoyAction(convoyId) {
-    getFourmizzzToken().then(token => {
-        return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
-            method: "POST",
-            headers: { 
-                "apikey": SUPABASE_ANON_KEY, 
-                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
-                "Content-Type": "application/json" 
-            },
-            body: JSON.stringify({ p_convoy_id: convoyId, p_pseudo: currentPlayer, p_token: token })
-        });
-    })
-    .then(() => checkAuthAndLoadConvoys())
-    .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
+    logToScreen(`Validation du convoi #${convoyId}...`, "info");
+    
+    fetch('/api.php?getToken')
+        .then(res => res.json())
+        .then(tokenData => {
+            const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+            return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
+                method: "POST",
+                headers: { 
+                    "apikey": SUPABASE_ANON_KEY, 
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify({ p_convoy_id: convoyId, p_pseudo: currentPlayer, p_token: token })
+            });
+        })
+        .then(() => authenticateAndLoadConvoys())
+        .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
 }
 
 function escapeHtml(str) {
