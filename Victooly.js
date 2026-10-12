@@ -112,6 +112,14 @@ function renderCustomView() {
     `;
 
     logToScreen("Page convois initialisée.", "info");
+
+    // Afficher une notification temporaire de retour si présente
+    const flashSuccess = sessionStorage.getItem('convoy_flash_success');
+    if (flashSuccess) {
+        showNotification(flashSuccess, false);
+        sessionStorage.removeItem('convoy_flash_success');
+    }
+
     loadConvoys();
 }
 
@@ -177,14 +185,14 @@ function renderConvoysDashboard(convoys) {
         </div>
     `;
 
-    // Attacher l'événement sur les boutons "Envoyer"
+    // Événement Clic : Redirection vers la page commerce avec les paramètres
     contentDiv.querySelectorAll('.btn-send-convoy').forEach(btn => {
         btn.addEventListener('click', function() {
             const convoyId = this.getAttribute('data-id');
             const targetId = this.getAttribute('data-target-id');
             const amount = this.getAttribute('data-amount');
             
-            executeInGameConvoy(this, convoyId, targetId, amount);
+            window.location.href = `commerce.php?ID=${targetId}&auto_convoy_id=${convoyId}&auto_amount=${amount}`;
         });
     });
 }
@@ -213,80 +221,84 @@ function renderTable(list, isSender) {
     return html + '</table>';
 }
 
-// --- DECLENCHEMENT DU CONVOI EN JEU ---
+// --- AUTOMATISATION SUR LA PAGE COMMERCE.PHP ---
 
-function executeInGameConvoy(buttonEl, convoyId, targetPlayerId, amount) {
-    buttonEl.disabled = true;
-    buttonEl.textContent = "Envoi...";
-    buttonEl.style.background = "#95a5a6";
+function handleCommercePageAutomation() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoConvoyId = urlParams.get('auto_convoy_id');
+    const autoAmount = urlParams.get('auto_amount');
 
-    logToScreen(`Envoi du convoi (${amount} matériaux vers joueur #${targetPlayerId})...`, "info");
+    if (!autoConvoyId || !autoAmount) return;
 
-    const formData = new URLSearchParams();
-    formData.append('input_nbMateriaux', amount);
-    formData.append('convoi', 'Lancer le convoi');
+    const matInput = document.getElementById('input_nbMateriaux');
+    const submitBtn = document.querySelector('input[type="submit"][name="convoi"]');
 
-    fetch(`/commerce.php?ID=${targetPlayerId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: formData.toString()
-    })
-    .then(res => res.text())
-    .then(htmlText => {
-        // Vérification de la confirmation du jeu dans le HTML renvoyé
-        if (htmlText.includes('verificationOK') || htmlText.includes('Votre convoi est en piste.')) {
-            logToScreen("Convoi accepté par Fourmizzz ! Validation Supabase...", "success");
-            confirmConvoyInSupabase(convoyId);
-        } else {
-            logToScreen("Échec de l'envoi Fourmizzz (Ressources insuffisantes ou erreur).", "error");
-            showNotification("❌ Échec : Ressources ou capacité insuffisante.", true);
-            
-            buttonEl.disabled = false;
-            buttonEl.textContent = "\uD83D\uDE80 Envoyer";
-            buttonEl.style.background = "#e67e22";
-        }
-    })
-    .catch(err => {
-        logToScreen(`Erreur réseau lors de l'envoi : ${err.message}`, "error");
-        showNotification("❌ Erreur réseau lors du convoi.", true);
+    // 1. Remplissage et soumission automatique
+    if (matInput && submitBtn) {
+        matInput.value = autoAmount;
         
-        buttonEl.disabled = false;
-        buttonEl.textContent = "\uD83D\uDE80 Envoyer";
-        buttonEl.style.background = "#e67e22";
-    });
+        // Retirer les paramètres d'auto-remplissage de l'URL du formulaire pour éviter les boucles
+        const form = submitBtn.form;
+        if (form) {
+            submitBtn.click();
+        }
+    }
 }
 
-function confirmConvoyInSupabase(convoyId) {
-    fetch('/api.php?getToken')
-        .then(res => res.json())
-        .then(tokenData => {
-            const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
-                method: "POST",
-                headers: { 
-                    "apikey": SUPABASE_ANON_KEY, 
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
-                    "Content-Type": "application/json" 
-                },
-                body: JSON.stringify({ p_convoy_id: parseInt(convoyId), p_token: token })
-            });
-        })
-        .then(() => {
-            logToScreen("Convoi validé en BDD !", "success");
-            showNotification("✅ Convoi envoyé avec succès !", false);
-            loadConvoys();
-        })
-        .catch(err => {
-            logToScreen(`Erreur validation BDD : ${err.message}`, "error");
-            showNotification("⚠️ Convoi parti en jeu mais erreur de synchro BDD.", true);
-        });
+function handleCommercePostCheck() {
+    const okElement = document.querySelector('.verificationOK');
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoConvoyId = urlParams.get('auto_convoy_id');
+
+    // Si on détecte le message de confirmation OK du jeu
+    if (okElement && (okElement.textContent.includes('Votre convoi est en piste') || okElement.textContent.includes('piste'))) {
+        
+        // Si un ID de convoi est en cours de validation
+        const pendingConvoyId = autoConvoyId || sessionStorage.getItem('pending_auto_convoy_id');
+        
+        if (pendingConvoyId) {
+            sessionStorage.removeItem('pending_auto_convoy_id');
+            
+            // Valider dans Supabase puis rediriger vers le tableau d'alliance
+            fetch('/api.php?getToken')
+                .then(res => res.json())
+                .then(tokenData => {
+                    const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+                    return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
+                        method: "POST",
+                        headers: { 
+                            "apikey": SUPABASE_ANON_KEY, 
+                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+                            "Content-Type": "application/json" 
+                        },
+                        body: JSON.stringify({ p_convoy_id: parseInt(pendingConvoyId), p_token: token })
+                    });
+                })
+                .then(() => {
+                    sessionStorage.setItem('convoy_flash_success', '✅ Convoi envoyé et validé avec succès !');
+                    window.location.href = 'alliance.php#custom';
+                })
+                .catch(() => {
+                    sessionStorage.setItem('convoy_flash_success', '⚠️ Convoi parti mais erreur de mise à jour Supabase.');
+                    window.location.href = 'alliance.php#custom';
+                });
+        }
+    }
 }
 
 function escapeHtml(str) {
     return str ? str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
 }
 
-initMenu();
-checkViewMode();
+// Initialisation globale selon la page
+if (window.location.pathname.includes('commerce.php')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('auto_convoy_id')) {
+        sessionStorage.setItem('pending_auto_convoy_id', urlParams.get('auto_convoy_id'));
+    }
+    handleCommercePageAutomation();
+    handleCommercePostCheck();
+} else {
+    initMenu();
+    checkViewMode();
+}
