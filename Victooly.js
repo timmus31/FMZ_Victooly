@@ -233,15 +233,19 @@ function handleCommercePageAutomation() {
     const matInput = document.getElementById('input_nbMateriaux');
     const submitBtn = document.querySelector('input[type="submit"][name="convoi"]');
 
-    // 1. Remplissage et soumission automatique
     if (matInput && submitBtn) {
+        // 1. Définir la valeur
         matInput.value = autoAmount;
-        
-        // Retirer les paramètres d'auto-remplissage de l'URL du formulaire pour éviter les boucles
-        const form = submitBtn.form;
-        if (form) {
+
+        // 2. Simuler la saisie clavier pour réveiller les scripts du jeu
+        matInput.dispatchEvent(new Event('input', { bubbles: true }));
+        matInput.dispatchEvent(new Event('change', { bubbles: true }));
+        matInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
+
+        // 3. Laisser un court délai (150ms) pour que le script Fourmizzz recalcule avant clic
+        setTimeout(() => {
             submitBtn.click();
-        }
+        }, 150);
     }
 }
 
