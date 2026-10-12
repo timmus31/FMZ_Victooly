@@ -104,46 +104,41 @@ function renderOriginalView() {
 
 // --- CONVOIS & AUTHENTIFICATION NATIVE ---
 
-function getFourmizzzToken() {
-    return fetch('/api.php?getToken')
-        .then(res => res.json())
-        .then(data => data.token || data)
-        .catch(err => {
-            logToScreen(`Erreur obtention token : ${err.message}`, "error");
-            throw err;
-        });
-}
-
-function checkAuthAndLoadConvoys() {
+function authenticateAndLoadConvoys() {
     const contentDiv = document.getElementById('main-status-content');
-    logToScreen("Obtention du token de session Fourmizzz...", "info");
+    logToScreen("Obtention du token de session...", "info");
 
-    getFourmizzzToken().then(token => {
-        logToScreen(`Token obtenu : ${token.substring(0, 8)}... Envoi RPC...`, "info");
+    // 1. Récupérer un token éphémère du navigateur
+    fetch('/api.php?getToken')
+        .then(res => res.json())
+        .then(tokenData => {
+            const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Envoi à Supabase pour vérification serveur...`, "info");
 
-        return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
-            method: "POST",
-            headers: {
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ p_pseudo: currentPlayer, p_token: token })
+            // 2. Envoyer le token brut à Supabase (Postgres se charge de le valider)
+            return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ p_pseudo: currentPlayer, p_token: token })
+            });
+        })
+        .then(async (res) => {
+            const text = await res.text();
+            logToScreen(`RPC get_my_convoys (HTTP ${res.status})`, res.status === 200 ? "success" : "warn");
+
+            if (res.status === 200) {
+                renderConvoysDashboard(JSON.parse(text));
+            } else {
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou expiré.</strong></div>`;
+            }
+        })
+        .catch(err => {
+            logToScreen(`Erreur : ${err.message}`, "error");
         });
-    })
-    .then(async (res) => {
-        const text = await res.text();
-        logToScreen(`RPC get_my_convoys (HTTP ${res.status})`, res.status === 200 ? "success" : "warn");
-
-        if (res.status === 200) {
-            renderConvoysDashboard(JSON.parse(text));
-        } else {
-            contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé ou session expirée.</strong></div>`;
-        }
-    })
-    .catch(err => {
-        logToScreen(`Erreur réseau : ${err.message}`, "error");
-    });
 }
 
 function renderConvoysDashboard(convoys) {
