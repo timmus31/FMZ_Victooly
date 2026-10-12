@@ -2,7 +2,6 @@ const SUPABASE_URL = "https://dwtpxurffahnbwekmtjw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Ctcgp3OXPzErZw879wL1eg_jWtgqgSe";
 
 let originalContent = null;
-let currentPlayer = null;
 
 // --- Helpers DOM ---
 function getTargetElement() {
@@ -29,12 +28,6 @@ function logToScreen(message, type = 'info') {
     
     consoleEl.appendChild(line);
     consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-
-function getCleanPlayerName() {
-    const titleEl = document.querySelector("#titre_boite_info > span");
-    if (!titleEl) return null;
-    return titleEl.textContent.trim().replace(/^\s*S\d+\s+/i, '');
 }
 
 function initMenu() {
@@ -69,17 +62,16 @@ function renderCustomView() {
     const targetElement = getTargetElement();
     if (!targetElement) return;
 
-    currentPlayer = getCleanPlayerName();
-
     targetElement.innerHTML = `
         <div id="custom-page-container" style="padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-family: sans-serif; color: #333;">
             <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.3em;">
                 \uD83D\uDCE6 Tableau des Convois Alliance
             </h2>
             <div id="tab-content-container">
-                <div id="main-status-content">Authentification en cours...</div>
+                <div id="main-status-content">Authentification native auprès de Fourmizzz...</div>
             </div>
 
+            <!-- Console de Débogage Mobile -->
             <div style="margin-top: 25px;">
                 <h4 style="margin: 0 0 5px 0; color: #7f8c8d; font-size: 0.9em;">\uD83D\uDCF1 Console de Débogage Mobile</h4>
                 <div id="custom-mobile-console" style="background: #222; color: #fff; padding: 10px; border-radius: 5px; height: 130px; overflow-y: auto;">
@@ -88,8 +80,8 @@ function renderCustomView() {
         </div>
     `;
 
-    logToScreen(`Page chargée. Joueur détecté : "${currentPlayer}"`, "info");
-    verifyAndLoadConvoys();
+    logToScreen("Page convois initialisée.", "info");
+    loadConvoys();
 }
 
 function renderOriginalView() {
@@ -100,31 +92,18 @@ function renderOriginalView() {
     }
 }
 
-// --- AUTHENTIFICATION & CONVOIS ---
+// --- RECUPERATION VIA TOKEN NATIF ---
 
-function verifyAndLoadConvoys() {
+function loadConvoys() {
     const contentDiv = document.getElementById('main-status-content');
-    logToScreen("Demande du token de session...", "info");
+    logToScreen("Obtention d'un token natif Fourmizzz...", "info");
 
     fetch('/api.php?getToken')
         .then(res => res.json())
         .then(tokenData => {
             const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Vérification locale...`, "info");
+            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Transmis à Supabase...`, "info");
 
-            return fetch(`/api.php?checkToken=${encodeURIComponent(token)}`);
-        })
-        .then(res => res.json())
-        .then(checkData => {
-            const verifiedPseudo = checkData.pseudo || checkData.player_pseudo;
-            
-            if (!verifiedPseudo) {
-                throw new Error("Impossible de vérifier le token auprès de Fourmizzz");
-            }
-
-            logToScreen(`Token validé par Fourmizzz pour : "${verifiedPseudo}"`, "success");
-
-            // Appel à Supabase avec le pseudo vérifié
             return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                 method: "POST",
                 headers: {
@@ -132,7 +111,7 @@ function verifyAndLoadConvoys() {
                     "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ p_pseudo: verifiedPseudo })
+                body: JSON.stringify({ p_token: token })
             });
         })
         .then(async (res) => {
@@ -142,13 +121,12 @@ function verifyAndLoadConvoys() {
             if (res.status === 200) {
                 renderConvoysDashboard(JSON.parse(text));
             } else {
-                logToScreen(`Erreur Supabase : ${text}`, "error");
-                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Vous ne faites pas partie de l'alliance.</strong></div>`;
+                logToScreen(`Erreur : ${text}`, "error");
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou joueur non membre de l'alliance.</strong></div>`;
             }
         })
         .catch(err => {
             logToScreen(`Erreur : ${err.message}`, "error");
-            contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Échec d'authentification Fourmizzz.</strong></div>`;
         });
 }
 
@@ -167,13 +145,6 @@ function renderConvoysDashboard(convoys) {
             ${renderTable(toReceive, false)}
         </div>
     `;
-
-    contentDiv.querySelectorAll('.btn-complete-convoy').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            completeConvoyAction(id);
-        });
-    });
 }
 
 function renderTable(list, isSender) {
@@ -190,20 +161,6 @@ function renderTable(list, isSender) {
         </tr>`;
     });
     return html + '</table>';
-}
-
-function completeConvoyAction(convoyId) {
-    fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
-        method: "POST",
-        headers: { 
-            "apikey": SUPABASE_ANON_KEY, 
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
-            "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({ p_convoy_id: convoyId, p_pseudo: currentPlayer })
-    })
-    .then(() => verifyAndLoadConvoys())
-    .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
 }
 
 function escapeHtml(str) {
