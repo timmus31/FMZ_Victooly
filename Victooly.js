@@ -58,7 +58,7 @@ function showNotification(message, isError = true) {
 
     setTimeout(() => {
         toast.style.opacity = '0';
-    }, 3000);
+    }, 3500);
 }
 
 function initMenu() {
@@ -113,11 +113,15 @@ function renderCustomView() {
 
     logToScreen("Page convois initialisée.", "info");
 
-    // Afficher une notification temporaire de retour si présente
+    // Flash message au retour de redirection
     const flashSuccess = sessionStorage.getItem('convoy_flash_success');
+    const flashError = sessionStorage.getItem('convoy_flash_error');
     if (flashSuccess) {
         showNotification(flashSuccess, false);
         sessionStorage.removeItem('convoy_flash_success');
+    } else if (flashError) {
+        showNotification(flashError, true);
+        sessionStorage.removeItem('convoy_flash_error');
     }
 
     loadConvoys();
@@ -200,20 +204,26 @@ function renderConvoysDashboard(convoys) {
 function renderTable(list, isSender) {
     if (list.length === 0) return `<em>${isSender ? '✅ Aucun convoi à envoyer.' : 'Aucun convoi attendu.'}</em>`;
     let html = '<table style="width:100%; border-collapse: collapse; font-size: 12px; background: white;">';
-    html += `<tr style="background:${isSender ? '#f39c12' : '#27ae60'}; color:white;"><th style="padding:6px;">Date</th><th style="padding:6px;">Joueur</th><th style="padding:6px;">Montant</th>${isSender ? '<th style="padding:6px;">Action</th>' : ''}</tr>`;
+    html += `<tr style="background:${isSender ? '#f39c12' : '#27ae60'}; color:white;"><th style="padding:6px;">Date</th><th style="padding:6px;">Joueur</th><th style="padding:6px;">Montant</th><th style="padding:6px;">Statut</th>${isSender ? '<th style="padding:6px;">Action</th>' : ''}</tr>`;
     list.forEach(c => {
         const target = isSender ? c.to_player_pseudo : c.from_player_pseudo;
-        html += `<tr style="border-bottom: 1px solid #eee;">
+        const isFailed = c.status === 'failed';
+        const statusBadge = isFailed 
+            ? `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">⚠️ Dernier envoi échoué</span>`
+            : `<span style="background:#f39c12; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">En attente</span>`;
+
+        html += `<tr style="border-bottom: 1px solid #eee; ${isFailed ? 'background: #fdf2f2;' : ''}">
             <td style="padding:6px;">${c.balance_date}</td>
             <td style="padding:6px;"><strong>${escapeHtml(target)}</strong></td>
             <td style="padding:6px; font-weight:bold;">${c.amount.toLocaleString('fr-FR')}</td>
+            <td style="padding:6px;">${statusBadge}</td>
             ${isSender ? `<td style="padding:6px;">
                 <button class="btn-send-convoy" 
                         data-id="${c.id}" 
                         data-target-id="${c.to_player_id}" 
                         data-amount="${c.amount}" 
-                        style="padding:4px 10px; background:#e67e22; color:white; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">
-                    \uD83D\uDE80 Envoyer
+                        style="padding:4px 10px; background:${isFailed ? '#c0392b' : '#e67e22'}; color:white; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">
+                    ${isFailed ? '\uD83D\uDD04 Réessayer' : '\uD83D\uDE80 Envoyer'}
                 </button>
             </td>` : ''}
         </tr>`;
@@ -234,15 +244,13 @@ function handleCommercePageAutomation() {
     const submitBtn = document.querySelector('input[type="submit"][name="convoi"]');
 
     if (matInput && submitBtn) {
-        // 1. Définir la valeur
         matInput.value = autoAmount;
 
-        // 2. Simuler la saisie clavier pour réveiller les scripts du jeu
+        // Événements clavier pour rafraîchir la réactivité JS de Fourmizzz
         matInput.dispatchEvent(new Event('input', { bubbles: true }));
         matInput.dispatchEvent(new Event('change', { bubbles: true }));
         matInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
 
-        // 3. Laisser un court délai (150ms) pour que le script Fourmizzz recalcule avant clic
         setTimeout(() => {
             submitBtn.click();
         }, 150);
@@ -250,43 +258,64 @@ function handleCommercePageAutomation() {
 }
 
 function handleCommercePostCheck() {
-    const okElement = document.querySelector('.verificationOK');
-    const urlParams = new URLSearchParams(window.location.search);
-    const autoConvoyId = urlParams.get('auto_convoy_id');
+    const pendingConvoyId = sessionStorage.getItem('pending_auto_convoy_id');
+    if (!pendingConvoyId) return;
 
-    // Si on détecte le message de confirmation OK du jeu
+    const okElement = document.querySelector('.verificationOK');
+
+    // 1. Détection de SUCCÈS
     if (okElement && (okElement.textContent.includes('Votre convoi est en piste') || okElement.textContent.includes('piste'))) {
-        
-        // Si un ID de convoi est en cours de validation
-        const pendingConvoyId = autoConvoyId || sessionStorage.getItem('pending_auto_convoy_id');
-        
-        if (pendingConvoyId) {
-            sessionStorage.removeItem('pending_auto_convoy_id');
-            
-            // Valider dans Supabase puis rediriger vers le tableau d'alliance
-            fetch('/api.php?getToken')
-                .then(res => res.json())
-                .then(tokenData => {
-                    const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-                    return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
-                        method: "POST",
-                        headers: { 
-                            "apikey": SUPABASE_ANON_KEY, 
-                            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
-                            "Content-Type": "application/json" 
-                        },
-                        body: JSON.stringify({ p_convoy_id: parseInt(pendingConvoyId), p_token: token })
-                    });
-                })
-                .then(() => {
-                    sessionStorage.setItem('convoy_flash_success', '✅ Convoi envoyé et validé avec succès !');
-                    window.location.href = 'alliance.php#custom';
-                })
-                .catch(() => {
-                    sessionStorage.setItem('convoy_flash_success', '⚠️ Convoi parti mais erreur de mise à jour Supabase.');
-                    window.location.href = 'alliance.php#custom';
+        sessionStorage.removeItem('pending_auto_convoy_id');
+
+        fetch('/api.php?getToken')
+            .then(res => res.json())
+            .then(tokenData => {
+                const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+                return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
+                    method: "POST",
+                    headers: { 
+                        "apikey": SUPABASE_ANON_KEY, 
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+                        "Content-Type": "application/json" 
+                    },
+                    body: JSON.stringify({ p_convoy_id: parseInt(pendingConvoyId), p_token: token })
                 });
-        }
+            })
+            .then(() => {
+                sessionStorage.setItem('convoy_flash_success', '✅ Convoi envoyé avec succès !');
+                window.location.href = 'alliance.php#custom';
+            })
+            .catch(() => {
+                sessionStorage.setItem('convoy_flash_success', '⚠️ Convoi parti mais erreur BDD.');
+                window.location.href = 'alliance.php#custom';
+            });
+    } 
+    // 2. Détection d'ÉCHEC (Pas d'élément verificationOK présent après la soumission)
+    else {
+        sessionStorage.removeItem('pending_auto_convoy_id');
+
+        fetch('/api.php?getToken')
+            .then(res => res.json())
+            .then(tokenData => {
+                const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+                return fetch(`${SUPABASE_URL}/rest/v1/rpc/fail_convoy`, {
+                    method: "POST",
+                    headers: { 
+                        "apikey": SUPABASE_ANON_KEY, 
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+                        "Content-Type": "application/json" 
+                    },
+                    body: JSON.stringify({ p_convoy_id: parseInt(pendingConvoyId), p_token: token })
+                });
+            })
+            .then(() => {
+                sessionStorage.setItem('convoy_flash_error', '❌ Échec d\'envoi : Ressources ou capacité insuffisante.');
+                window.location.href = 'alliance.php#custom';
+            })
+            .catch(() => {
+                sessionStorage.setItem('convoy_flash_error', '❌ Échec du convoi en jeu.');
+                window.location.href = 'alliance.php#custom';
+            });
     }
 }
 
@@ -297,11 +326,16 @@ function escapeHtml(str) {
 // Initialisation globale selon la page
 if (window.location.pathname.includes('commerce.php')) {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Si c'est l'arrivée initiale pour lancer le convoi
     if (urlParams.has('auto_convoy_id')) {
         sessionStorage.setItem('pending_auto_convoy_id', urlParams.get('auto_convoy_id'));
+        handleCommercePageAutomation();
+    } 
+    // Si c'est le rechargement de page consécutif au POST du formulaire
+    else if (sessionStorage.getItem('pending_auto_convoy_id')) {
+        handleCommercePostCheck();
     }
-    handleCommercePageAutomation();
-    handleCommercePostCheck();
 } else {
     initMenu();
     checkViewMode();
