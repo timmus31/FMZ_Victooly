@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_Ctcgp3OXPzErZw879wL1eg_jWtgqgSe";
 let originalContent = null;
 let currentPlayer = null;
 
-// --- Helpers DOM dynamiques ---
+// --- Helpers DOM ---
 function getTargetElement() {
     return document.getElementById('alliance');
 }
@@ -13,7 +13,6 @@ function getMenuAlliance() {
     return document.getElementById('menuAlliance');
 }
 
-// --- Console de Débogage Mobile ---
 function logToScreen(message, type = 'info') {
     const consoleEl = document.getElementById('custom-mobile-console');
     if (!consoleEl) return;
@@ -81,7 +80,6 @@ function renderCustomView() {
                 <div id="main-status-content">Authentification en cours...</div>
             </div>
 
-            <!-- Console de Débogage Mobile -->
             <div style="margin-top: 25px;">
                 <h4 style="margin: 0 0 5px 0; color: #7f8c8d; font-size: 0.9em;">\uD83D\uDCF1 Console de Débogage Mobile</h4>
                 <div id="custom-mobile-console" style="background: #222; color: #fff; padding: 10px; border-radius: 5px; height: 130px; overflow-y: auto;">
@@ -90,8 +88,8 @@ function renderCustomView() {
         </div>
     `;
 
-    logToScreen(`Page chargée. Joueur : "${currentPlayer}"`, "info");
-    authenticateAndLoadConvoys();
+    logToScreen(`Page chargée. Joueur détecté : "${currentPlayer}"`, "info");
+    verifyAndLoadConvoys();
 }
 
 function renderOriginalView() {
@@ -102,20 +100,31 @@ function renderOriginalView() {
     }
 }
 
-// --- AUTHENTIFICATION SÉCURISÉE & CONVOIS ---
+// --- AUTHENTIFICATION & CONVOIS ---
 
-function authenticateAndLoadConvoys() {
+function verifyAndLoadConvoys() {
     const contentDiv = document.getElementById('main-status-content');
-    logToScreen("Obtention du token Fourmizzz...", "info");
+    logToScreen("Demande du token de session...", "info");
 
-    // 1. Récupération d'un token éphémère du navigateur
     fetch('/api.php?getToken')
         .then(res => res.json())
         .then(tokenData => {
             const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Transmis à Supabase pour validation serveur...`, "info");
+            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Vérification locale...`, "info");
 
-            // 2. Transmettre le token brut à Supabase (PostgreSQL interrogera lui-même Fourmizzz)
+            return fetch(`/api.php?checkToken=${encodeURIComponent(token)}`);
+        })
+        .then(res => res.json())
+        .then(checkData => {
+            const verifiedPseudo = checkData.pseudo || checkData.player_pseudo;
+            
+            if (!verifiedPseudo) {
+                throw new Error("Impossible de vérifier le token auprès de Fourmizzz");
+            }
+
+            logToScreen(`Token validé par Fourmizzz pour : "${verifiedPseudo}"`, "success");
+
+            // Appel à Supabase avec le pseudo vérifié
             return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                 method: "POST",
                 headers: {
@@ -123,7 +132,7 @@ function authenticateAndLoadConvoys() {
                     "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ p_pseudo: currentPlayer, p_token: token })
+                body: JSON.stringify({ p_pseudo: verifiedPseudo })
             });
         })
         .then(async (res) => {
@@ -133,13 +142,13 @@ function authenticateAndLoadConvoys() {
             if (res.status === 200) {
                 renderConvoysDashboard(JSON.parse(text));
             } else {
-                logToScreen(`Échec RPC : ${text}`, "error");
-                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou joueur non autorisé.</strong></div>`;
+                logToScreen(`Erreur Supabase : ${text}`, "error");
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Vous ne faites pas partie de l'alliance.</strong></div>`;
             }
         })
         .catch(err => {
             logToScreen(`Erreur : ${err.message}`, "error");
-            contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Erreur de réseau ou d'authentification.</strong></div>`;
+            contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Échec d'authentification Fourmizzz.</strong></div>`;
         });
 }
 
@@ -184,61 +193,22 @@ function renderTable(list, isSender) {
 }
 
 function completeConvoyAction(convoyId) {
-    logToScreen(`Validation du convoi #${convoyId}...`, "info");
-    
-    fetch('/api.php?getToken')
-        .then(res => res.json())
-        .then(tokenData => {
-            const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            return fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
-                method: "POST",
-                headers: { 
-                    "apikey": SUPABASE_ANON_KEY, 
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
-                    "Content-Type": "application/json" 
-                },
-                body: JSON.stringify({ p_convoy_id: convoyId, p_pseudo: currentPlayer, p_token: token })
-            });
-        })
-        .then(() => authenticateAndLoadConvoys())
-        .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy`, {
+        method: "POST",
+        headers: { 
+            "apikey": SUPABASE_ANON_KEY, 
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, 
+            "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ p_convoy_id: convoyId, p_pseudo: currentPlayer })
+    })
+    .then(() => verifyAndLoadConvoys())
+    .catch(err => logToScreen(`Erreur validation convoi : ${err.message}`, "error"));
 }
 
 function escapeHtml(str) {
     return str ? str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
 }
 
-function showNotification(message, isError = true) {
-    let toast = document.getElementById('custom-toast-notification');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'custom-toast-notification';
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 99999;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-family: sans-serif;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            transition: opacity 0.3s ease-in-out;
-            opacity: 0;
-        `;
-        document.body.appendChild(toast);
-    }
-
-    toast.style.background = isError ? '#e74c3c' : '#27ae60';
-    toast.style.color = '#ffffff';
-    toast.textContent = message;
-    toast.style.opacity = '1';
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-    }, 3000);
-}
-
-// Initialisation au chargement du script
 initMenu();
 checkViewMode();
