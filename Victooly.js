@@ -2,6 +2,7 @@ const SUPABASE_URL = "https://dwtpxurffahnbwekmtjw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Ctcgp3OXPzErZw879wL1eg_jWtgqgSe";
 
 let originalContent = null;
+let activeSubTab = 'active'; // 'active' ou 'history'
 
 // --- Helpers DOM ---
 function getTargetElement() {
@@ -95,25 +96,45 @@ function renderCustomView() {
 
     targetElement.innerHTML = `
         <div id="custom-page-container" style="padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-family: sans-serif; color: #333;">
-            <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.3em;">
-                \uD83D\uDCE6 Tableau des Convois Alliance
-            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                <h2 style="color: #2c3e50; margin: 0; font-size: 1.3em;">
+                    \uD83D\uDCE6 Gestion des Convois Alliance
+                </h2>
+                <div>
+                    <button id="btn-tab-active" style="padding: 6px 12px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; background: ${activeSubTab === 'active' ? '#2980b9' : '#e0e0e0'}; color: ${activeSubTab === 'active' ? '#fff' : '#333'};">
+                        En cours
+                    </button>
+                    <button id="btn-tab-history" style="padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; background: ${activeSubTab === 'history' ? '#2980b9' : '#e0e0e0'}; color: ${activeSubTab === 'history' ? '#fff' : '#333'};">
+                        \uD83D\uDCDC Historique
+                    </button>
+                </div>
+            </div>
+
             <div id="tab-content-container">
-                <div id="main-status-content">Authentification native auprès de Fourmizzz...</div>
+                <div id="main-status-content">Chargement des données...</div>
             </div>
 
             <!-- Console de Débogage Mobile -->
             <div style="margin-top: 25px;">
                 <h4 style="margin: 0 0 5px 0; color: #7f8c8d; font-size: 0.9em;">\uD83D\uDCF1 Console de Débogage Mobile</h4>
-                <div id="custom-mobile-console" style="background: #222; color: #fff; padding: 10px; border-radius: 5px; height: 130px; overflow-y: auto;">
+                <div id="custom-mobile-console" style="background: #222; color: #fff; padding: 10px; border-radius: 5px; height: 120px; overflow-y: auto;">
                 </div>
             </div>
         </div>
     `;
 
-    logToScreen("Page convois initialisée.", "info");
+    document.getElementById('btn-tab-active').addEventListener('click', () => {
+        activeSubTab = 'active';
+        renderCustomView();
+    });
 
-    // Flash message au retour de redirection
+    document.getElementById('btn-tab-history').addEventListener('click', () => {
+        activeSubTab = 'history';
+        renderCustomView();
+    });
+
+    logToScreen(`Page convois initialisée (Onglet: ${activeSubTab}).`, "info");
+
     const flashSuccess = sessionStorage.getItem('convoy_flash_success');
     const flashError = sessionStorage.getItem('convoy_flash_error');
     if (flashSuccess) {
@@ -124,7 +145,11 @@ function renderCustomView() {
         sessionStorage.removeItem('convoy_flash_error');
     }
 
-    loadConvoys();
+    if (activeSubTab === 'active') {
+        loadConvoys();
+    } else {
+        loadHistory();
+    }
 }
 
 function renderOriginalView() {
@@ -135,7 +160,7 @@ function renderOriginalView() {
     }
 }
 
-// --- RECUPERATION VIA TOKEN NATIF ---
+// --- RECUPERATION DES CONVOIS EN COURS ---
 
 function loadConvoys() {
     const contentDiv = document.getElementById('main-status-content');
@@ -145,8 +170,6 @@ function loadConvoys() {
         .then(res => res.json())
         .then(tokenData => {
             const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
-            logToScreen(`Token obtenu (${token.substring(0, 8)}...). Transmis à Supabase...`, "info");
-
             return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                 method: "POST",
                 headers: {
@@ -159,18 +182,14 @@ function loadConvoys() {
         })
         .then(async (res) => {
             const text = await res.text();
-            logToScreen(`RPC get_my_convoys (HTTP ${res.status})`, res.status === 200 ? "success" : "warn");
-
             if (res.status === 200) {
                 renderConvoysDashboard(JSON.parse(text));
             } else {
                 logToScreen(`Erreur : ${text}`, "error");
-                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou joueur non membre de l'alliance.</strong></div>`;
+                contentDiv.innerHTML = `<div style="background: #fadbd8; border: 1px solid #e74c3c; padding: 15px; border-radius: 6px;">\uD83D\uDEAB <strong>Accès refusé. Token invalide ou joueur non membre.</strong></div>`;
             }
         })
-        .catch(err => {
-            logToScreen(`Erreur : ${err.message}`, "error");
-        });
+        .catch(err => logToScreen(`Erreur : ${err.message}`, "error"));
 }
 
 function renderConvoysDashboard(convoys) {
@@ -179,17 +198,16 @@ function renderConvoysDashboard(convoys) {
     const toReceive = convoys.filter(c => !c.is_sender);
 
     contentDiv.innerHTML = `
-        <h3 style="color: #e67e22;">\uD83D\uDCE4 Convois à envoyer</h3>
+        <h3 style="color: #e67e22; margin-top: 5px;">\uD83D\uDCE4 Convois à envoyer</h3>
         <div style="background: #fdf2e9; padding: 10px; border-radius: 6px; margin-bottom: 20px;">
-            ${renderTable(toSend, true)}
+            ${renderActiveTable(toSend, true)}
         </div>
         <h3 style="color: #27ae60;">\uD83D\uDCE5 Convois à recevoir</h3>
         <div style="background: #eafaf1; padding: 10px; border-radius: 6px;">
-            ${renderTable(toReceive, false)}
+            ${renderActiveTable(toReceive, false)}
         </div>
     `;
 
-    // Événement Clic : Redirection vers la page commerce avec les paramètres
     contentDiv.querySelectorAll('.btn-send-convoy').forEach(btn => {
         btn.addEventListener('click', function() {
             const convoyId = this.getAttribute('data-id');
@@ -201,7 +219,7 @@ function renderConvoysDashboard(convoys) {
     });
 }
 
-function renderTable(list, isSender) {
+function renderActiveTable(list, isSender) {
     if (list.length === 0) return `<em>${isSender ? '✅ Aucun convoi à envoyer.' : 'Aucun convoi attendu.'}</em>`;
     let html = '<table style="width:100%; border-collapse: collapse; font-size: 12px; background: white;">';
     html += `<tr style="background:${isSender ? '#f39c12' : '#27ae60'}; color:white;"><th style="padding:6px;">Date</th><th style="padding:6px;">Joueur</th><th style="padding:6px;">Montant</th><th style="padding:6px;">Statut</th>${isSender ? '<th style="padding:6px;">Action</th>' : ''}</tr>`;
@@ -209,7 +227,7 @@ function renderTable(list, isSender) {
         const target = isSender ? c.to_player_pseudo : c.from_player_pseudo;
         const isFailed = c.status === 'failed';
         const statusBadge = isFailed 
-            ? `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">⚠️ Dernier envoi échoué</span>`
+            ? `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">⚠️ Échoué</span>`
             : `<span style="background:#f39c12; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">En attente</span>`;
 
         html += `<tr style="border-bottom: 1px solid #eee; ${isFailed ? 'background: #fdf2f2;' : ''}">
@@ -231,6 +249,68 @@ function renderTable(list, isSender) {
     return html + '</table>';
 }
 
+// --- RECUPERATION DE L'HISTORIQUE ---
+
+function loadHistory() {
+    const contentDiv = document.getElementById('main-status-content');
+    logToScreen("Chargement de l'historique des convois...", "info");
+
+    fetch('/api.php?getToken')
+        .then(res => res.json())
+        .then(tokenData => {
+            const token = typeof tokenData === 'object' ? (tokenData.token || tokenData.id) : String(tokenData);
+            return fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoy_history`, {
+                method: "POST",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ p_token: token, p_limit: 30 })
+            });
+        })
+        .then(async (res) => {
+            const text = await res.text();
+            if (res.status === 200) {
+                renderHistoryDashboard(JSON.parse(text));
+            } else {
+                logToScreen(`Erreur historique : ${text}`, "error");
+            }
+        })
+        .catch(err => logToScreen(`Erreur : ${err.message}`, "error"));
+}
+
+function renderHistoryDashboard(historyList) {
+    const contentDiv = document.getElementById('main-status-content');
+    
+    if (historyList.length === 0) {
+        contentDiv.innerHTML = `<p style="color:#7f8c8d; font-style:italic;">Aucun convoi complété enregistré pour le moment.</p>`;
+        return;
+    }
+
+    let html = '<table style="width:100%; border-collapse: collapse; font-size: 12px; background: white; border: 1px solid #eee;">';
+    html += `<tr style="background:#34495e; color:white;"><th style="padding:6px;">Date</th><th style="padding:6px;">Type</th><th style="padding:6px;">Partenaire</th><th style="padding:6px;">Montant</th><th style="padding:6px;">Statut</th></tr>`;
+    
+    historyList.forEach(c => {
+        const isSender = c.is_sender;
+        const target = isSender ? c.to_player_pseudo : c.from_player_pseudo;
+        const typeBadge = isSender 
+            ? `<span style="color:#e67e22; font-weight:bold;">\uD83D\uDCE4 Envoyé</span>`
+            : `<span style="color:#27ae60; font-weight:bold;">\uD83D\uDCE5 Reçu</span>`;
+
+        html += `<tr style="border-bottom: 1px solid #eee;">
+            <td style="padding:6px;">${c.balance_date}</td>
+            <td style="padding:6px;">${typeBadge}</td>
+            <td style="padding:6px;"><strong>${escapeHtml(target)}</strong></td>
+            <td style="padding:6px; font-weight:bold;">${c.amount.toLocaleString('fr-FR')}</td>
+            <td style="padding:6px;"><span style="background:#27ae60; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">✅ Complété</span></td>
+        </tr>`;
+    });
+    
+    html += '</table>';
+    contentDiv.innerHTML = `<h3 style="color:#34495e; margin-top:5px;">\uD83D\uDCDC Historique récent des convois</h3>${html}`;
+}
+
 // --- AUTOMATISATION SUR LA PAGE COMMERCE.PHP ---
 
 function handleCommercePageAutomation() {
@@ -246,7 +326,6 @@ function handleCommercePageAutomation() {
     if (matInput && submitBtn) {
         matInput.value = autoAmount;
 
-        // Événements clavier pour rafraîchir la réactivité JS de Fourmizzz
         matInput.dispatchEvent(new Event('input', { bubbles: true }));
         matInput.dispatchEvent(new Event('change', { bubbles: true }));
         matInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
@@ -263,7 +342,6 @@ function handleCommercePostCheck() {
 
     const okElement = document.querySelector('.verificationOK');
 
-    // 1. Détection de SUCCÈS
     if (okElement && (okElement.textContent.includes('Votre convoi est en piste') || okElement.textContent.includes('piste'))) {
         sessionStorage.removeItem('pending_auto_convoy_id');
 
@@ -289,9 +367,7 @@ function handleCommercePostCheck() {
                 sessionStorage.setItem('convoy_flash_success', '⚠️ Convoi parti mais erreur BDD.');
                 window.location.href = 'alliance.php#custom';
             });
-    } 
-    // 2. Détection d'ÉCHEC (Pas d'élément verificationOK présent après la soumission)
-    else {
+    } else {
         sessionStorage.removeItem('pending_auto_convoy_id');
 
         fetch('/api.php?getToken')
@@ -323,17 +399,13 @@ function escapeHtml(str) {
     return str ? str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
 }
 
-// Initialisation globale selon la page
+// Initialisation globale
 if (window.location.pathname.includes('commerce.php')) {
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Si c'est l'arrivée initiale pour lancer le convoi
     if (urlParams.has('auto_convoy_id')) {
         sessionStorage.setItem('pending_auto_convoy_id', urlParams.get('auto_convoy_id'));
         handleCommercePageAutomation();
-    } 
-    // Si c'est le rechargement de page consécutif au POST du formulaire
-    else if (sessionStorage.getItem('pending_auto_convoy_id')) {
+    } else if (sessionStorage.getItem('pending_auto_convoy_id')) {
         handleCommercePostCheck();
     }
 } else {
