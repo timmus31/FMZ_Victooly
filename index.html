@@ -112,32 +112,37 @@
     </div>
 
     <script>
-        const SUPABASE_URL = "https://dwtpxurffahnbwekmtjw.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_Ctcgp3OXPzErZw879wL1eg_jWtgqgSe";
-
-        // Auto-connexion si le token est déjà sauvé dans le téléphone
+        const SUPABASE_URL = "TA_SUPABASE_URL";
+        const SUPABASE_ANON_KEY = "TA_SUPABASE_ANON_KEY";
+    
+        // Au chargement : récupération du token en mémoire ou dans l'URL
         window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
             const savedToken = localStorage.getItem('fourmizzz_token');
-            if (savedToken) {
-                document.getElementById('token-input').value = savedToken;
-                fetchConvoys(savedToken);
+    
+            const activeToken = urlToken || savedToken;
+    
+            if (activeToken) {
+                document.getElementById('token-input').value = activeToken;
+                localStorage.setItem('fourmizzz_token', activeToken);
+                fetchConvoys(activeToken);
             }
         };
-
+    
         function handleLogin() {
             const token = document.getElementById('token-input').value.trim();
             if (!token) return alert("Colle ton token avant de valider !");
             
-            // Sauvegarde locale pour éviter de devoir le recoller la prochaine fois
             localStorage.setItem('fourmizzz_token', token);
             fetchConvoys(token);
         }
-
+    
         async function fetchConvoys(token) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
-
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement de tes convois...</p>";
+    
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                     method: 'POST',
@@ -148,37 +153,37 @@
                     },
                     body: JSON.stringify({ p_token: token })
                 });
-
+    
                 if (!response.ok) {
-                    throw new Error("Token invalide ou tu ne fais pas partie des membres actifs de l'alliance.");
+                    throw new Error("Token expiré ou invalide. Veuillez re-copier un nouveau token.");
                 }
-
+    
                 const convoys = await response.json();
                 renderConvoys(convoys);
-
+    
             } catch (err) {
                 alert("Erreur : " + err.message);
                 logout();
             }
         }
-
+    
         function renderConvoys(convoys) {
             const container = document.getElementById('convoys-list');
-        
+    
             if (!convoys || convoys.length === 0) {
                 container.innerHTML = "<p style='text-align:center; padding: 20px 0;'>🎉 Aucun convoi à réaliser aujourd'hui !</p>";
                 return;
             }
-        
+    
             let html = `<h3>Tes Convois à effectuer :</h3>`;
-        
+    
             convoys.forEach(c => {
                 const isSender = c.is_sender ?? c.is_giver;
                 const targetPseudo = c.target_pseudo || (isSender ? c.to_player_pseudo : c.from_player_pseudo) || "Joueur";
                 const badgeClass = isSender ? 'badge-giver' : 'badge-receiver';
                 const roleText = isSender ? 'ENVOYER À' : 'RECEVOIR DE';
                 const statusText = c.status === 'completed' ? '✅ Complété' : (c.status === 'failed' ? '⚠️ Échoué' : '⏳ En attente');
-        
+    
                 html += `
                 <div class="convoy-item">
                     <div>
@@ -191,14 +196,14 @@
                     </div>
                 </div>`;
             });
-        
+    
             container.innerHTML = html;
         }
-        
+    
         function escapeHtml(str) {
             return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
         }
-
+    
         function logout() {
             localStorage.removeItem('fourmizzz_token');
             document.getElementById('token-input').value = '';
@@ -206,5 +211,6 @@
             document.getElementById('convoys-box').style.display = 'none';
         }
     </script>
+
 </body>
 </html>
