@@ -21,7 +21,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -33,7 +33,7 @@
 
         .main-container {
             width: 100%;
-            max-width: 680px;
+            max-width: 720px;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
@@ -44,15 +44,22 @@
         .header-title {
             font-size: 1.5rem;
             color: var(--primary);
-            margin: 0 0 20px 0;
+            margin: 0 0 10px 0;
             text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
         }
 
-        /* Box de Connexion */
+        /* Script detection alert */
+        .script-status-banner {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .script-detected { background: #e8f8f5; color: #117a65; border: 1px solid #a3e4d7; }
+        .script-missing { background: #fef9e7; color: #7d6608; border: 1px solid #f9e79f; }
+
         .token-box {
             background: #f8fafc;
             border: 1px solid var(--border);
@@ -77,9 +84,7 @@
             border-radius: 6px;
             font-weight: bold;
             font-size: 0.85rem;
-            transition: background 0.2s;
         }
-        .token-btn:hover { background: var(--accent-hover); }
 
         input[type="text"] {
             width: 100%;
@@ -89,10 +94,7 @@
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
         }
-        input[type="text"]:focus { border-color: var(--primary); }
 
         button.btn-primary {
             width: 100%;
@@ -104,11 +106,8 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 0.95rem;
-            transition: background 0.2s;
         }
-        button.btn-primary:hover { background: var(--primary-hover); }
 
-        /* Navigation et Onglets */
         .nav-tabs {
             display: flex;
             gap: 8px;
@@ -127,7 +126,6 @@
             background: #edf2f7;
             color: var(--text-muted);
             font-size: 0.85rem;
-            transition: all 0.2s;
         }
 
         .tab-btn.active {
@@ -146,21 +144,8 @@
             font-size: 0.8rem;
             font-weight: 600;
         }
-        .btn-logout:hover { background: #cbd5e0; }
 
-        /* Tables & Cards */
-        .section-title {
-            font-size: 1.1rem;
-            margin: 15px 0 10px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .table-container {
-            overflow-x: auto;
-            margin-bottom: 20px;
-        }
+        .table-container { overflow-x: auto; margin-bottom: 20px; }
 
         table {
             width: 100%;
@@ -184,9 +169,6 @@
             vertical-align: middle;
         }
 
-        tr.row-failed { background: #fff5f5; }
-
-        /* Badges & Boutons d'Action */
         .badge {
             padding: 3px 8px;
             border-radius: 12px;
@@ -201,22 +183,26 @@
 
         .btn-action {
             display: inline-block;
-            padding: 6px 12px;
+            padding: 6px 10px;
             color: white;
             border-radius: 4px;
             text-decoration: none;
             font-weight: bold;
             font-size: 0.75rem;
-            transition: opacity 0.2s;
         }
-        .btn-action:hover { opacity: 0.9; }
 
-        .empty-msg {
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.85rem;
-            padding: 10px 0;
+        .btn-manual-ok {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-left: 5px;
         }
+        .btn-manual-ok:hover { background: #219653; }
     </style>
 </head>
 <body>
@@ -224,22 +210,28 @@
     <div class="main-container">
         <h1 class="header-title">📦 Convois Alliance V</h1>
 
-        <!-- Ecran 1 : Formulaire de Login -->
+        <!-- Formulaire de Login -->
         <div id="auth-section" class="token-box">
             <div class="token-step">1. Récupération du Token Fourmizzz</div>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
-                Ouvrez le lien ci-dessous pour générer un jeton temporaire depuis votre compte de jeu :
+                Générez un jeton éphémère depuis votre compte de jeu :
             </p>
             <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn">🔑 Obtenir mon Token</a>
             
             <br><br>
-            <div class="token-step">2. Validation de session (12 heures)</div>
+            <div class="token-step">2. Validation de session (12h)</div>
             <input type="text" id="token-input" placeholder="Coller le token ici (ex: 6ace5bb10f2a6)">
             <button class="btn-primary" onclick="handleAuth()">Connexion au Tableau</button>
         </div>
 
-        <!-- Ecran 2 : Dashboard de Convois -->
+        <!-- Dashboard -->
         <div id="dashboard-section" style="display:none;">
+            
+            <!-- Bannière de présence du Userscript -->
+            <div id="script-banner" class="script-status-banner">
+                Vérification du script automatique...
+            </div>
+
             <div class="nav-tabs">
                 <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">En cours</button>
                 <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">📜 Historique</button>
@@ -252,8 +244,25 @@
 
     <script>
         let activeTab = 'active';
+        let isScriptInstalled = false;
+
+        function checkScriptPresence() {
+            // Détection via variable globale ou attribut HTML posé par Tampermonkey
+            isScriptInstalled = !!window.FOURMIZZZ_SCRIPT_INSTALLED || 
+                                document.documentElement.getAttribute('data-fourmizzz-script') === 'true';
+
+            const banner = document.getElementById('script-banner');
+            if (isScriptInstalled) {
+                banner.className = 'script-status-banner script-detected';
+                banner.innerHTML = '⚡ <strong>Userscript détecté :</strong> Mode 100% Automatique actif.';
+            } else {
+                banner.className = 'script-status-banner script-missing';
+                banner.innerHTML = '💡 <strong>Userscript non détecté :</strong> Vous pouvez ouvrir le lien puis cliquer sur <strong>« ✅ Fait »</strong> pour valider manuellement.';
+            }
+        }
 
         window.onload = () => {
+            checkScriptPresence();
             const savedSessionToken = localStorage.getItem('alliance_session_token');
             if (savedSessionToken) {
                 showDashboard();
@@ -277,7 +286,7 @@
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Token invalide ou déjà consommé.");
+                if (!res.ok) throw new Error(data.message || "Token invalide.");
 
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
@@ -292,6 +301,7 @@
         function showDashboard() {
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('dashboard-section').style.display = 'block';
+            checkScriptPresence();
         }
 
         function switchTab(tab) {
@@ -324,7 +334,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.message || "Session expirée (12h). Veuillez vous re-connecter.");
+                    throw new Error(data.message || "Session expirée.");
                 }
 
                 if (activeTab === 'active') {
@@ -344,17 +354,17 @@
             const toSend = convoys.filter(c => c.is_sender);
             const toReceive = convoys.filter(c => !c.is_sender);
 
-            let html = `<div class="section-title" style="color: var(--accent);">📤 Convois à envoyer</div>`;
+            let html = `<div style="font-weight:bold; color: var(--accent); margin: 15px 0 10px 0;">📤 Convois à envoyer</div>`;
             html += renderTable(toSend, true);
 
-            html += `<div class="section-title" style="color: var(--success); margin-top: 25px;">📥 Convois à recevoir</div>`;
+            html += `<div style="font-weight:bold; color: var(--success); margin: 25px 0 10px 0;">📥 Convois à recevoir</div>`;
             html += renderTable(toReceive, false);
 
             contentDiv.innerHTML = html;
         }
 
         function renderTable(list, isSender) {
-            if (list.length === 0) return `<p class="empty-msg">Aucun convoi dans cette catégorie.</p>`;
+            if (list.length === 0) return `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi dans cette catégorie.</p>`;
 
             let html = `<div class="table-container"><table>
                 <thead>
@@ -377,31 +387,72 @@
                     ? `<span class="badge badge-failed">⚠️ Échoué</span>`
                     : `<span class="badge badge-pending">En attente</span>`;
 
-                const actionBtn = isSender ? `
-                    <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
-                       target="_blank" 
-                       class="btn-action" 
-                       style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
-                        ${isFailed ? '🔄 Réessayer' : '🚀 Envoyer'}
-                    </a>
-                ` : '';
+                let actionButtons = '';
+                if (isSender) {
+                    // 1. Bouton "Ouvrir / Envoyer"
+                    actionButtons += `
+                        <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
+                           target="_blank" 
+                           class="btn-action" 
+                           style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
+                            ${isFailed ? '🔄 Réessayer' : '🚀 Ouvrir'}
+                        </a>
+                    `;
+
+                    // 2. Bouton "Valider manuellement" si Userscript absent
+                    if (!isScriptInstalled) {
+                        actionButtons += `
+                            <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})">
+                                ✅ Fait
+                            </button>
+                        `;
+                    }
+                }
 
                 html += `<tr class="${isFailed ? 'row-failed' : ''}">
                     <td>${c.balance_date}</td>
                     <td><strong>${escapeHtml(target)}</strong></td>
                     <td><strong>${Number(c.amount).toLocaleString('fr-FR')}</strong> Matériaux</td>
                     <td>${statusBadge}</td>
-                    ${isSender ? `<td>${actionBtn}</td>` : ''}
+                    ${isSender ? `<td>${actionButtons}</td>` : ''}
                 </tr>`;
             });
 
             return html + `</tbody></table></div>`;
         }
 
+        async function markConvoyCompleted(convoyId) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            if (!sessionToken) return logout();
+
+            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) })
+                });
+
+                if (res.ok) {
+                    loadTabContent();
+                } else {
+                    const err = await res.json();
+                    alert("❌ Erreur : " + (err.message || "Action impossible"));
+                }
+            } catch (e) {
+                alert("❌ Erreur réseau.");
+            }
+        }
+
         function renderHistoryConvoys(historyList) {
             const contentDiv = document.getElementById('content-area');
             if (historyList.length === 0) {
-                contentDiv.innerHTML = `<p class="empty-msg">Aucun convoi complété récemment.</p>`;
+                contentDiv.innerHTML = `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi complété récemment.</p>`;
                 return;
             }
 
