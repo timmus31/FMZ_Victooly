@@ -16,6 +16,10 @@
     const REPO = 'FMZ_Victooly';
     const FILE_PATH = 'Victooly.js';
 
+    // Déclaration du script pour la page Web GitHub Pages
+    window.FOURMIZZZ_SCRIPT_INSTALLED = true;
+    document.documentElement.setAttribute('data-fourmizzz-script', 'true');
+
     // On récupère le SHA du dernier commit en forçant l'API à ne pas mettre en cache
     const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/commits?path=${FILE_PATH}&page=1&per_page=1&_=${Date.now()}`;
 
