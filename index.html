@@ -10,7 +10,6 @@
             --primary: #2c3e50;
             --primary-hover: #1a252f;
             --accent: #e67e22;
-            --accent-hover: #d35400;
             --success: #27ae60;
             --danger: #e74c3c;
             --admin-color: #8e44ad;
@@ -34,7 +33,7 @@
 
         .main-container {
             width: 100%;
-            max-width: 720px;
+            max-width: 750px;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
@@ -177,6 +176,7 @@
         .badge-success { background: var(--success); }
         .badge-superadmin { background: var(--danger); }
         .badge-admin { background: var(--admin-color); }
+        .badge-chef { background: #d35400; }
         .badge-member { background: #95a5a6; }
 
         .btn-action {
@@ -189,13 +189,14 @@
             font-size: 0.75rem;
         }
 
-        .btn-toggle-admin {
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            color: white;
-            font-weight: bold;
-            font-size: 0.75rem;
+        .role-select {
+            padding: 5px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #fff;
+            color: var(--text);
             cursor: pointer;
         }
     </style>
@@ -486,7 +487,7 @@
 
             let html = `
                 <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">
-                    ⚙️ Gestion des Administrateurs
+                    ⚙️ Gestion des Rôles de l'Alliance
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
                     Seul le Super Admin (<strong>Stroke</strong>) peut modifier les attributions de rôles.
@@ -495,8 +496,8 @@
                     <thead>
                         <tr>
                             <th>Joueur</th>
-                            <th style="text-align:center;">Rôle</th>
-                            ${currentUserAdminInfo.isSuperAdmin ? '<th style="text-align:center;">Action</th>' : ''}
+                            <th style="text-align:center;">Rôle Actuel</th>
+                            ${currentUserAdminInfo.isSuperAdmin ? '<th style="text-align:center;">Modifier le Rôle</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>`;
@@ -507,21 +508,29 @@
                     badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
                 } else if (m.role === 'admin') {
                     badge = '<span class="badge badge-admin">🛡️ Admin</span>';
+                } else if (m.role === 'chef_de_rang') {
+                    badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
                 }
 
-                let actionBtn = '';
-                if (currentUserAdminInfo.isSuperAdmin && m.role !== 'superadmin') {
-                    if (m.is_admin) {
-                        actionBtn = `<button class="btn-toggle-admin" style="background:var(--danger);" onclick="toggleAdminRole(${m.player_id}, false)">Retirer Admin</button>`;
+                let actionElement = '';
+                if (currentUserAdminInfo.isSuperAdmin) {
+                    if (m.role === 'superadmin') {
+                        actionElement = '<em style="color:var(--text-muted); font-size:0.75rem;">Inmodifiable</em>';
                     } else {
-                        actionBtn = `<button class="btn-toggle-admin" style="background:var(--success);" onclick="toggleAdminRole(${m.player_id}, true)">Promouvoir Admin</button>`;
+                        actionElement = `
+                            <select class="role-select" onchange="updatePlayerRole(${m.player_id}, this.value)">
+                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
+                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
+                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
+                            </select>
+                        `;
                     }
                 }
 
                 html += `<tr>
                     <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
                     <td style="text-align:center;">${badge}</td>
-                    ${currentUserAdminInfo.isSuperAdmin ? `<td style="text-align:center;">${actionBtn}</td>` : ''}
+                    ${currentUserAdminInfo.isSuperAdmin ? `<td style="text-align:center;">${actionElement}</td>` : ''}
                 </tr>`;
             });
 
@@ -529,11 +538,11 @@
             contentDiv.innerHTML = html;
         }
 
-        async function toggleAdminRole(targetPlayerId, makeAdmin) {
+        async function updatePlayerRole(targetPlayerId, newRole) {
             const sessionToken = localStorage.getItem('alliance_session_token');
 
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/toggle_admin_role`, {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_role`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -543,7 +552,7 @@
                     body: JSON.stringify({ 
                         p_session_token: sessionToken, 
                         p_target_player_id: parseInt(targetPlayerId), 
-                        p_make_admin: makeAdmin 
+                        p_new_role: newRole 
                     })
                 });
 
@@ -552,6 +561,7 @@
                 } else {
                     const err = await res.json();
                     alert("❌ Action refusée : " + (err.message || "Seul le Super Admin peut modifier les rôles."));
+                    loadAdminPanel(); // Réinitialise l'affichage
                 }
             } catch (e) {
                 alert("❌ Erreur réseau.");
