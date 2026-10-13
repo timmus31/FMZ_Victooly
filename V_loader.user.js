@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Victooly Helper Loader
 // @namespace    http://tampermonkey.net/
-// @version      1.8.1
+// @version      1.8.2
 // @description  Loader with direct SHA resolution (Instant updates)
 // @author       Stroke
 // @match        http://s5.fourmizzz.fr/*
@@ -17,6 +17,15 @@
     const FILE_PATH = 'Victooly.js';
 
     // Déclaration du script pour la page Web GitHub Pages
+    // Injection explicite sur l'élément racine pour traverser le Sandbox
+    document.documentElement.setAttribute('data-fourmizzz-script', 'true');
+    
+    // Optionnel : Injection directement dans le window de la page hôte
+    if (typeof unsafeWindow !== 'undefined') {
+        unsafeWindow.FOURMIZZZ_SCRIPT_INSTALLED = true;
+    } else {
+        window.FOURMIZZZ_SCRIPT_INSTALLED = true;
+    }
     window.FOURMIZZZ_SCRIPT_INSTALLED = true;
     document.documentElement.setAttribute('data-fourmizzz-script', 'true');
 
