@@ -117,8 +117,8 @@
         window.onload = () => {
             const sessionData = getValidSession();
             if (sessionData) {
-                // Rechargement direct via le player_id stocké
-                loadConvoys({ p_token: "", p_player_id: sessionData.playerId });
+                // F5 / Refresh : rechargement instantané via l'ID mémorisé !
+                fetchConvoysFromSupabase(sessionData.playerId);
             } else {
                 const urlParams = new URLSearchParams(window.location.search);
                 const urlToken = urlParams.get('token');
@@ -129,19 +129,45 @@
             }
         };
     
-        function handleLogin(customToken) {
+        async function handleLogin(customToken) {
             const inputToken = customToken || document.getElementById('token-input').value.trim();
             if (!inputToken) {
-                alert("Veuillez coller un token Fourmizzz !");
+                alert("Veuillez coller un token !");
                 return;
             }
-            loadConvoys({ p_token: inputToken, p_player_id: 0 });
-        }
     
-        async function loadConvoys(payload) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification et chargement...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token Fourmizzz...</p>";
+    
+            try {
+                // 1. Validation du token directement auprès de l'API Fourmizzz
+                const fzResponse = await fetch(`https://s5.fourmizzz.fr/api.php?checkToken=${encodeURIComponent(inputToken)}`);
+                if (!fzResponse.ok) throw new Error("Impossible de contacter Fourmizzz.");
+                
+                const fzData = await fzResponse.json();
+                const playerId = parseInt(fzData.ID || fzData.id || fzData.player_id, 10);
+    
+                if (!playerId || isNaN(playerId)) {
+                    throw new Error("Token Fourmizzz invalide ou expiré.");
+                }
+    
+                // 2. Token valide : enregistrement de la session (12 heures)
+                saveSession(playerId);
+    
+                // 3. Récupération des convois sur Supabase
+                await fetchConvoysFromSupabase(playerId);
+    
+            } catch (err) {
+                alert("❌ Erreur : " + err.message);
+                logout();
+            }
+        }
+    
+        async function fetchConvoysFromSupabase(playerId) {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('convoys-box').style.display = 'block';
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
     
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
@@ -151,19 +177,13 @@
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ p_player_id: playerId })
                 });
     
                 const data = await response.json();
     
                 if (!response.ok) {
-                    console.error("Détails erreur Supabase :", data);
-                    throw new Error(data.message || data.details || "Erreur d'accès à Supabase.");
-                }
-    
-                // Si validation réussie, enregistrement du player_id en session (12 heures)
-                if (data && data.length > 0 && data[0].my_player_id) {
-                    saveSession(data[0].my_player_id);
+                    throw new Error(data.message || "Erreur lors de la récupération des convois.");
                 }
     
                 renderConvoys(data);
