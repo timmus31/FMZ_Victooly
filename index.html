@@ -117,8 +117,8 @@
         window.onload = () => {
             const sessionData = getValidSession();
             if (sessionData) {
-                // Rechargement fluide au refresh grâce au player_id mémorisé
-                loadConvoys({ p_player_id: sessionData.playerId });
+                // Rechargement direct via le player_id stocké
+                loadConvoys({ p_token: "", p_player_id: sessionData.playerId });
             } else {
                 const urlParams = new URLSearchParams(window.location.search);
                 const urlToken = urlParams.get('token');
@@ -132,16 +132,16 @@
         function handleLogin(customToken) {
             const inputToken = customToken || document.getElementById('token-input').value.trim();
             if (!inputToken) {
-                alert("Veuillez coller un token !");
+                alert("Veuillez coller un token Fourmizzz !");
                 return;
             }
-            loadConvoys({ p_token: inputToken });
+            loadConvoys({ p_token: inputToken, p_player_id: 0 });
         }
     
         async function loadConvoys(payload) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification et chargement...</p>";
     
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
@@ -157,10 +157,11 @@
                 const data = await response.json();
     
                 if (!response.ok) {
-                    throw new Error(data.message || "Impossible de récupérer les convois.");
+                    console.error("Détails erreur Supabase :", data);
+                    throw new Error(data.message || data.details || "Erreur d'accès à Supabase.");
                 }
     
-                // Sauvegarde de la session pour 12 heures
+                // Si validation réussie, enregistrement du player_id en session (12 heures)
                 if (data && data.length > 0 && data[0].my_player_id) {
                     saveSession(data[0].my_player_id);
                 }
