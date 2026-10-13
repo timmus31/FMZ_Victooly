@@ -114,31 +114,37 @@
     <script src="config.js"></script>
 
     <script>
-        // Au chargement de la page : on pré-remplit le champ s'il y a un token enregistré, mais ON NE LANCE PAS la requête tout seul
+        // Au chargement : verification si une session locale valide existe (< 12h)
         window.onload = () => {
-            const savedToken = localStorage.getItem('fourmizzz_token');
-            if (savedToken && savedToken !== "null" && savedToken !== "undefined") {
-                document.getElementById('token-input').value = savedToken;
+            const sessionData = getValidSession();
+            if (sessionData) {
+                // Joueur déjà authentifié récemment : chargement direct des convois sans repasser par l'API Fourmizzz !
+                fetchConvoysByPlayerId(sessionData.playerId);
+            } else {
+                // Si le token a été passé dans l'URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                if (urlToken) {
+                    document.getElementById('token-input').value = urlToken;
+                    handleLogin(urlToken);
+                }
             }
         };
     
-        // Déclenché uniquement au clic sur le bouton
-        function handleLogin() {
-            const inputToken = document.getElementById('token-input').value.trim();
-            
+        function handleLogin(customToken) {
+            const inputToken = customToken || document.getElementById('token-input').value.trim();
             if (!inputToken) {
                 alert("Veuillez coller un token !");
                 return;
             }
-    
-            // On lance la vérification avec le token saisi dans la case
-            fetchConvoys(inputToken);
+            verifyTokenAndLogin(inputToken);
         }
     
-        async function fetchConvoys(token) {
+        // 1. Première connexion : Validation du token Fourmizzz auprès de Supabase
+        async function verifyTokenAndLogin(token) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token Fourmizzz...</p>";
     
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
@@ -157,15 +163,79 @@
                     throw new Error(data.message || "Token invalide ou non membre de l'alliance.");
                 }
     
-                // LE TOKEN EST VALIDE : On peut maintenant le sauvegarder en mémoire !
-                localStorage.setItem('fourmizzz_token', token);
+                // Si la réponse contient des convois, on récupère le player_id du premier convoi ou de la fonction
+                // On sauvegarde la session locale pour 12 heures
+                if (data && data.length > 0) {
+                    const myPlayerId = data[0].is_giver ? data[0].from_player_id : data[0].to_player_id;
+                    saveSession(myPlayerId);
+                }
     
                 renderConvoys(data);
     
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
-                // En cas d'échec, on nettoie et on réaffiche le formulaire
                 logout();
+            }
+        }
+    
+        // 2. Chargement direct sur F5 (sans ré-interroger Fourmizzz)
+        async function fetchConvoysByPlayerId(playerId) {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('convoys-box').style.display = 'block';
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
+    
+            try {
+                // Lecture directe depuis daily_balances pour ce player_id
+                const today = new Date();
+                const yesterday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
+                const dateStr = yesterday.toISOString().split('T')[0];
+    
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_balances?select=*,p_from:players!from_player_id(pseudo),p_to:players!to_player_id(pseudo)&balance_date=eq.${dateStr}&or=(from_player_id.eq.${playerId},to_player_id.eq.${playerId})`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+    
+                const data = await response.json();
+                
+                // Formatage des données pour le render
+                const formatted = data.map(c => ({
+                    is_giver: c.from_player_id == playerId,
+                    target_pseudo: c.from_player_id == playerId ? c.p_to?.pseudo : c.p_from?.pseudo,
+                    amount: c.amount,
+                    status: c.status
+                }));
+    
+                renderConvoys(formatted);
+    
+            } catch (err) {
+                console.error("Erreur refresh:", err);
+                logout();
+            }
+        }
+    
+        // Gestion de la session en LocalStorage (expire après 12 heures)
+        function saveSession(playerId) {
+            const session = {
+                playerId: playerId,
+                expiry: new Date().getTime() + (12 * 60 * 60 * 1000) // 12h
+            };
+            localStorage.setItem('alliance_v_session', JSON.stringify(session));
+        }
+    
+        function getValidSession() {
+            const str = localStorage.getItem('alliance_v_session');
+            if (!str) return null;
+            try {
+                const session = JSON.parse(str);
+                if (new Date().getTime() > session.expiry) {
+                    localStorage.removeItem('alliance_v_session');
+                    return null;
+                }
+                return session;
+            } catch(e) {
+                return null;
             }
         }
     
@@ -180,8 +250,8 @@
             let html = `<h3>Tes Convois à effectuer :</h3>`;
     
             convoys.forEach(c => {
-                const isSender = c.is_sender ?? c.is_giver;
-                const targetPseudo = c.target_pseudo || (isSender ? c.to_player_pseudo : c.from_player_pseudo) || "Joueur";
+                const isSender = c.is_giver ?? c.is_sender;
+                const targetPseudo = c.target_pseudo || "Joueur";
                 const badgeClass = isSender ? 'badge-giver' : 'badge-receiver';
                 const roleText = isSender ? 'ENVOYER À' : 'RECEVOIR DE';
                 const statusText = c.status === 'completed' ? '✅ Complété' : (c.status === 'failed' ? '⚠️ Échoué' : '⏳ En attente');
@@ -207,7 +277,7 @@
         }
     
         function logout() {
-            localStorage.removeItem('fourmizzz_token');
+            localStorage.removeItem('alliance_v_session');
             document.getElementById('token-input').value = '';
             document.getElementById('login-box').style.display = 'block';
             document.getElementById('convoys-box').style.display = 'none';
