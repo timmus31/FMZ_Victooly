@@ -247,11 +247,15 @@
         let isScriptInstalled = false;
 
         function checkScriptPresence() {
-            // Détection via variable globale ou attribut HTML posé par Tampermonkey
-            isScriptInstalled = !!window.FOURMIZZZ_SCRIPT_INSTALLED || 
-                                document.documentElement.getAttribute('data-fourmizzz-script') === 'true';
-
+            // 1. Détection via l'attribut sur la balise <html> ou la variable globale
+            const hasDomAttr = document.documentElement.getAttribute('data-fourmizzz-script') === 'true';
+            const hasGlobalVar = typeof FOURMIZZZ_SCRIPT_INSTALLED !== 'undefined' || window.FOURMIZZZ_SCRIPT_INSTALLED === true;
+        
+            isScriptInstalled = hasDomAttr || hasGlobalVar;
+        
             const banner = document.getElementById('script-banner');
+            if (!banner) return;
+        
             if (isScriptInstalled) {
                 banner.className = 'script-status-banner script-detected';
                 banner.innerHTML = '⚡ <strong>Userscript détecté :</strong> Mode 100% Automatique actif.';
@@ -260,6 +264,18 @@
                 banner.innerHTML = '💡 <strong>Userscript non détecté :</strong> Vous pouvez ouvrir le lien puis cliquer sur <strong>« ✅ Fait »</strong> pour valider manuellement.';
             }
         }
+        
+        // Vérification initiale + double contrôle après 300ms (le temps que Tampermonkey s'exécute)
+        window.onload = () => {
+            checkScriptPresence();
+            setTimeout(checkScriptPresence, 300);
+        
+            const savedSessionToken = localStorage.getItem('alliance_session_token');
+            if (savedSessionToken) {
+                showDashboard();
+                loadTabContent();
+            }
+        };
 
         window.onload = () => {
             checkScriptPresence();
