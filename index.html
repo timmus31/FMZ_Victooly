@@ -114,14 +114,12 @@
     <script src="config.js"></script>
 
     <script>
-        // Au chargement : verification si une session locale valide existe (< 12h)
         window.onload = () => {
             const sessionData = getValidSession();
             if (sessionData) {
-                // Joueur déjà authentifié récemment : chargement direct des convois sans repasser par l'API Fourmizzz !
-                fetchConvoysByPlayerId(sessionData.playerId);
+                // Rechargement fluide au refresh grâce au player_id mémorisé
+                loadConvoys({ p_player_id: sessionData.playerId });
             } else {
-                // Si le token a été passé dans l'URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const urlToken = urlParams.get('token');
                 if (urlToken) {
@@ -137,14 +135,13 @@
                 alert("Veuillez coller un token !");
                 return;
             }
-            verifyTokenAndLogin(inputToken);
+            loadConvoys({ p_token: inputToken });
         }
     
-        // 1. Première connexion : Validation du token Fourmizzz auprès de Supabase
-        async function verifyTokenAndLogin(token) {
+        async function loadConvoys(payload) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token Fourmizzz...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
     
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
@@ -154,20 +151,18 @@
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_token: token })
+                    body: JSON.stringify(payload)
                 });
     
                 const data = await response.json();
     
                 if (!response.ok) {
-                    throw new Error(data.message || "Token invalide ou non membre de l'alliance.");
+                    throw new Error(data.message || "Impossible de récupérer les convois.");
                 }
     
-                // Si la réponse contient des convois, on récupère le player_id du premier convoi ou de la fonction
-                // On sauvegarde la session locale pour 12 heures
-                if (data && data.length > 0) {
-                    const myPlayerId = data[0].is_giver ? data[0].from_player_id : data[0].to_player_id;
-                    saveSession(myPlayerId);
+                // Sauvegarde de la session pour 12 heures
+                if (data && data.length > 0 && data[0].my_player_id) {
+                    saveSession(data[0].my_player_id);
                 }
     
                 renderConvoys(data);
@@ -178,48 +173,10 @@
             }
         }
     
-        // 2. Chargement direct sur F5 (sans ré-interroger Fourmizzz)
-        async function fetchConvoysByPlayerId(playerId) {
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
-    
-            try {
-                // Lecture directe depuis daily_balances pour ce player_id
-                const today = new Date();
-                const yesterday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
-                const dateStr = yesterday.toISOString().split('T')[0];
-    
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_balances?select=*,p_from:players!from_player_id(pseudo),p_to:players!to_player_id(pseudo)&balance_date=eq.${dateStr}&or=(from_player_id.eq.${playerId},to_player_id.eq.${playerId})`, {
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    }
-                });
-    
-                const data = await response.json();
-                
-                // Formatage des données pour le render
-                const formatted = data.map(c => ({
-                    is_giver: c.from_player_id == playerId,
-                    target_pseudo: c.from_player_id == playerId ? c.p_to?.pseudo : c.p_from?.pseudo,
-                    amount: c.amount,
-                    status: c.status
-                }));
-    
-                renderConvoys(formatted);
-    
-            } catch (err) {
-                console.error("Erreur refresh:", err);
-                logout();
-            }
-        }
-    
-        // Gestion de la session en LocalStorage (expire après 12 heures)
         function saveSession(playerId) {
             const session = {
                 playerId: playerId,
-                expiry: new Date().getTime() + (12 * 60 * 60 * 1000) // 12h
+                expiry: new Date().getTime() + (12 * 60 * 60 * 1000)
             };
             localStorage.setItem('alliance_v_session', JSON.stringify(session));
         }
