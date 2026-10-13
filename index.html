@@ -42,12 +42,7 @@
             box-sizing: border-box;
         }
 
-        .header-title {
-            font-size: 1.5rem;
-            color: var(--primary);
-            margin: 0 0 20px 0;
-            text-align: center;
-        }
+        .header-title { font-size: 1.5rem; color: var(--primary); margin: 0 0 20px 0; text-align: center; }
 
         .token-box {
             background: #f8fafc;
@@ -57,12 +52,7 @@
             margin-bottom: 10px;
         }
 
-        .token-step {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--primary);
-        }
+        .token-step { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--primary); }
 
         .token-btn {
             display: inline-block;
@@ -194,10 +184,25 @@
             color: var(--text);
             cursor: pointer;
         }
-        .group-select {
-            border-color: var(--group-color);
-            color: var(--group-color);
+        .group-select { border-color: var(--group-color); color: var(--group-color); }
+
+        .stats-summary {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
         }
+        .stat-card {
+            flex: 1;
+            min-width: 140px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-card .val { font-size: 1.1rem; font-weight: bold; color: var(--group-color); }
+        .stat-card .lbl { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -470,64 +475,58 @@
             const contentDiv = document.getElementById('content-area');
 
             try {
-                // Récupération des données du groupe
                 const bodyParams = { p_session_token: sessionToken };
-                if (targetGroupId) {
-                    bodyParams.p_target_group_id = parseInt(targetGroupId);
-                }
+                if (targetGroupId) bodyParams.p_target_group_id = parseInt(targetGroupId);
 
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
+                // 1. Récupération des convois
+                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(bodyParams)
                 });
+                const convoysData = await resConvoys.json();
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Erreur lors de la récupération.");
+                // 2. Récupération des logs journaliers de terrain/ressources
+                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyParams)
+                });
+                const logsData = resLogs.ok ? await resLogs.json() : [];
 
-                // Si l'utilisateur est admin, charger la liste de tous les groupes disponibles
+                // 3. Récupération de tous les groupes si Admin
                 let availableGroups = [];
                 if (currentUserAdminInfo.isAdmin) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
                         method: 'POST',
-                        headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                            'Content-Type': 'application/json'
-                        }
+                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
                     });
                     if (groupsRes.ok) availableGroups = await groupsRes.json();
                 }
 
-                if (data.length === 0 && !targetGroupId) {
+                if (convoysData.length === 0 && logsData.length === 0 && !targetGroupId) {
                     contentDiv.innerHTML = `
                         <div style="background:#ebf5fb; border:1px solid #aed6f1; padding:15px; border-radius:8px; text-align:center; color:#2980b9;">
-                            ℹ️ Vous n'êtes actuellement affecté à aucun groupe d'alliance (ou aucun convoi enregistré).
+                            ℹ️ Vous n'êtes actuellement affecté à aucun groupe d'alliance (ou aucune donnée enregistrée).
                         </div>
                     `;
                     return;
                 }
 
-                const currentGroupId = data.length > 0 ? data[0].group_id : targetGroupId;
+                const currentGroupId = convoysData.length > 0 ? convoysData[0].group_id : (logsData.length > 0 ? logsData[0].group_id : targetGroupId);
                 selectedGroupId = currentGroupId;
 
-                renderGroupConvoysTable(data, currentGroupId, availableGroups);
+                renderGroupConvoysTable(convoysData, logsData, currentGroupId, availableGroups);
 
             } catch (e) {
                 contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
             }
         }
 
-        function renderGroupConvoysTable(convoys, currentGroupId, availableGroups) {
+        function renderGroupConvoysTable(convoys, dailyLogs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
 
             let groupSelectorHtml = `Groupe #${currentGroupId}`;
-            
-            // Si l'utilisateur est admin, transformer le titre en menu déroulant
             if (currentUserAdminInfo.isAdmin && availableGroups.length > 0) {
                 let options = availableGroups.map(g => 
                     `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`
@@ -542,12 +541,41 @@
 
             let html = `
                 <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem; display:flex; align-items:center; gap:10px;">
-                    👥 Convois pour ${groupSelectorHtml}
+                    👥 Suivi du ${groupSelectorHtml}
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Vue d'ensemble des échanges pour l'ensemble des membres du groupe.
+                    Statistiques de terrain, ressources générées et convois du groupe.
                 </p>`;
 
+            // Affichage des statistiques récentes s'il y a du contenu dans daily_logs
+            if (dailyLogs.length > 0) {
+                const todayLog = dailyLogs[0];
+                const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
+                
+                html += `
+                    <div class="stats-summary">
+                        <div class="stat-card">
+                            <div class="val">${todayLog.start_terrain.toLocaleString('fr-FR')} cm²</div>
+                            <div class="lbl">Terrain Départ (1er log)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="val">${todayLog.end_terrain.toLocaleString('fr-FR')} cm²</div>
+                            <div class="lbl">Terrain Actuel (Dernier log)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="val" style="color:${todayLog.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div>
+                            <div class="lbl">Évolution du Terrain</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="val" style="color:var(--accent);">${todayLog.resources_generated.toLocaleString('fr-FR')}</div>
+                            <div class="lbl">Ressources Générées</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Tableau des convois
+            html += `<div style="font-weight:bold; margin: 20px 0 10px 0; font-size:0.95rem;">📦 Convois du Groupe</div>`;
             if (convoys.length === 0) {
                 html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré pour ce groupe.</p>`;
             } else {
@@ -565,11 +593,8 @@
 
                 convoys.forEach(c => {
                     let badge = '<span class="badge badge-pending">En attente</span>';
-                    if (c.status === 'completed') {
-                        badge = '<span class="badge badge-success">✅ Complété</span>';
-                    } else if (c.status === 'failed') {
-                        badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
-                    }
+                    if (c.status === 'completed') badge = '<span class="badge badge-success">✅ Complété</span>';
+                    else if (c.status === 'failed') badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
 
                     html += `<tr>
                         <td>${c.balance_date}</td>
@@ -577,6 +602,37 @@
                         <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
                         <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
                         <td>${badge}</td>
+                    </tr>`;
+                });
+
+                html += `</tbody></table></div>`;
+            }
+
+            // Historique des journées (Terrain / Ressources)
+            if (dailyLogs.length > 0) {
+                html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📊 Historique Quotidien du Groupe</div>`;
+                html += `<div class="table-container"><table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Départ</th>
+                            <th>Fin</th>
+                            <th>Évolution</th>
+                            <th>Ressources Générées</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                dailyLogs.forEach(l => {
+                    const diffText = l.terrain_diff >= 0 ? `+${l.terrain_diff.toLocaleString('fr-FR')}` : l.terrain_diff.toLocaleString('fr-FR');
+                    const diffColor = l.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                    html += `<tr>
+                        <td>${l.log_date}</td>
+                        <td>${l.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${l.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
+                        <td><strong style="color:${diffColor}">${diffText} cm²</strong></td>
+                        <td><strong>${l.resources_generated.toLocaleString('fr-FR')}</strong></td>
                     </tr>`;
                 });
 
@@ -595,11 +651,7 @@
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
                     method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
 
@@ -634,13 +686,9 @@
 
             members.forEach(m => {
                 let badge = '<span class="badge badge-member">Membre</span>';
-                if (m.role === 'superadmin') {
-                    badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
-                } else if (m.role === 'admin') {
-                    badge = '<span class="badge badge-admin">🛡️ Admin</span>';
-                } else if (m.role === 'chef_de_rang') {
-                    badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
-                }
+                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
+                else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
+                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
 
                 let actionElement = '';
                 if (currentUserAdminInfo.isSuperAdmin) {
@@ -674,16 +722,8 @@
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_role`, {
                     method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_player_id: parseInt(targetPlayerId), 
-                        p_new_role: newRole 
-                    })
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole })
                 });
 
                 if (res.ok) {
