@@ -184,15 +184,19 @@
             font-size: 0.75rem;
         }
 
-        .role-select {
-            padding: 5px 8px;
+        .role-select, .group-select {
+            padding: 5px 10px;
             border-radius: 6px;
             border: 1px solid var(--border);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 600;
             background: #fff;
             color: var(--text);
             cursor: pointer;
+        }
+        .group-select {
+            border-color: var(--group-color);
+            color: var(--group-color);
         }
     </style>
 </head>
@@ -232,6 +236,7 @@
     <script>
         let activeTab = 'active';
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false };
+        let selectedGroupId = null;
 
         window.onload = () => {
             const savedSessionToken = localStorage.getItem('alliance_session_token');
@@ -460,11 +465,17 @@
 
         /* --- ONGLET GROUPE --- */
 
-        async function loadGroupConvoys() {
+        async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             const contentDiv = document.getElementById('content-area');
 
             try {
+                // Récupération des données du groupe
+                const bodyParams = { p_session_token: sessionToken };
+                if (targetGroupId) {
+                    bodyParams.p_target_group_id = parseInt(targetGroupId);
+                }
+
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
                     headers: {
@@ -472,13 +483,27 @@
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_session_token: sessionToken })
+                    body: JSON.stringify(bodyParams)
                 });
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || "Erreur lors de la récupération.");
 
-                if (data.length === 0) {
+                // Si l'utilisateur est admin, charger la liste de tous les groupes disponibles
+                let availableGroups = [];
+                if (currentUserAdminInfo.isAdmin) {
+                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (groupsRes.ok) availableGroups = await groupsRes.json();
+                }
+
+                if (data.length === 0 && !targetGroupId) {
                     contentDiv.innerHTML = `
                         <div style="background:#ebf5fb; border:1px solid #aed6f1; padding:15px; border-radius:8px; text-align:center; color:#2980b9;">
                             ℹ️ Vous n'êtes actuellement affecté à aucun groupe d'alliance (ou aucun convoi enregistré).
@@ -487,25 +512,46 @@
                     return;
                 }
 
-                const groupId = data[0].group_id;
-                renderGroupConvoysTable(data, groupId);
+                const currentGroupId = data.length > 0 ? data[0].group_id : targetGroupId;
+                selectedGroupId = currentGroupId;
+
+                renderGroupConvoysTable(data, currentGroupId, availableGroups);
 
             } catch (e) {
                 contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
             }
         }
 
-        function renderGroupConvoysTable(convoys, groupId) {
+        function renderGroupConvoysTable(convoys, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
 
+            let groupSelectorHtml = `Groupe #${currentGroupId}`;
+            
+            // Si l'utilisateur est admin, transformer le titre en menu déroulant
+            if (currentUserAdminInfo.isAdmin && availableGroups.length > 0) {
+                let options = availableGroups.map(g => 
+                    `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`
+                ).join('');
+
+                groupSelectorHtml = `
+                    <select class="group-select" onchange="loadGroupConvoys(this.value)">
+                        ${options}
+                    </select>
+                `;
+            }
+
             let html = `
-                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem;">
-                    👥 Convois du Groupe #${groupId}
+                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem; display:flex; align-items:center; gap:10px;">
+                    👥 Convois pour ${groupSelectorHtml}
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Vue d'ensemble des échanges pour l'ensemble des membres de votre groupe.
-                </p>
-                <div class="table-container"><table>
+                    Vue d'ensemble des échanges pour l'ensemble des membres du groupe.
+                </p>`;
+
+            if (convoys.length === 0) {
+                html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré pour ce groupe.</p>`;
+            } else {
+                html += `<div class="table-container"><table>
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -517,24 +563,26 @@
                     </thead>
                     <tbody>`;
 
-            convoys.forEach(c => {
-                let badge = '<span class="badge badge-pending">En attente</span>';
-                if (c.status === 'completed') {
-                    badge = '<span class="badge badge-success">✅ Complété</span>';
-                } else if (c.status === 'failed') {
-                    badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
-                }
+                convoys.forEach(c => {
+                    let badge = '<span class="badge badge-pending">En attente</span>';
+                    if (c.status === 'completed') {
+                        badge = '<span class="badge badge-success">✅ Complété</span>';
+                    } else if (c.status === 'failed') {
+                        badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
+                    }
 
-                html += `<tr>
-                    <td>${c.balance_date}</td>
-                    <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
-                    <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                    <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
-                    <td>${badge}</td>
-                </tr>`;
-            });
+                    html += `<tr>
+                        <td>${c.balance_date}</td>
+                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
+                        <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                        <td>${badge}</td>
+                    </tr>`;
+                });
 
-            html += `</tbody></table></div>`;
+                html += `</tbody></table></div>`;
+            }
+
             contentDiv.innerHTML = html;
         }
 
