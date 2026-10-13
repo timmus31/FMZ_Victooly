@@ -111,10 +111,9 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
+
     <script>
-        const SUPABASE_URL = "TA_SUPABASE_URL";
-        const SUPABASE_ANON_KEY = "TA_SUPABASE_ANON_KEY";
-    
         // Au chargement de la page : on pré-remplit le champ s'il y a un token enregistré, mais ON NE LANCE PAS la requête tout seul
         window.onload = () => {
             const savedToken = localStorage.getItem('fourmizzz_token');
