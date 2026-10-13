@@ -115,30 +115,24 @@
         const SUPABASE_URL = "TA_SUPABASE_URL";
         const SUPABASE_ANON_KEY = "TA_SUPABASE_ANON_KEY";
     
-        // Au chargement : tentative d'auto-connexion avec un token valide en mémoire ou dans l'URL
+        // Au chargement de la page : on pré-remplit le champ s'il y a un token enregistré, mais ON NE LANCE PAS la requête tout seul
         window.onload = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlToken = urlParams.get('token');
             const savedToken = localStorage.getItem('fourmizzz_token');
-    
-            const activeToken = urlToken || savedToken;
-    
-            if (activeToken) {
-                document.getElementById('token-input').value = activeToken;
-                fetchConvoys(activeToken);
+            if (savedToken && savedToken !== "null" && savedToken !== "undefined") {
+                document.getElementById('token-input').value = savedToken;
             }
         };
     
-        // Déclenché uniquement lorsque l'utilisateur clique sur "Voir mes convois"
+        // Déclenché uniquement au clic sur le bouton
         function handleLogin() {
             const inputToken = document.getElementById('token-input').value.trim();
+            
             if (!inputToken) {
-                alert("Veuillez coller un token valide !");
+                alert("Veuillez coller un token !");
                 return;
             }
     
-            // On enregistre directement le NOUVEAU token saisi
-            localStorage.setItem('fourmizzz_token', inputToken);
+            // On lance la vérification avec le token saisi dans la case
             fetchConvoys(inputToken);
         }
     
@@ -158,17 +152,20 @@
                     body: JSON.stringify({ p_token: token })
                 });
     
+                const data = await response.json();
+    
                 if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || "Token invalide ou non membre de l'alliance.");
+                    throw new Error(data.message || "Token invalide ou non membre de l'alliance.");
                 }
     
-                const convoys = await response.json();
-                renderConvoys(convoys);
+                // LE TOKEN EST VALIDE : On peut maintenant le sauvegarder en mémoire !
+                localStorage.setItem('fourmizzz_token', token);
+    
+                renderConvoys(data);
     
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
-                // En cas d'erreur, on efface l'ancien token corrompu/expiré
+                // En cas d'échec, on nettoie et on réaffiche le formulaire
                 logout();
             }
         }
