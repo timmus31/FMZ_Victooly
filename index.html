@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V - Mes Convois</title>
+    <title>Alliance V — Convois</title>
     <script src="config.js"></script>
     <style>
         :root {
@@ -79,15 +79,6 @@
         }
         .badge-giver { background-color: #e53935; color: #fff; }
         .badge-receiver { background-color: #43a047; color: #fff; }
-        .session-timer {
-            background: #2a2a2a;
-            border-left: 4px solid var(--accent);
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            margin-bottom: 15px;
-            color: #ccc;
-        }
     </style>
 </head>
 <body>
@@ -98,7 +89,7 @@
         <div id="login-box">
             <p>Pour voir tes convois du jour :</p>
             <div class="step">
-                <b>1.</b> Ouvre ce lien pour copier ton token :<br>
+                <b>1.</b> Récupère ton token ici :<br>
                 <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" style="color: var(--accent);">
                     https://s5.fourmizzz.fr/api.php?getToken
                 </a>
@@ -107,40 +98,30 @@
                 <b>2.</b> Colle ton token ci-dessous :
             </div>
             <input type="text" id="token-input" placeholder="Ton Token...">
-            <button onclick="handleLogin()">Voir mes convois</button>
+            <button onclick="login()">Voir mes convois</button>
         </div>
 
         <div id="convoys-box" style="display:none;">
-            <div id="session-log" class="session-timer"></div>
             <div id="convoys-list">Chargement...</div>
-            <button class="secondary" onclick="logout()">Changer de Token / Déconnexion</button>
+            <button class="secondary" onclick="logout()">Retour / Nouveau Token</button>
         </div>
     </div>
 
-    <script src="config.js"></script>
-
     <script>
+        // Détection si le token est dans l'URL
         window.onload = () => {
-            const session = getValidSession();
-            if (session) {
-                fetchConvoysByPlayerId(session.playerId);
-            } else {
-                const urlParams = new URLSearchParams(window.location.search);
-                const urlToken = urlParams.get('token');
-                if (urlToken) {
-                    document.getElementById('token-input').value = urlToken;
-                    handleLogin(urlToken);
-                }
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            if (token) {
+                document.getElementById('token-input').value = token;
+                login(token);
             }
         };
 
-        function handleLogin(customToken) {
-            const token = customToken || document.getElementById('token-input').value.trim();
-            if (!token) return alert("Colle ton token avant de valider !");
-            verifyAndLogin(token);
-        }
+        async function login(providedToken) {
+            const token = providedToken || document.getElementById('token-input').value.trim();
+            if (!token) return alert("Veuillez entrer un token valide.");
 
-        async function verifyAndLogin(token) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
             document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
@@ -158,85 +139,15 @@
 
                 const data = await response.json();
 
-                if (!response.ok) throw new Error(data.message || "Token invalide ou non membre.");
-
-                if (data && data.length > 0) {
-                    const myId = data[0].is_giver ? data[0].from_player_id : data[0].to_player_id;
-                    saveSession(myId);
+                if (!response.ok) {
+                    throw new Error(data.message || "Token invalide ou membre non reconnu.");
                 }
 
-                updateTimerDisplay();
                 renderConvoys(data);
 
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
                 logout();
-            }
-        }
-
-        async function fetchConvoysByPlayerId(playerId) {
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
-
-            try {
-                const today = new Date();
-                const yesterday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
-                const dateStr = yesterday.toISOString().split('T')[0];
-
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_balances?select=*,p_from:players!from_player_id(pseudo),p_to:players!to_player_id(pseudo)&balance_date=eq.${dateStr}&or=(from_player_id.eq.${playerId},to_player_id.eq.${playerId})`, {
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    }
-                });
-
-                const data = await response.json();
-                
-                const formatted = data.map(c => ({
-                    is_giver: c.from_player_id == playerId,
-                    target_pseudo: c.from_player_id == playerId ? c.p_to?.pseudo : c.p_from?.pseudo,
-                    amount: c.amount,
-                    status: c.status
-                }));
-
-                updateTimerDisplay();
-                renderConvoys(formatted);
-
-            } catch (err) {
-                logout();
-            }
-        }
-
-        function saveSession(playerId) {
-            const expiryTime = new Date().getTime() + (12 * 60 * 60 * 1000);
-            const session = { playerId: playerId, expiry: expiryTime };
-            localStorage.setItem('alliance_v_session', JSON.stringify(session));
-        }
-
-        function getValidSession() {
-            const str = localStorage.getItem('alliance_v_session');
-            if (!str) return null;
-            try {
-                const session = JSON.parse(str);
-                if (new Date().getTime() > session.expiry) {
-                    localStorage.removeItem('alliance_v_session');
-                    return null;
-                }
-                return session;
-            } catch(e) {
-                return null;
-            }
-        }
-
-        function updateTimerDisplay() {
-            const session = getValidSession();
-            const logBox = document.getElementById('session-log');
-            if (session) {
-                const remainingMs = session.expiry - new Date().getTime();
-                const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-                const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                logBox.innerHTML = `⏱️ Session active : encore <b>${hours}h ${minutes}min</b> avant de devoir remettre un nouveau token.`;
             }
         }
 
@@ -278,7 +189,6 @@
         }
 
         function logout() {
-            localStorage.removeItem('alliance_v_session');
             document.getElementById('token-input').value = '';
             document.getElementById('login-box').style.display = 'block';
             document.getElementById('convoys-box').style.display = 'none';
