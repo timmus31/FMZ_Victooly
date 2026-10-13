@@ -164,33 +164,39 @@
 
         function renderConvoys(convoys) {
             const container = document.getElementById('convoys-list');
-
+        
             if (!convoys || convoys.length === 0) {
                 container.innerHTML = "<p style='text-align:center; padding: 20px 0;'>🎉 Aucun convoi à réaliser aujourd'hui !</p>";
                 return;
             }
-
+        
             let html = `<h3>Tes Convois à effectuer :</h3>`;
-
+        
             convoys.forEach(c => {
-                const badgeClass = c.is_giver ? 'badge-giver' : 'badge-receiver';
-                const roleText = c.is_giver ? 'ENVOYER À' : 'RECEVOIR DE';
-                const statusText = c.status === 'pending' ? '⏳ En attente' : '✅ Fait';
-
+                const isSender = c.is_sender ?? c.is_giver;
+                const targetPseudo = c.target_pseudo || (isSender ? c.to_player_pseudo : c.from_player_pseudo) || "Joueur";
+                const badgeClass = isSender ? 'badge-giver' : 'badge-receiver';
+                const roleText = isSender ? 'ENVOYER À' : 'RECEVOIR DE';
+                const statusText = c.status === 'completed' ? '✅ Complété' : (c.status === 'failed' ? '⚠️ Échoué' : '⏳ En attente');
+        
                 html += `
                 <div class="convoy-item">
                     <div>
                         <span class="badge ${badgeClass}">${roleText}</span>
-                        <div style="font-size: 1.1rem; font-weight: bold; margin-top: 4px;">${c.target_pseudo}</div>
-                        <div style="font-size: 0.85rem; color: #aaa;">Statut: ${statusText}</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; margin-top: 4px;">${escapeHtml(targetPseudo)}</div>
+                        <div style="font-size: 0.85rem; color: #aaa;">Statut : ${statusText}</div>
                     </div>
                     <div style="text-align: right; font-weight: bold; font-size: 1.1rem; color: var(--accent);">
-                        ${c.amount.toLocaleString('fr-FR')} cm²
+                        ${Number(c.amount).toLocaleString('fr-FR')} Bois
                     </div>
                 </div>`;
             });
-
+        
             container.innerHTML = html;
+        }
+        
+        function escapeHtml(str) {
+            return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
         }
 
         function logout() {
