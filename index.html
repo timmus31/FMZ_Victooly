@@ -168,7 +168,7 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
             document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
-    
+        
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                     method: 'POST',
@@ -177,17 +177,17 @@
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_player_id: playerId })
+                    body: JSON.stringify({ p_player_id: playerId }) // <-- Seulement p_player_id ici !
                 });
-    
+        
                 const data = await response.json();
-    
+        
                 if (!response.ok) {
                     throw new Error(data.message || "Erreur lors de la récupération des convois.");
                 }
-    
+        
                 renderConvoys(data);
-    
+        
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
                 logout();
