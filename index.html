@@ -132,32 +132,49 @@
             }
         };
 
-        async function login(providedToken) {
-            const token = providedToken || document.getElementById('token-input').value.trim();
+        async function login() {
+            const token = document.getElementById('token-input').value.trim();
             if (!token) return alert("Colle d'abord ton token Fourmizzz !");
 
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification auprès de Fourmizzz...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
 
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
+                // 1. Validation du token via AllOrigins (évite les soucis CORS)
+                const fzUrl = `https://s5.fourmizzz.fr/api.php?checkToken=${encodeURIComponent(token)}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(fzUrl)}`;
+
+                const fzRes = await fetch(proxyUrl);
+                if (!fzRes.ok) throw new Error("Erreur réseau lors de la vérification du token.");
+                
+                const proxyData = await fzRes.json();
+                const fzData = JSON.parse(proxyData.contents);
+
+                const playerId = parseInt(fzData.ID || fzData.id || fzData.player_id, 10);
+
+                if (!playerId || isNaN(playerId)) {
+                    throw new Error("Token Fourmizzz invalide ou expiré.");
+                }
+
+                // 2. Récupération des convois sur Supabase via le Player ID
+                const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_token: token })
+                    body: JSON.stringify({ p_player_id: playerId })
                 });
 
-                const data = await response.json();
+                const convoys = await sbRes.json();
 
-                if (!response.ok) {
-                    throw new Error(data.message || "Token invalide ou membre non reconnu.");
+                if (!sbRes.ok) {
+                    throw new Error(convoys.message || "Erreur d'accès à Supabase.");
                 }
 
-                renderConvoys(data);
+                renderConvoys(convoys);
 
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
