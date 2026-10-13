@@ -115,7 +115,7 @@
         const SUPABASE_URL = "TA_SUPABASE_URL";
         const SUPABASE_ANON_KEY = "TA_SUPABASE_ANON_KEY";
     
-        // Au chargement : récupération du token en mémoire ou dans l'URL
+        // Au chargement : tentative d'auto-connexion avec un token valide en mémoire ou dans l'URL
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const urlToken = urlParams.get('token');
@@ -125,23 +125,27 @@
     
             if (activeToken) {
                 document.getElementById('token-input').value = activeToken;
-                localStorage.setItem('fourmizzz_token', activeToken);
                 fetchConvoys(activeToken);
             }
         };
     
+        // Déclenché uniquement lorsque l'utilisateur clique sur "Voir mes convois"
         function handleLogin() {
-            const token = document.getElementById('token-input').value.trim();
-            if (!token) return alert("Colle ton token avant de valider !");
-            
-            localStorage.setItem('fourmizzz_token', token);
-            fetchConvoys(token);
+            const inputToken = document.getElementById('token-input').value.trim();
+            if (!inputToken) {
+                alert("Veuillez coller un token valide !");
+                return;
+            }
+    
+            // On enregistre directement le NOUVEAU token saisi
+            localStorage.setItem('fourmizzz_token', inputToken);
+            fetchConvoys(inputToken);
         }
     
         async function fetchConvoys(token) {
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement de tes convois...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
     
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
@@ -155,14 +159,16 @@
                 });
     
                 if (!response.ok) {
-                    throw new Error("Token expiré ou invalide. Veuillez re-copier un nouveau token.");
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.message || "Token invalide ou non membre de l'alliance.");
                 }
     
                 const convoys = await response.json();
                 renderConvoys(convoys);
     
             } catch (err) {
-                alert("Erreur : " + err.message);
+                alert("❌ Erreur : " + err.message);
+                // En cas d'erreur, on efface l'ancien token corrompu/expiré
                 logout();
             }
         }
