@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V — Convois</title>
+    <title>Alliance V — Gestion des Convois</title>
     <script src="config.js"></script>
     <style>
         :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --accent: #ff9800;
-            --text: #ffffff;
-            --text-dim: #aaa;
+            --primary: #2980b9;
+            --accent: #e67e22;
+            --success: #27ae60;
+            --danger: #c0392b;
+            --bg: #f4f6f7;
+            --card: #ffffff;
+            --text: #2c3e50;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
+            background-color: var(--bg);
             color: var(--text);
             margin: 0;
             padding: 15px;
@@ -23,158 +25,155 @@
             flex-direction: column;
             align-items: center;
         }
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
+        .main-container {
             width: 100%;
-            max-width: 450px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
+            max-width: 650px;
+            background: var(--card);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
         }
-        h1 { font-size: 1.4rem; text-align: center; color: var(--accent); margin-top: 0; }
-        p { font-size: 0.95rem; color: var(--text-dim); line-height: 1.4; }
-        .step { background: #2a2a2a; padding: 12px; border-radius: 8px; margin: 10px 0; font-size: 0.9rem; }
-        .token-btn {
-            display: block;
-            background: #333;
-            color: var(--accent);
-            text-decoration: none;
-            text-align: center;
-            padding: 10px;
+        h1 { font-size: 1.4rem; color: var(--primary); margin-top: 0; text-align: center; }
+        .token-box {
+            background: #ebf5fb;
+            border: 1px solid #aed6f1;
+            padding: 15px;
             border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .token-btn {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 4px;
             font-weight: bold;
-            margin-top: 6px;
-            border: 1px solid var(--accent);
+            font-size: 0.85rem;
+            margin-top: 5px;
         }
         input[type="text"] {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border: 1px solid #333;
-            background: #2b2b2b;
-            color: #fff;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background-color: var(--accent);
-            color: #000;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-        button.secondary {
-            background-color: #333;
-            color: #fff;
-            margin-top: 8px;
-        }
-        .convoy-item {
-            border-bottom: 1px solid #333;
-            padding: 12px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .convoy-item:last-child { border-bottom: none; }
-        .badge {
-            padding: 4px 8px;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
+            box-sizing: border-box;
+            font-size: 0.95rem;
         }
-        .badge-giver { background-color: #e53935; color: #fff; }
-        .badge-receiver { background-color: #43a047; color: #fff; }
+        button.btn-primary {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .nav-tabs { display: flex; gap: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .tab-btn { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #ecf0f1; color: #2c3e50; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9f9; }
+        .badge { padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; color: white; }
+        .badge-pending { background: var(--accent); }
+        .badge-failed { background: var(--danger); }
+        .badge-success { background: var(--success); }
+        .btn-action { padding: 4px 10px; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 11px; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>Alliance V — Convois</h1>
+    <div class="main-container">
+        <h1>📦 Convois Alliance V</h1>
 
-        <div id="login-box">
-            <p>Pour consulter tes convois :</p>
+        <!-- Zone de Connexion Token -->
+        <div id="auth-section" class="token-box">
+            <strong>1. Récupération du Token Fourmizzz :</strong><br>
+            <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn">🔑 Cliquer ici pour obtenir mon Token</a>
             
-            <div class="step">
-                <b>1.</b> Clique ici pour ouvrir ton token :
-                <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn">
-                    🔑 Obtenir mon Token Fourmizzz
-                </a>
-            </div>
-
-            <div class="step">
-                <b>2.</b> Copie le token affiché et colle-le ici :
-            </div>
-
+            <br><br>
+            <strong>2. Coller le Token ci-dessous :</strong>
             <input type="text" id="token-input" placeholder="Ex: 6ace5bb10f2a6">
-            <button onclick="login()">Voir mes convois</button>
+            <button class="btn-primary" onclick="handleAuth()">Accéder aux Convois</button>
         </div>
 
-        <div id="convoys-box" style="display:none;">
-            <div id="convoys-list">Chargement...</div>
-            <button class="secondary" onclick="logout()">Changer de Token</button>
+        <!-- Dashboard principal (affiché après saisie du token) -->
+        <div id="dashboard-section" style="display:none;">
+            <div class="nav-tabs">
+                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">En cours</button>
+                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">📜 Historique</button>
+                <button class="tab-btn" style="margin-left:auto; background:#95a5a6; color:white;" onclick="logout()">Changer de Token</button>
+            </div>
+
+            <div id="content-area">Chargement...</div>
         </div>
     </div>
 
     <script>
+        let currentToken = '';
+        let activeTab = 'active';
+
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             if (token) {
                 document.getElementById('token-input').value = token;
-                login(token);
+                handleAuth();
             }
         };
 
-        async function login() {
-            const token = document.getElementById('token-input').value.trim();
-            if (!token) return alert("Colle d'abord ton token Fourmizzz !");
+        function handleAuth() {
+            const input = document.getElementById('token-input').value.trim();
+            if (!input) return alert("Veuillez saisir un token Fourmizzz valide.");
+            
+            currentToken = input;
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            
+            loadTabContent();
+        }
 
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
+            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
+            loadTabContent();
+        }
+
+        async function loadTabContent() {
+            const contentDiv = document.getElementById('content-area');
+            contentDiv.innerHTML = "<p style='text-align:center;'>Vérification du token et chargement des données...</p>";
+
+            const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
 
             try {
-                // 1. Validation du token via AllOrigins (évite les soucis CORS)
-                const fzUrl = `https://s5.fourmizzz.fr/api.php?checkToken=${encodeURIComponent(token)}`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(fzUrl)}`;
-
-                const fzRes = await fetch(proxyUrl);
-                if (!fzRes.ok) throw new Error("Erreur réseau lors de la vérification du token.");
-                
-                const proxyData = await fzRes.json();
-                const fzData = JSON.parse(proxyData.contents);
-
-                const playerId = parseInt(fzData.ID || fzData.id || fzData.player_id, 10);
-
-                if (!playerId || isNaN(playerId)) {
-                    throw new Error("Token Fourmizzz invalide ou expiré.");
-                }
-
-                // 2. Récupération des convois sur Supabase via le Player ID
-                const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcEndpoint}`, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_player_id: playerId })
+                    body: JSON.stringify({ p_token: currentToken })
                 });
 
-                const convoys = await sbRes.json();
+                const data = await response.json();
 
-                if (!sbRes.ok) {
-                    throw new Error(convoys.message || "Erreur d'accès à Supabase.");
+                if (!response.ok) {
+                    throw new Error(data.message || "Erreur de validation Supabase.");
                 }
 
-                renderConvoys(convoys);
+                if (activeTab === 'active') {
+                    renderActiveConvoys(data);
+                } else {
+                    renderHistoryConvoys(data);
+                }
 
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
@@ -182,37 +181,98 @@
             }
         }
 
-        function renderConvoys(convoys) {
-            const container = document.getElementById('convoys-list');
+        function renderActiveConvoys(convoys) {
+            const contentDiv = document.getElementById('content-area');
+            const toSend = convoys.filter(c => c.is_sender);
+            const toReceive = convoys.filter(c => !c.is_sender);
 
-            if (!convoys || convoys.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding: 20px 0;'>🎉 Aucun convoi à réaliser aujourd'hui !</p>";
+            let html = `<h3 style="color:var(--accent);">📤 Convois à envoyer</h3>`;
+            html += renderTable(toSend, true);
+
+            html += `<h3 style="color:var(--success); margin-top:20px;">📥 Convois à recevoir</h3>`;
+            html += renderTable(toReceive, false);
+
+            contentDiv.innerHTML = html;
+        }
+
+        function renderTable(list, isSender) {
+            if (list.length === 0) return `<p style="color:#7f8c8d; font-style:italic;">Aucun convoi dans cette catégorie.</p>`;
+
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Joueur</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
+                        ${isSender ? '<th>Action</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            list.forEach(c => {
+                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo;
+                const targetId = isSender ? c.to_player_id : c.from_player_id;
+                const isFailed = c.status === 'failed';
+                
+                const statusBadge = isFailed 
+                    ? `<span class="badge badge-failed">⚠️ Échoué</span>`
+                    : `<span class="badge badge-pending">En attente</span>`;
+
+                const actionBtn = isSender ? `
+                    <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
+                       target="_blank" 
+                       class="btn-action" 
+                       style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
+                        ${isFailed ? '🔄 Réessayer' : '🚀 Envoyer'}
+                    </a>
+                ` : '';
+
+                html += `<tr>
+                    <td>${c.balance_date}</td>
+                    <td><strong>${escapeHtml(target)}</strong></td>
+                    <td><strong>${Number(c.amount).toLocaleString('fr-FR')}</strong> Bois</td>
+                    <td>${statusBadge}</td>
+                    ${isSender ? `<td>${actionBtn}</td>` : ''}
+                </tr>`;
+            });
+
+            return html + `</tbody></table>`;
+        }
+
+        function renderHistoryConvoys(historyList) {
+            const contentDiv = document.getElementById('content-area');
+            if (historyList.length === 0) {
+                contentDiv.innerHTML = `<p style="color:#7f8c8d; font-style:italic;">Aucun convoi complété récemment.</p>`;
                 return;
             }
 
-            let html = `<h3>Tes Convois du jour :</h3>`;
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Partenaire</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>`;
 
-            convoys.forEach(c => {
-                const isSender = c.is_giver ?? c.is_sender;
-                const targetPseudo = c.target_pseudo || "Joueur";
-                const badgeClass = isSender ? 'badge-giver' : 'badge-receiver';
-                const roleText = isSender ? 'ENVOYER À' : 'RECEVOIR DE';
-                const statusText = c.status === 'completed' ? '✅ Complété' : (c.status === 'failed' ? '⚠️ Échoué' : '⏳ En attente');
+            historyList.forEach(c => {
+                const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
+                const typeText = c.is_sender ? '📤 Envoyé' : '📥 Reçu';
 
-                html += `
-                <div class="convoy-item">
-                    <div>
-                        <span class="badge ${badgeClass}">${roleText}</span>
-                        <div style="font-size: 1.1rem; font-weight: bold; margin-top: 4px;">${escapeHtml(targetPseudo)}</div>
-                        <div style="font-size: 0.85rem; color: #aaa;">Statut : ${statusText}</div>
-                    </div>
-                    <div style="text-align: right; font-weight: bold; font-size: 1.1rem; color: var(--accent);">
-                        ${Number(c.amount).toLocaleString('fr-FR')} Bois
-                    </div>
-                </div>`;
+                html += `<tr>
+                    <td>${c.balance_date}</td>
+                    <td><strong>${typeText}</strong></td>
+                    <td><strong>${escapeHtml(target)}</strong></td>
+                    <td>${Number(c.amount).toLocaleString('fr-FR')} Bois</td>
+                    <td><span class="badge badge-success">✅ Complété</span></td>
+                </tr>`;
             });
 
-            container.innerHTML = html;
+            contentDiv.innerHTML = html + `</tbody></table>`;
         }
 
         function escapeHtml(str) {
@@ -220,9 +280,10 @@
         }
 
         function logout() {
+            currentToken = '';
             document.getElementById('token-input').value = '';
-            document.getElementById('login-box').style.display = 'block';
-            document.getElementById('convoys-box').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
+            document.getElementById('dashboard-section').style.display = 'none';
         }
     </script>
 </body>
