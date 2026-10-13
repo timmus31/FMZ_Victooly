@@ -12,6 +12,7 @@
             --accent: #e67e22;
             --success: #27ae60;
             --danger: #e74c3c;
+            --group-color: #2980b9;
             --admin-color: #8e44ad;
             --bg: #f4f6f9;
             --card-bg: #ffffff;
@@ -33,7 +34,7 @@
 
         .main-container {
             width: 100%;
-            max-width: 750px;
+            max-width: 780px;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
@@ -117,15 +118,9 @@
             font-size: 0.85rem;
         }
 
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .tab-btn.admin-active {
-            background: var(--admin-color);
-            color: white;
-        }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-btn.group-active { background: var(--group-color); color: white; }
+        .tab-btn.admin-active { background: var(--admin-color); color: white; }
 
         .btn-logout {
             margin-left: auto;
@@ -206,7 +201,7 @@
     <div class="main-container">
         <h1 class="header-title">📦 Convois Alliance V</h1>
 
-        <!-- Ecran de connexion -->
+        <!-- Écran de connexion -->
         <div id="auth-section" class="token-box">
             <div class="token-step">1. Récupération du Token Fourmizzz</div>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
@@ -225,6 +220,7 @@
             <div class="nav-tabs">
                 <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">En cours</button>
                 <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">📜 Historique</button>
+                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">👥 Groupe</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Admin</button>
                 <button class="btn-logout" onclick="logout()">Changer de session</button>
             </div>
@@ -315,6 +311,7 @@
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
+            document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             loadTabContent();
         }
@@ -328,6 +325,11 @@
 
             if (activeTab === 'admin') {
                 loadAdminPanel();
+                return;
+            }
+
+            if (activeTab === 'group') {
+                loadGroupConvoys();
                 return;
             }
 
@@ -456,6 +458,86 @@
             contentDiv.innerHTML = html + `</tbody></table></div>`;
         }
 
+        /* --- ONGLET GROUPE --- */
+
+        async function loadGroupConvoys() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const contentDiv = document.getElementById('content-area');
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || "Erreur lors de la récupération.");
+
+                if (data.length === 0) {
+                    contentDiv.innerHTML = `
+                        <div style="background:#ebf5fb; border:1px solid #aed6f1; padding:15px; border-radius:8px; text-align:center; color:#2980b9;">
+                            ℹ️ Vous n'êtes actuellement affecté à aucun groupe d'alliance (ou aucun convoi enregistré).
+                        </div>
+                    `;
+                    return;
+                }
+
+                const groupId = data[0].group_id;
+                renderGroupConvoysTable(data, groupId);
+
+            } catch (e) {
+                contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
+            }
+        }
+
+        function renderGroupConvoysTable(convoys, groupId) {
+            const contentDiv = document.getElementById('content-area');
+
+            let html = `
+                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem;">
+                    👥 Convois du Groupe #${groupId}
+                </div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                    Vue d'ensemble des échanges pour l'ensemble des membres de votre groupe.
+                </p>
+                <div class="table-container"><table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Expéditeur</th>
+                            <th>Destinataire</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            convoys.forEach(c => {
+                let badge = '<span class="badge badge-pending">En attente</span>';
+                if (c.status === 'completed') {
+                    badge = '<span class="badge badge-success">✅ Complété</span>';
+                } else if (c.status === 'failed') {
+                    badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
+                }
+
+                html += `<tr>
+                    <td>${c.balance_date}</td>
+                    <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
+                    <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
+                    <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                    <td>${badge}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            contentDiv.innerHTML = html;
+        }
+
         /* --- PANNEAU D ADMINISTRATION --- */
 
         async function loadAdminPanel() {
@@ -561,7 +643,7 @@
                 } else {
                     const err = await res.json();
                     alert("❌ Action refusée : " + (err.message || "Seul le Super Admin peut modifier les rôles."));
-                    loadAdminPanel(); // Réinitialise l'affichage
+                    loadAdminPanel();
                 }
             } catch (e) {
                 alert("❌ Erreur réseau.");
