@@ -117,7 +117,7 @@
         window.onload = () => {
             const sessionData = getValidSession();
             if (sessionData) {
-                // F5 / Refresh : rechargement instantané via l'ID mémorisé !
+                // Rechargement direct via l'ID mémorisé sans problème CORS
                 fetchConvoysFromSupabase(sessionData.playerId);
             } else {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -132,18 +132,21 @@
         async function handleLogin(customToken) {
             const inputToken = customToken || document.getElementById('token-input').value.trim();
             if (!inputToken) {
-                alert("Veuillez coller un token !");
+                alert("Veuillez coller un token Fourmizzz !");
                 return;
             }
     
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token Fourmizzz...</p>";
+            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token auprès de Fourmizzz...</p>";
     
             try {
-                // 1. Validation du token directement auprès de l'API Fourmizzz
-                const fzResponse = await fetch(`https://s5.fourmizzz.fr/api.php?checkToken=${encodeURIComponent(inputToken)}`);
-                if (!fzResponse.ok) throw new Error("Impossible de contacter Fourmizzz.");
+                // Contournement du blocage CORS via proxy sécurisé
+                const fzTargetUrl = `https://s5.fourmizzz.fr/api.php?checkToken=${encodeURIComponent(inputToken)}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(fzTargetUrl)}`;
+    
+                const fzResponse = await fetch(proxyUrl);
+                if (!fzResponse.ok) throw new Error("Impossible de vérifier le token auprès du serveur Fourmizzz.");
                 
                 const fzData = await fzResponse.json();
                 const playerId = parseInt(fzData.ID || fzData.id || fzData.player_id, 10);
@@ -152,10 +155,10 @@
                     throw new Error("Token Fourmizzz invalide ou expiré.");
                 }
     
-                // 2. Token valide : enregistrement de la session (12 heures)
+                // Token valide : Sauvegarde de la session (12h)
                 saveSession(playerId);
     
-                // 3. Récupération des convois sur Supabase
+                // Récupération des convois sur Supabase
                 await fetchConvoysFromSupabase(playerId);
     
             } catch (err) {
@@ -168,7 +171,7 @@
             document.getElementById('login-box').style.display = 'none';
             document.getElementById('convoys-box').style.display = 'block';
             document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Chargement des convois...</p>";
-        
+    
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
                     method: 'POST',
@@ -177,17 +180,17 @@
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ p_player_id: playerId }) // <-- Seulement p_player_id ici !
+                    body: JSON.stringify({ p_player_id: playerId })
                 });
-        
+    
                 const data = await response.json();
-        
+    
                 if (!response.ok) {
                     throw new Error(data.message || "Erreur lors de la récupération des convois.");
                 }
-        
+    
                 renderConvoys(data);
-        
+    
             } catch (err) {
                 alert("❌ Erreur : " + err.message);
                 logout();
@@ -261,6 +264,5 @@
             document.getElementById('convoys-box').style.display = 'none';
         }
     </script>
-
 </body>
 </html>
