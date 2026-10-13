@@ -3,195 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V — Convois</title>
+    <title>Alliance V — Diagnostic Convois</title>
     <script src="config.js"></script>
     <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --accent: #ff9800;
-            --text: #ffffff;
-            --text-dim: #aaa;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text);
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            width: 100%;
-            max-width: 450px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
-            box-sizing: border-box;
-        }
-        h1 { font-size: 1.4rem; text-align: center; color: var(--accent); margin-top: 0; }
-        p { font-size: 0.95rem; color: var(--text-dim); line-height: 1.4; }
-        .step { background: #2a2a2a; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 0.9rem; }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border: 1px solid #333;
-            background: #2b2b2b;
-            color: #fff;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background-color: var(--accent);
-            color: #000;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-        button.secondary {
-            background-color: #333;
-            color: #fff;
-            margin-top: 8px;
-        }
-        .convoy-item {
-            border-bottom: 1px solid #333;
-            padding: 12px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .convoy-item:last-child { border-bottom: none; }
-        .badge {
-            padding: 4px 8px;
+        body { font-family: monospace; background: #0d0d0d; color: #00ff00; padding: 15px; margin: 0; }
+        .card { background: #161616; border: 1px solid #333; padding: 15px; border-radius: 8px; max-width: 600px; margin: auto; }
+        h2 { color: #ff9800; margin-top: 0; font-size: 1.2rem; }
+        input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 1rem; }
+        input { background: #222; border: 1px solid #444; color: #fff; }
+        button { background: #ff9800; border: none; color: #000; font-weight: bold; cursor: pointer; }
+        #console-log {
+            background: #000;
+            border: 1px solid #222;
+            padding: 10px;
+            margin-top: 15px;
             border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.85rem;
+            line-height: 1.4;
         }
-        .badge-giver { background-color: #e53935; color: #fff; }
-        .badge-receiver { background-color: #43a047; color: #fff; }
+        .log-time { color: #888; }
+        .log-err { color: #ff5555; font-weight: bold; }
+        .log-ok { color: #55ff55; font-weight: bold; }
+        .log-info { color: #55ffff; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>Alliance V — Convois</h1>
+        <h2>Alliance V — Console de Diagnostic</h2>
+        
+        <label style="color:#aaa; font-size:0.8rem;">Token Fourmizzz :</label>
+        <input type="text" id="token-input" placeholder="Colle ton token ici...">
+        <button onclick="runDiagnostic()">LANCER LE DIAGNOSTIC COMPLET</button>
 
-        <div id="login-box">
-            <p>Pour voir tes convois du jour :</p>
-            <div class="step">
-                <b>1.</b> Récupère ton token ici :<br>
-                <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" style="color: var(--accent);">
-                    https://s5.fourmizzz.fr/api.php?getToken
-                </a>
-            </div>
-            <div class="step">
-                <b>2.</b> Colle ton token ci-dessous :
-            </div>
-            <input type="text" id="token-input" placeholder="Ton Token...">
-            <button onclick="login()">Voir mes convois</button>
-        </div>
-
-        <div id="convoys-box" style="display:none;">
-            <div id="convoys-list">Chargement...</div>
-            <button class="secondary" onclick="logout()">Retour / Nouveau Token</button>
-        </div>
+        <div id="console-log">=== CONSOLE PRÊTE ===\nSaisis un token et clique sur le bouton.</div>
     </div>
 
     <script>
-        // Détection si le token est dans l'URL
-        window.onload = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            if (token) {
-                document.getElementById('token-input').value = token;
-                login(token);
+        function printLog(msg, type = 'info') {
+            const consoleEl = document.getElementById('console-log');
+            const now = new Date().toLocaleTimeString();
+            let colorClass = 'log-info';
+            if (type === 'err') colorClass = 'log-err';
+            if (type === 'ok') colorClass = 'log-ok';
+
+            const line = document.createElement('div');
+            line.className = colorClass;
+            line.innerHTML = `<span class="log-time">[${now}]</span> ${escapeHtml(msg)}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        }
+
+        async function runDiagnostic() {
+            document.getElementById('console-log').innerHTML = '';
+            printLog("Démarrage de la séquence de test...", 'info');
+
+            // 1. Vérification de la configuration
+            if (typeof SUPABASE_URL === 'undefined' || !SUPABASE_URL) {
+                printLog("CRITIQUE: SUPABASE_URL n'est pas définie dans config.js !", 'err');
+                return;
             }
-        };
+            if (typeof SUPABASE_ANON_KEY === 'undefined' || !SUPABASE_ANON_KEY) {
+                printLog("CRITIQUE: SUPABASE_ANON_KEY n'est pas définie dans config.js !", 'err');
+                return;
+            }
 
-        async function login(providedToken) {
-            const token = providedToken || document.getElementById('token-input').value.trim();
-            if (!token) return alert("Veuillez entrer un token valide.");
+            printLog(`CONFIG OK: URL=${SUPABASE_URL}`, 'ok');
 
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('convoys-box').style.display = 'block';
-            document.getElementById('convoys-list').innerHTML = "<p style='text-align:center;'>Vérification du token...</p>";
+            const token = document.getElementById('token-input').value.trim();
+            if (!token) {
+                printLog("ERREUR: Le champ token est vide !", 'err');
+                return;
+            }
+
+            printLog(`TOKEN SAISI: "${token}" (Longueur: ${token.length})`, 'info');
+
+            // 2. Construction de la requête
+            const endpoint = `${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`;
+            const payload = { p_token: token };
+
+            printLog(`ENVOI HTTP POST -> ${endpoint}`, 'info');
+            printLog(`BODY PAYLOAD -> ${JSON.stringify(payload)}`, 'info');
 
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_convoys`, {
+                const startTime = performance.now();
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
                     },
-                    body: JSON.stringify({ p_token: token })
+                    body: JSON.stringify(payload)
                 });
+                const duration = Math.round(performance.now() - startTime);
 
-                const data = await response.json();
+                printLog(`RÉPONSE REÇUE en ${duration}ms | HTTP Status: ${response.status} ${response.statusText}`, response.ok ? 'ok' : 'err');
 
-                if (!response.ok) {
-                    throw new Error(data.message || "Token invalide ou membre non reconnu.");
+                const rawBody = await response.text();
+                printLog(`CORPS BRUT REÇU:\n${rawBody}`, response.ok ? 'info' : 'err');
+
+                if (response.ok) {
+                    const data = JSON.parse(rawBody);
+                    printLog(`SUCCÈS ! ${data.length} convoi(s) récupéré(s).`, 'ok');
+                } else {
+                    printLog(`ÉCHEC DE LA REQUÊTE. Analyse du message ci-dessus.`, 'err');
                 }
 
-                renderConvoys(data);
-
             } catch (err) {
-                alert("❌ Erreur : " + err.message);
-                logout();
+                printLog(`ERREUR JS / RÉSEAU CLIENT: ${err.message}`, 'err');
             }
-        }
-
-        function renderConvoys(convoys) {
-            const container = document.getElementById('convoys-list');
-
-            if (!convoys || convoys.length === 0) {
-                container.innerHTML = "<p style='text-align:center; padding: 20px 0;'>🎉 Aucun convoi à réaliser aujourd'hui !</p>";
-                return;
-            }
-
-            let html = `<h3>Tes Convois à effectuer :</h3>`;
-
-            convoys.forEach(c => {
-                const isSender = c.is_giver ?? c.is_sender;
-                const targetPseudo = c.target_pseudo || "Joueur";
-                const badgeClass = isSender ? 'badge-giver' : 'badge-receiver';
-                const roleText = isSender ? 'ENVOYER À' : 'RECEVOIR DE';
-                const statusText = c.status === 'completed' ? '✅ Complété' : (c.status === 'failed' ? '⚠️ Échoué' : '⏳ En attente');
-
-                html += `
-                <div class="convoy-item">
-                    <div>
-                        <span class="badge ${badgeClass}">${roleText}</span>
-                        <div style="font-size: 1.1rem; font-weight: bold; margin-top: 4px;">${escapeHtml(targetPseudo)}</div>
-                        <div style="font-size: 0.85rem; color: #aaa;">Statut : ${statusText}</div>
-                    </div>
-                    <div style="text-align: right; font-weight: bold; font-size: 1.1rem; color: var(--accent);">
-                        ${Number(c.amount).toLocaleString('fr-FR')} Bois
-                    </div>
-                </div>`;
-            });
-
-            container.innerHTML = html;
-        }
-
-        function escapeHtml(str) {
-            return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
-        }
-
-        function logout() {
-            document.getElementById('token-input').value = '';
-            document.getElementById('login-box').style.display = 'block';
-            document.getElementById('convoys-box').style.display = 'none';
         }
     </script>
 </body>
