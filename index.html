@@ -217,7 +217,6 @@
         .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
         .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 
-        /* Styles Carte 2D */
         .map-wrapper {
             display: flex;
             flex-direction: column;
@@ -450,7 +449,7 @@
             }
         }
 
-        /* --- ONGLET CARTE 2D --- */
+        /* --- CARTE 2D --- */
 
         async function loadMapTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
@@ -513,7 +512,6 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Grille
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 1;
             for (let i = 0; i <= canvas.width; i += 40) {
@@ -521,7 +519,6 @@
                 ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
             }
 
-            // Calcul du centrage
             let minX = -10, maxX = 10, minY = -10, maxY = 10;
             if (mapPlayersData.length > 0) {
                 minX = Math.min(...mapPlayersData.map(p => p.x)) - 2;
@@ -582,7 +579,7 @@
                     tooltip.style.display = 'block';
                     tooltip.style.left = `${mouseX + 15}px`;
                     tooltip.style.top = `${mouseY - 10}px`;
-                    tooltip.innerHTML = `<strong>${found.pseudo}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})<br>Terrain : ${found.field.toLocaleString('fr-FR')} cm²`;
+                    tooltip.innerHTML = `<strong>${found.pseudo}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})`;
                 } else {
                     tooltip.style.display = 'none';
                 }
@@ -591,7 +588,7 @@
             canvas.onmouseleave = () => tooltip.style.display = 'none';
         }
 
-        /* --- VUES CONVOIS / ADMIN --- */
+        /* --- CONVOIS ET ADMIN --- */
 
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
@@ -925,8 +922,6 @@
 
             contentDiv.innerHTML = html;
         }
-
-        /* --- PANNEAU D ADMINISTRATION --- */
 
         async function loadAdminPanel() {
             const sessionToken = localStorage.getItem('alliance_session_token');
