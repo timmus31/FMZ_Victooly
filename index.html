@@ -238,7 +238,10 @@
             
             <br><br>
             <div class="token-step">2. Validation de session (12h)</div>
-            <input type="text" id="token-input" placeholder="Coller le token ici (ex: 6ace5bb10f2a6)">
+            <input type="text" 
+               id="token-input" 
+               placeholder="Coller le token ou le JSON complet ici (ex: 6ace5bb10f2a6)" 
+               onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
             <button class="btn-primary" onclick="handleAuth()">Connexion au Tableau</button>
         </div>
 
@@ -269,23 +272,61 @@
             }
         };
 
+        function cleanTokenInput(rawInput) {
+            if (!rawInput) return '';
+            let cleaned = rawInput.trim();
+        
+            // 1. Tente de parser si le joueur a collé le JSON complet
+            if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(cleaned);
+                    if (parsed.Token) return parsed.Token.trim();
+                    if (parsed.token) return parsed.token.trim();
+                } catch (e) {
+                    // Si le JSON est malformé, on continue avec les regex
+                }
+            }
+        
+            // 2. Si le joueur a collé {"Token":"xyz"} sous forme de chaîne brute
+            const jsonMatch = cleaned.match(/"Token"\s*:\s*"([^"]+)"/i);
+            if (jsonMatch && jsonMatch[1]) {
+                return jsonMatch[1].trim();
+            }
+        
+            // 3. Suppression des guillemets simples/doubles/crochets résiduels autour du token
+            cleaned = cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
+        
+            return cleaned;
+        }
+        
         async function handleAuth() {
-            const input = document.getElementById('token-input').value.trim();
-            if (!input) return alert("Veuillez saisir un token Fourmizzz valide.");
-
+            const rawInput = document.getElementById('token-input').value;
+            const cleanedToken = cleanTokenInput(rawInput);
+        
+            // Repose le token nettoyé dans l input pour que l utilisateur le voie
+            document.getElementById('token-input').value = cleanedToken;
+        
+            if (!cleanedToken) {
+                return alert("Veuillez saisir un token Fourmizzz valide.");
+            }
+        
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_with_fourmizzz_token`, {
                     method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_fourmizzz_token: input })
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ p_fourmizzz_token: cleanedToken })
                 });
-
+        
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || "Token invalide.");
-
+        
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
-
+        
                 showDashboard();
                 checkAdminStatus();
             } catch (err) {
