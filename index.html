@@ -34,7 +34,7 @@
 
         .main-container {
             width: 100%;
-            max-width: 820px;
+            max-width: 840px;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
@@ -188,21 +188,39 @@
 
         .stats-summary {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
         .stat-card {
             flex: 1;
-            min-width: 140px;
+            min-width: 130px;
             background: #f8fafc;
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 12px;
+            padding: 10px;
             text-align: center;
         }
-        .stat-card .val { font-size: 1.1rem; font-weight: bold; color: var(--group-color); }
-        .stat-card .lbl { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+        .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
+        .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+
+        .group-block-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--group-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .group-block-title {
+            font-weight: bold;
+            color: var(--group-color);
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
@@ -507,47 +525,91 @@
                     👥 Suivi : ${groupSelectorHtml}
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Statistiques de terrain, ressources générées et convois associés.
+                    Vue synthétique des performances et envois de convois.
                 </p>`;
 
-            // --- VUE GLOBALE (TOUS LES GROUPES) ---
-            if (currentGroupId === -1 && dailyLogs.length > 0) {
-                // Métriques du jour le plus récent
-                const latestDate = dailyLogs[0].log_date;
-                const todayLogs = dailyLogs.filter(l => l.log_date === latestDate);
+            // --- VUE GLOBALE (RÉCAPITULATIF ALLIANCE + CARTE PAR GROUPE) ---
+            if (currentGroupId === -1) {
+                if (dailyLogs.length > 0) {
+                    const latestDate = dailyLogs[0].log_date;
+                    const todayLogs = dailyLogs.filter(l => l.log_date === latestDate);
 
-                let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-                todayLogs.forEach(l => {
-                    sumStart += l.start_terrain;
-                    sumEnd += l.end_terrain;
-                    sumDiff += l.terrain_diff;
-                    sumRes += l.resources_generated;
-                });
+                    let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
+                    todayLogs.forEach(l => {
+                        sumStart += l.start_terrain;
+                        sumEnd += l.end_terrain;
+                        sumDiff += l.terrain_diff;
+                        sumRes += l.resources_generated;
+                    });
 
-                const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
+                    const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
 
-                html += `
-                    <div class="stats-summary">
-                        <div class="stat-card">
-                            <div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div>
-                            <div class="lbl">Total Terrain Départ</div>
+                    html += `
+                        <div style="font-weight:bold; margin: 15px 0 8px 0; font-size:0.95rem; color:var(--primary);">
+                            📊 Total Alliance (Aujourd'hui)
                         </div>
-                        <div class="stat-card">
-                            <div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div>
-                            <div class="lbl">Total Terrain Actuel</div>
+                        <div class="stats-summary">
+                            <div class="stat-card">
+                                <div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div>
+                                <div class="lbl">Terrain Départ Total</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div>
+                                <div class="lbl">Terrain Actuel Total</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div>
+                                <div class="lbl">Évolution Totale</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div>
+                                <div class="lbl">Total Ressources Générées</div>
+                            </div>
                         </div>
-                        <div class="stat-card">
-                            <div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div>
-                            <div class="lbl">Évolution Totale</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div>
-                            <div class="lbl">Total Ressources Générées</div>
-                        </div>
-                    </div>
-                `;
+                    `;
+
+                    // Tri des groupes par numéro croissant (Groupe 1 à N)
+                    todayLogs.sort((a, b) => a.group_id - b.group_id);
+
+                    html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
+                        📌 Détail par Groupe (Ordre 1 à ${todayLogs.length})
+                    </div>`;
+
+                    todayLogs.forEach(log => {
+                        const gDiff = log.terrain_diff >= 0 ? `+${log.terrain_diff.toLocaleString('fr-FR')}` : log.terrain_diff.toLocaleString('fr-FR');
+                        
+                        html += `
+                            <div class="group-block-card">
+                                <div class="group-block-title">
+                                    <span>Groupe #${log.group_id}</span>
+                                    <button class="btn-action" style="background:var(--group-color); font-size:0.7rem; padding:3px 8px;" onclick="loadGroupConvoys(${log.group_id})">
+                                        Voir le groupe ➔
+                                    </button>
+                                </div>
+                                <div class="stats-summary" style="margin-bottom:0;">
+                                    <div class="stat-card" style="background:#fff;">
+                                        <div class="val" style="font-size:0.9rem;">${log.start_terrain.toLocaleString('fr-FR')} cm²</div>
+                                        <div class="lbl">Départ</div>
+                                    </div>
+                                    <div class="stat-card" style="background:#fff;">
+                                        <div class="val" style="font-size:0.9rem;">${log.end_terrain.toLocaleString('fr-FR')} cm²</div>
+                                        <div class="lbl">Fin</div>
+                                    </div>
+                                    <div class="stat-card" style="background:#fff;">
+                                        <div class="val" style="font-size:0.9rem; color:${log.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${gDiff} cm²</div>
+                                        <div class="lbl">Gain</div>
+                                    </div>
+                                    <div class="stat-card" style="background:#fff;">
+                                        <div class="val" style="font-size:0.9rem; color:var(--accent);">${log.resources_generated.toLocaleString('fr-FR')}</div>
+                                        <div class="lbl">Ressources</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
             } 
-            // --- VUE GROUPE UNIQUE ---
+            // --- VUE UNICLASS GROUPE UNIQUE ---
             else if (dailyLogs.length > 0) {
                 const todayLog = dailyLogs[0];
                 const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
@@ -574,8 +636,8 @@
                 `;
             }
 
-            // Tableau des convois
-            html += `<div style="font-weight:bold; margin: 20px 0 10px 0; font-size:0.95rem;">📦 Convois</div>`;
+            // --- TABLEAU DES CONVOIS ---
+            html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📦 Convois ${currentGroupId === -1 ? 'de toute l\'Alliance' : 'du Groupe'}</div>`;
             if (convoys.length === 0) {
                 html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré.</p>`;
             } else {
@@ -604,39 +666,6 @@
                         <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
                         <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
                         <td>${badge}</td>
-                    </tr>`;
-                });
-
-                html += `</tbody></table></div>`;
-            }
-
-            // Tableau Historique Quotidien (détaillé par Groupe si Vue globale)
-            if (dailyLogs.length > 0) {
-                html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📊 Détail Journalier par Groupe</div>`;
-                html += `<div class="table-container"><table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Groupe</th>
-                            <th>Départ</th>
-                            <th>Fin</th>
-                            <th>Évolution</th>
-                            <th>Ressources Générées</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-                dailyLogs.forEach(l => {
-                    const diffText = l.terrain_diff >= 0 ? `+${l.terrain_diff.toLocaleString('fr-FR')}` : l.terrain_diff.toLocaleString('fr-FR');
-                    const diffColor = l.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
-
-                    html += `<tr>
-                        <td>${l.log_date}</td>
-                        <td><strong>Groupe #${l.group_id}</strong></td>
-                        <td>${l.start_terrain.toLocaleString('fr-FR')} cm²</td>
-                        <td><strong>${l.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
-                        <td><strong style="color:${diffColor}">${diffText} cm²</strong></td>
-                        <td><strong>${l.resources_generated.toLocaleString('fr-FR')}</strong></td>
                     </tr>`;
                 });
 
