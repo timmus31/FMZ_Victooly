@@ -629,7 +629,7 @@
         function computeDateRange() {
             const today = new Date();
             const formatDate = d => d.toISOString().split('T')[0];
-
+        
             if (groupFilterMode === '7days') {
                 const start = new Date();
                 start.setDate(today.getDate() - 6);
@@ -644,8 +644,10 @@
                 const inputWeek = document.getElementById('filter-week-select');
                 let refDate = new Date();
                 if (inputWeek && inputWeek.value) {
-                    const [year, week] = inputWeek.value.split('-W');
-                    refDate = getFirstDayOfWeek(parseInt(year), parseInt(week));
+                    const parts = inputWeek.value.split('-W');
+                    if (parts.length === 2) {
+                        refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
+                    }
                 } else {
                     const day = today.getDay() || 7;
                     refDate.setDate(today.getDate() - day + 1);
