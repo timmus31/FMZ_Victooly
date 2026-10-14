@@ -34,7 +34,7 @@
 
         .main-container {
             width: 100%;
-            max-width: 840px;
+            max-width: 880px;
             background: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
@@ -217,51 +217,111 @@
         .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
         .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 
+        /* Styles Carte 2D Améliorés */
         .map-wrapper {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
+        }
+        .map-controls {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 700px;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .map-search {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            width: 220px;
+            margin: 0;
         }
         .map-filters {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
             justify-content: center;
         }
         .map-filter-btn {
-            padding: 6px 12px;
-            border-radius: 20px;
+            padding: 5px 10px;
+            border-radius: 16px;
             border: 1px solid var(--border);
             background: #f8fafc;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: bold;
             cursor: pointer;
+            transition: all 0.15s ease;
         }
         .map-filter-btn.active {
             background: var(--group-color);
             color: white;
             border-color: var(--group-color);
         }
-        canvas#alliance-map {
-            background: #0f172a;
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            overflow: hidden;
             border-radius: 12px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-            cursor: crosshair;
-            max-width: 100%;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
+        canvas#alliance-map {
+            background: #0b1329;
+            cursor: grab;
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        canvas#alliance-map:active {
+            cursor: grabbing;
+        }
+        .map-tools-overlay {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 5;
+        }
+        .map-tool-btn {
+            width: 32px;
+            height: 32px;
+            background: rgba(15, 23, 42, 0.85);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .map-tool-btn:hover { background: rgba(30, 41, 59, 0.95); }
         .map-tooltip {
             position: absolute;
             background: rgba(15, 23, 42, 0.95);
             color: white;
             padding: 8px 12px;
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             pointer-events: none;
             display: none;
             z-index: 10;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .map-legend {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
         }
     </style>
 </head>
@@ -308,6 +368,15 @@
         let selectedGroupId = null;
         let mapPlayersData = [];
         let mapSelectedGroup = -1;
+        let mapSearchQuery = '';
+
+        // Variables de Zoom et Déplacement
+        let zoomLevel = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
 
         const GROUP_COLORS = [
             '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
@@ -449,7 +518,7 @@
             }
         }
 
-        /* --- CARTE 2D --- */
+        /* --- CARTE 2D OPTIMISÉE --- */
 
         async function loadMapTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
@@ -487,22 +556,103 @@
             contentDiv.innerHTML = `
                 <div class="map-wrapper">
                     <div style="font-weight:bold; color: var(--primary); font-size: 1.1rem;">🗺️ Carte 2D de l'Alliance</div>
-                    <div class="map-filters">${filterButtons}</div>
-                    <div style="position:relative;">
-                        <canvas id="alliance-map" width="600" height="600"></canvas>
+                    <div class="map-controls">
+                        <input type="text" class="map-search" placeholder="🔍 Chercher un joueur..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
+                        <div class="map-filters">${filterButtons}</div>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="alliance-map" width="700" height="600"></canvas>
+                        <div class="map-tools-overlay">
+                            <button class="map-tool-btn" onclick="zoomMap(1.25)">+</button>
+                            <button class="map-tool-btn" onclick="zoomMap(0.8)">-</button>
+                            <button class="map-tool-btn" onclick="resetMapTransform()" title="Réinitialiser la vue">⟲</button>
+                        </div>
                         <div id="map-tooltip" class="map-tooltip"></div>
                     </div>
+                    <div class="map-legend">💡 Utilisez la molette pour zoomer et le clic-glisser pour déplacer la carte.</div>
                 </div>
             `;
 
+            initMapCanvasEvents();
             drawMap();
-            attachMapHover();
         }
 
         function setMapGroupFilter(groupId) {
             mapSelectedGroup = groupId;
             const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g > 0));
             renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
+        }
+
+        function setMapSearch(query) {
+            mapSearchQuery = query.toLowerCase().trim();
+            drawMap();
+        }
+
+        function zoomMap(factor) {
+            zoomLevel = Math.max(0.8, Math.min(zoomLevel * factor, 5));
+            drawMap();
+        }
+
+        function resetMapTransform() {
+            zoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            drawMap();
+        }
+
+        function initMapCanvasEvents() {
+            const canvas = document.getElementById('alliance-map');
+            const tooltip = document.getElementById('map-tooltip');
+            if (!canvas) return;
+
+            // Zoom à la molette
+            canvas.onwheel = (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+                zoomLevel = Math.max(0.8, Math.min(zoomLevel * zoomFactor, 5));
+                drawMap();
+            };
+
+            // Glisser/Déplacer (Pan)
+            canvas.onmousedown = (e) => {
+                isDragging = true;
+                dragStartX = e.clientX - panX;
+                dragStartY = e.clientY - panY;
+            };
+
+            window.onmousemove = (e) => {
+                if (isDragging) {
+                    panX = e.clientX - dragStartX;
+                    panY = e.clientY - dragStartY;
+                    drawMap();
+                    return;
+                }
+
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    const found = mapPlayersData.find(p => {
+                        if (p._cx === undefined) return false;
+                        const dx = p._cx - mouseX;
+                        const dy = p._cy - mouseY;
+                        return (dx * dx + dy * dy) <= 120;
+                    });
+
+                    if (found && tooltip) {
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = `${mouseX + 15}px`;
+                        tooltip.style.top = `${mouseY - 10}px`;
+                        tooltip.innerHTML = `<strong>${escapeHtml(found.pseudo)}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})`;
+                    } else if (tooltip) {
+                        tooltip.style.display = 'none';
+                    }
+                }
+            };
+
+            window.onmouseup = () => { isDragging = false; };
+            canvas.onmouseleave = () => { if (tooltip) tooltip.style.display = 'none'; };
         }
 
         function drawMap() {
@@ -512,13 +662,7 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= canvas.width; i += 40) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
-            }
-
+            // Délimitation des bornes
             let minX = -10, maxX = 10, minY = -10, maxY = 10;
             if (mapPlayersData.length > 0) {
                 minX = Math.min(...mapPlayersData.map(p => p.x)) - 2;
@@ -527,68 +671,65 @@
                 maxY = Math.max(...mapPlayersData.map(p => p.y)) + 2;
             }
 
-            const padding = 50;
+            const padding = 60;
             const mapWidth = canvas.width - (padding * 2);
             const mapHeight = canvas.height - (padding * 2);
+
+            ctx.save();
+            // Application du Zoom et du Pan
+            ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
+            ctx.scale(zoomLevel, zoomLevel);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+            // Dessin de la Grille
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1 / zoomLevel;
+            for (let i = 0; i <= canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke();
+            }
+
+            const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
 
             mapPlayersData.forEach(p => {
                 const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth;
                 const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
 
-                p._cx = normX;
-                p._cy = normY;
+                // Stocke les coordonnées écran recalculées pour l'interaction du survol
+                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX;
+                const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
+                p._cx = screenX;
+                p._cy = screenY;
 
-                const isHighlight = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup);
+                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup);
+                const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery);
+                const isHighlight = isGroupMatch && isSearchMatch;
+
                 const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
 
                 ctx.beginPath();
-                ctx.arc(normX, normY, isHighlight ? 8 : 4, 0, Math.PI * 2);
-                ctx.fillStyle = isHighlight ? color : 'rgba(148, 163, 184, 0.2)';
+                ctx.arc(normX, normY, isHighlight ? 7 : 3, 0, Math.PI * 2);
+                ctx.fillStyle = isHighlight ? color : 'rgba(148, 163, 184, 0.15)';
                 ctx.fill();
 
                 if (isHighlight) {
                     ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 1.5 / zoomLevel;
                     ctx.stroke();
 
-                    ctx.fillStyle = '#f8fafc';
-                    ctx.font = '10px sans-serif';
-                    ctx.fillText(p.pseudo, normX + 11, normY + 3);
+                    // Affiche les textes des pseudos uniquement quand c'est pertinent pour éviter le désordre
+                    if (showLabels) {
+                        ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#fbbf24' : '#f8fafc';
+                        ctx.font = `${Math.max(9, 11 / zoomLevel)}px sans-serif`;
+                        ctx.fillText(p.pseudo, normX + 9, normY + 3);
+                    }
                 }
             });
+
+            ctx.restore();
         }
 
-        function attachMapHover() {
-            const canvas = document.getElementById('alliance-map');
-            const tooltip = document.getElementById('map-tooltip');
-            if (!canvas || !tooltip) return;
-
-            canvas.onmousemove = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-
-                const found = mapPlayersData.find(p => {
-                    if (!p._cx) return false;
-                    const dx = p._cx - mouseX;
-                    const dy = p._cy - mouseY;
-                    return (dx * dx + dy * dy) <= 100;
-                });
-
-                if (found) {
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = `${mouseX + 15}px`;
-                    tooltip.style.top = `${mouseY - 10}px`;
-                    tooltip.innerHTML = `<strong>${found.pseudo}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})`;
-                } else {
-                    tooltip.style.display = 'none';
-                }
-            };
-
-            canvas.onmouseleave = () => tooltip.style.display = 'none';
-        }
-
-        /* --- CONVOIS ET ADMIN --- */
+        /* --- VUES CONVOIS ET ADMIN --- */
 
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
