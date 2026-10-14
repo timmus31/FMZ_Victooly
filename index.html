@@ -110,6 +110,7 @@
 
         .tab-btn.active { background: var(--primary); color: white; }
         .tab-btn.group-active { background: var(--group-color); color: white; }
+        .tab-btn.map-active { background: #27ae60; color: white; }
         .tab-btn.admin-active { background: var(--admin-color); color: white; }
 
         .btn-logout {
@@ -185,7 +186,6 @@
             cursor: pointer;
             margin-left: 5px;
         }
-        .btn-manual-ok:hover { background: #219653; }
 
         .role-select, .group-select {
             padding: 5px 10px;
@@ -217,22 +217,52 @@
         .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
         .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 
-        .group-block-card {
-            background: #ffffff;
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--group-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        .group-block-title {
-            font-weight: bold;
-            color: var(--group-color);
-            font-size: 0.95rem;
-            margin-bottom: 10px;
+        /* Styles Carte 2D */
+        .map-wrapper {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-between;
+            gap: 15px;
+        }
+        .map-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .map-filter-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .map-filter-btn.active {
+            background: var(--group-color);
+            color: white;
+            border-color: var(--group-color);
+        }
+        canvas#alliance-map {
+            background: #0f172a;
+            border-radius: 12px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            cursor: crosshair;
+            max-width: 100%;
+        }
+        .map-tooltip {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -264,6 +294,7 @@
                 <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">En cours</button>
                 <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">📜 Historique</button>
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">👥 Groupe</button>
+                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')">🗺️ Carte</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Admin</button>
                 <button class="btn-logout" onclick="logout()">Changer de session</button>
             </div>
@@ -276,14 +307,19 @@
         let activeTab = 'active';
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false };
         let selectedGroupId = null;
+        let mapPlayersData = [];
+        let mapSelectedGroup = -1;
+
+        const GROUP_COLORS = [
+            '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
+            '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
+        ];
 
         function formatDateFR(dateStr) {
             if (!dateStr) return '';
             const cleanDate = dateStr.split('T')[0];
             const parts = cleanDate.split('-');
-            if (parts.length === 3) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
             return dateStr;
         }
 
@@ -309,9 +345,7 @@
             }
         
             const jsonMatch = cleaned.match(/"Token"\s*:\s*"([^"]+)"/i);
-            if (jsonMatch && jsonMatch[1]) {
-                return jsonMatch[1].trim();
-            }
+            if (jsonMatch && jsonMatch[1]) return jsonMatch[1].trim();
         
             return cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
         }
@@ -319,21 +353,14 @@
         async function handleAuth() {
             const rawInput = document.getElementById('token-input').value;
             const cleanedToken = cleanTokenInput(rawInput);
-        
             document.getElementById('token-input').value = cleanedToken;
         
-            if (!cleanedToken) {
-                return alert("Veuillez saisir un token Fourmizzz valide.");
-            }
+            if (!cleanedToken) return alert("Veuillez saisir un token Fourmizzz valide.");
         
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_with_fourmizzz_token`, {
                     method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_fourmizzz_token: cleanedToken })
                 });
         
@@ -370,18 +397,13 @@
                 const data = await res.json();
                 if (data && data.length > 0) {
                     currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
-                    if (currentUserAdminInfo.isAdmin) {
-                        document.getElementById('tab-admin-btn').style.display = 'inline-block';
-                    } else {
-                        document.getElementById('tab-admin-btn').style.display = 'none';
-                    }
+                    document.getElementById('tab-admin-btn').style.display = currentUserAdminInfo.isAdmin ? 'inline-block' : 'none';
                     showDashboard();
                     renderTabContent();
                 } else {
                     logout();
                 }
             } catch (e) {
-                console.error("Erreur check_is_admin", e);
                 logout();
             }
         }
@@ -391,6 +413,7 @@
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
+            document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             
             await checkSessionAndLoad();
@@ -405,6 +428,7 @@
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
+            if (activeTab === 'map') { loadMapTab(); return; }
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
 
@@ -416,7 +440,6 @@
                 });
 
                 if (!response.ok) return logout();
-
                 const data = await response.json();
 
                 if (activeTab === 'active') renderActiveConvoys(data);
@@ -426,6 +449,149 @@
                 logout();
             }
         }
+
+        /* --- ONGLET CARTE 2D --- */
+
+        async function loadMapTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const contentDiv = document.getElementById('content-area');
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_map_data`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+
+                if (!res.ok) return logout();
+                mapPlayersData = await res.json();
+
+                const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g > 0));
+                const sortedGroups = Array.from(groupsSet).sort((a, b) => a - b);
+
+                renderMapUI(sortedGroups);
+            } catch (e) {
+                logout();
+            }
+        }
+
+        function renderMapUI(groups) {
+            const contentDiv = document.getElementById('content-area');
+
+            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Tous</button>`;
+            groups.forEach(g => {
+                const color = GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
+                const activeClass = mapSelectedGroup === g ? 'active' : '';
+                filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">Groupe #${g}</button>`;
+            });
+
+            contentDiv.innerHTML = `
+                <div class="map-wrapper">
+                    <div style="font-weight:bold; color: var(--primary); font-size: 1.1rem;">🗺️ Carte 2D de l'Alliance</div>
+                    <div class="map-filters">${filterButtons}</div>
+                    <div style="position:relative;">
+                        <canvas id="alliance-map" width="600" height="600"></canvas>
+                        <div id="map-tooltip" class="map-tooltip"></div>
+                    </div>
+                </div>
+            `;
+
+            drawMap();
+            attachMapHover();
+        }
+
+        function setMapGroupFilter(groupId) {
+            mapSelectedGroup = groupId;
+            const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g > 0));
+            renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
+        }
+
+        function drawMap() {
+            const canvas = document.getElementById('alliance-map');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grille
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            // Calcul du centrage
+            let minX = -10, maxX = 10, minY = -10, maxY = 10;
+            if (mapPlayersData.length > 0) {
+                minX = Math.min(...mapPlayersData.map(p => p.x)) - 2;
+                maxX = Math.max(...mapPlayersData.map(p => p.x)) + 2;
+                minY = Math.min(...mapPlayersData.map(p => p.y)) - 2;
+                maxY = Math.max(...mapPlayersData.map(p => p.y)) + 2;
+            }
+
+            const padding = 50;
+            const mapWidth = canvas.width - (padding * 2);
+            const mapHeight = canvas.height - (padding * 2);
+
+            mapPlayersData.forEach(p => {
+                const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth;
+                const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
+
+                p._cx = normX;
+                p._cy = normY;
+
+                const isHighlight = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup);
+                const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
+
+                ctx.beginPath();
+                ctx.arc(normX, normY, isHighlight ? 8 : 4, 0, Math.PI * 2);
+                ctx.fillStyle = isHighlight ? color : 'rgba(148, 163, 184, 0.2)';
+                ctx.fill();
+
+                if (isHighlight) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.font = '10px sans-serif';
+                    ctx.fillText(p.pseudo, normX + 11, normY + 3);
+                }
+            });
+        }
+
+        function attachMapHover() {
+            const canvas = document.getElementById('alliance-map');
+            const tooltip = document.getElementById('map-tooltip');
+            if (!canvas || !tooltip) return;
+
+            canvas.onmousemove = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const found = mapPlayersData.find(p => {
+                    if (!p._cx) return false;
+                    const dx = p._cx - mouseX;
+                    const dy = p._cy - mouseY;
+                    return (dx * dx + dy * dy) <= 100;
+                });
+
+                if (found) {
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = `${mouseX + 15}px`;
+                    tooltip.style.top = `${mouseY - 10}px`;
+                    tooltip.innerHTML = `<strong>${found.pseudo}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})<br>Terrain : ${found.field.toLocaleString('fr-FR')} cm²`;
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            };
+
+            canvas.onmouseleave = () => tooltip.style.display = 'none';
+        }
+
+        /* --- VUES CONVOIS / ADMIN --- */
 
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
@@ -501,20 +667,12 @@
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
                     method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) })
                 });
 
-                if (res.ok) {
-                    renderTabContent();
-                } else {
-                    const err = await res.json();
-                    alert("❌ Erreur : " + (err.message || "Action impossible"));
-                }
+                if (res.ok) renderTabContent();
+                else alert("❌ Erreur lors de la validation.");
             } catch (e) {
                 alert("❌ Erreur réseau.");
             }
@@ -556,8 +714,6 @@
 
             contentDiv.innerHTML = html + `</tbody></table></div>`;
         }
-
-        /* --- ONGLET GROUPE --- */
 
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
@@ -657,30 +813,16 @@
                             📊 Total Alliance (Aujourd'hui - ${formatDateFR(latestDate)})
                         </div>
                         <div class="stats-summary">
-                            <div class="stat-card">
-                                <div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div>
-                                <div class="lbl">Terrain Départ Total</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div>
-                                <div class="lbl">Terrain Actuel Total</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div>
-                                <div class="lbl">Évolution Totale</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div>
-                                <div class="lbl">Total Ressources Générées</div>
-                            </div>
+                            <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ Total</div></div>
+                            <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel Total</div></div>
+                            <div class="stat-card"><div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution Totale</div></div>
+                            <div class="stat-card"><div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Total Ressources Générées</div></div>
                         </div>
                     `;
 
                     todayLogs.sort((a, b) => a.group_id - b.group_id);
 
-                    html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
-                        📌 Détail par Groupe (Ordre 1 à ${todayLogs.length})
-                    </div>`;
+                    html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">📌 Détail par Groupe (Ordre 1 à ${todayLogs.length})</div>`;
 
                     todayLogs.forEach(log => {
                         const gDiff = log.terrain_diff >= 0 ? `+${log.terrain_diff.toLocaleString('fr-FR')}` : log.terrain_diff.toLocaleString('fr-FR');
@@ -689,64 +831,35 @@
                             <div class="group-block-card">
                                 <div class="group-block-title">
                                     <span>Groupe #${log.group_id}</span>
-                                    <button class="btn-action" style="background:var(--group-color); font-size:0.7rem; padding:3px 8px;" onclick="loadGroupConvoys(${log.group_id})">
-                                        Voir le groupe ➔
-                                    </button>
+                                    <button class="btn-action" style="background:var(--group-color); font-size:0.7rem; padding:3px 8px;" onclick="loadGroupConvoys(${log.group_id})">Voir le groupe ➔</button>
                                 </div>
                                 <div class="stats-summary" style="margin-bottom:0;">
-                                    <div class="stat-card" style="background:#fff;">
-                                        <div class="val" style="font-size:0.9rem;">${log.start_terrain.toLocaleString('fr-FR')} cm²</div>
-                                        <div class="lbl">Départ</div>
-                                    </div>
-                                    <div class="stat-card" style="background:#fff;">
-                                        <div class="val" style="font-size:0.9rem;">${log.end_terrain.toLocaleString('fr-FR')} cm²</div>
-                                        <div class="lbl">Fin</div>
-                                    </div>
-                                    <div class="stat-card" style="background:#fff;">
-                                        <div class="val" style="font-size:0.9rem; color:${log.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${gDiff} cm²</div>
-                                        <div class="lbl">Gain</div>
-                                    </div>
-                                    <div class="stat-card" style="background:#fff;">
-                                        <div class="val" style="font-size:0.9rem; color:var(--accent);">${log.resources_generated.toLocaleString('fr-FR')}</div>
-                                        <div class="lbl">Ressources</div>
-                                    </div>
+                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem;">${log.start_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Départ</div></div>
+                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem;">${log.end_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Fin</div></div>
+                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem; color:${log.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${gDiff} cm²</div><div class="lbl">Gain</div></div>
+                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem; color:var(--accent);">${log.resources_generated.toLocaleString('fr-FR')}</div><div class="lbl">Ressources</div></div>
                                 </div>
                             </div>
                         `;
                     });
                 }
-            } 
-            else if (dailyLogs.length > 0) {
+            } else if (dailyLogs.length > 0) {
                 const todayLog = dailyLogs[0];
                 const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
 
                 html += `
                     <div class="stats-summary">
-                        <div class="stat-card">
-                            <div class="val">${todayLog.start_terrain.toLocaleString('fr-FR')} cm²</div>
-                            <div class="lbl">Terrain Départ</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="val">${todayLog.end_terrain.toLocaleString('fr-FR')} cm²</div>
-                            <div class="lbl">Terrain Actuel</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="val" style="color:${todayLog.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div>
-                            <div class="lbl">Évolution du Terrain</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="val" style="color:var(--accent);">${todayLog.resources_generated.toLocaleString('fr-FR')}</div>
-                            <div class="lbl">Ressources Générées</div>
-                        </div>
+                        <div class="stat-card"><div class="val">${todayLog.start_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ</div></div>
+                        <div class="stat-card"><div class="val">${todayLog.end_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel</div></div>
+                        <div class="stat-card"><div class="val" style="color:${todayLog.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution du Terrain</div></div>
+                        <div class="stat-card"><div class="val" style="color:var(--accent);">${todayLog.resources_generated.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
                     </div>
                 `;
             }
 
             if (currentGroupId !== -1 && playerPerfs.length > 0) {
                 html += `
-                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
-                        👤 Performance des Joueurs du Groupe
-                    </div>
+                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">👤 Performance des Joueurs du Groupe</div>
                     <div class="table-container"><table>
                         <thead>
                             <tr>
@@ -827,7 +940,6 @@
                 });
 
                 if (!res.ok) return logout();
-
                 const data = await res.json();
                 renderAdminTable(data);
             } catch (e) {
@@ -839,12 +951,8 @@
             const contentDiv = document.getElementById('content-area');
 
             let html = `
-                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">
-                    ⚙️ Gestion des Rôles de l'Alliance
-                </div>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Seul le Super Admin (<strong>Stroke</strong>) peut modifier les attributions de rôles.
-                </p>
+                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion des Rôles de l'Alliance</div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">Seul le Super Admin (<strong>Stroke</strong>) peut modifier les attributions de rôles.</p>
                 <div class="table-container"><table>
                     <thead>
                         <tr>
