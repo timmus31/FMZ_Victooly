@@ -326,7 +326,7 @@
         function switchTab(tab) {
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
-            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
+            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'history-active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             loadTabContent();
@@ -469,6 +469,7 @@
                 const bodyParams = { p_session_token: sessionToken };
                 if (targetGroupId) bodyParams.p_target_group_id = parseInt(targetGroupId);
 
+                // 1. Convois du groupe
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
@@ -476,6 +477,7 @@
                 });
                 const convoysData = await resConvoys.json();
 
+                // 2. Logs quotidiens du groupe
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
@@ -483,6 +485,18 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
 
+                // 3. Performance individuelle des joueurs du groupe
+                let playerPerfsData = [];
+                if (targetGroupId !== -1) {
+                    const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bodyParams)
+                    });
+                    if (resPerfs.ok) playerPerfsData = await resPerfs.json();
+                }
+
+                // 4. Groupes disponibles pour les admins
                 let availableGroups = [];
                 if (currentUserAdminInfo.isAdmin) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
@@ -495,14 +509,14 @@
                 const currentGroupId = targetGroupId !== null ? parseInt(targetGroupId) : (convoysData.length > 0 ? convoysData[0].group_id : (logsData.length > 0 ? logsData[0].group_id : null));
                 selectedGroupId = currentGroupId;
 
-                renderGroupConvoysTable(convoysData, logsData, currentGroupId, availableGroups);
+                renderGroupConvoysTable(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
 
             } catch (e) {
                 contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
             }
         }
 
-        function renderGroupConvoysTable(convoys, dailyLogs, currentGroupId, availableGroups) {
+        function renderGroupConvoysTable(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
 
             let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
@@ -525,10 +539,10 @@
                     👥 Suivi : ${groupSelectorHtml}
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Vue synthétique des performances et envois de convois.
+                    Statistiques de terrain, performances des joueurs et convois associés.
                 </p>`;
 
-            // --- VUE GLOBALE (RÉCAPITULATIF ALLIANCE + CARTE PAR GROUPE) ---
+            // --- VUE GLOBALE (TOUS LES GROUPES) ---
             if (currentGroupId === -1) {
                 if (dailyLogs.length > 0) {
                     const latestDate = dailyLogs[0].log_date;
@@ -568,7 +582,6 @@
                         </div>
                     `;
 
-                    // Tri des groupes par numéro croissant (Groupe 1 à N)
                     todayLogs.sort((a, b) => a.group_id - b.group_id);
 
                     html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
@@ -609,7 +622,7 @@
                     });
                 }
             } 
-            // --- VUE UNICLASS GROUPE UNIQUE ---
+            // --- VUE GROUPE UNIQUE ---
             else if (dailyLogs.length > 0) {
                 const todayLog = dailyLogs[0];
                 const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
@@ -634,6 +647,40 @@
                         </div>
                     </div>
                 `;
+            }
+
+            // --- NOUVEAU TABLEAU : PERFORMANCE INDIVIDUELLE DES JOUEURS ---
+            if (currentGroupId !== -1 && playerPerfs.length > 0) {
+                html += `
+                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
+                        👤 Performance des Joueurs du Groupe
+                    </div>
+                    <div class="table-container"><table>
+                        <thead>
+                            <tr>
+                                <th>Joueur</th>
+                                <th>Terrain Départ</th>
+                                <th>Terrain Actuel</th>
+                                <th>Évolution</th>
+                                <th>Ressources Générées</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                playerPerfs.forEach(p => {
+                    const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
+                    const pDiffColor = p.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                    html += `<tr>
+                        <td><strong>${escapeHtml(p.pseudo)}</strong></td>
+                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
+                        <td><strong style="color:${pDiffColor}">${pDiffText} cm²</strong></td>
+                        <td><strong style="color:var(--accent);">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
+                    </tr>`;
+                });
+
+                html += `</tbody></table></div>`;
             }
 
             // --- TABLEAU DES CONVOIS ---
