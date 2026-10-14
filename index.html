@@ -217,7 +217,38 @@
         .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
         .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 
-        /* Styles Carte 2D */
+        /* Filtres de Période Onglet Groupe */
+        .date-filter-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+        }
+        .date-filter-box select, .date-filter-box input[type="date"], .date-filter-box input[type="week"] {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.82rem;
+            background: white;
+        }
+        .date-filter-box button {
+            background: var(--group-color);
+            color: white;
+            border: none;
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* Carte 2D */
         .map-wrapper {
             display: flex;
             flex-direction: column;
@@ -366,10 +397,16 @@
         let activeTab = 'active';
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false };
         let selectedGroupId = null;
-        let mapPlayersData = [];
-        let mapSelectedGroup = -1; // -1 = Vue d ensemble Tous
-        let mapSearchQuery = '';
 
+        // Variables Filtre de Période
+        let groupFilterMode = '7days'; // 'day', '7days', 'week', 'custom'
+        let groupStartDate = null;
+        let groupEndDate = null;
+
+        // Variables Carte 2D
+        let mapPlayersData = [];
+        let mapSelectedGroup = -1;
+        let mapSearchQuery = '';
         let zoomLevel = 1;
         let panX = 0;
         let panY = 0;
@@ -515,6 +552,245 @@
             } catch (err) {
                 logout();
             }
+        }
+
+        /* --- ONGLET GROUPE (AVEC FILTRE DE PÉRIODE) --- */
+
+        async function loadGroupConvoys(targetGroupId = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+
+            try {
+                if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
+
+                computeDateRange();
+
+                const bodyParams = { 
+                    p_session_token: sessionToken,
+                    p_start_date: groupStartDate,
+                    p_end_date: groupEndDate
+                };
+                if (selectedGroupId !== null) bodyParams.p_target_group_id = selectedGroupId;
+
+                // 1. Convois du groupe
+                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId })
+                });
+                if (!resConvoys.ok) return logout();
+                const convoysData = await resConvoys.json();
+
+                // 2. Logs quotidiens du groupe avec la période
+                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyParams)
+                });
+                const logsData = resLogs.ok ? await resLogs.json() : [];
+
+                // 3. Performances individuelles sur la période
+                let playerPerfsData = [];
+                if (selectedGroupId !== -1) {
+                    const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bodyParams)
+                    });
+                    if (resPerfs.ok) playerPerfsData = await resPerfs.json();
+                }
+
+                // 4. Groupes disponibles
+                let availableGroups = [];
+                if (currentUserAdminInfo.isAdmin) {
+                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                    });
+                    if (groupsRes.ok) availableGroups = await groupsRes.json();
+                }
+
+                const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
+
+                renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
+
+            } catch (e) {
+                logout();
+            }
+        }
+
+        function computeDateRange() {
+            const today = new Date();
+            const formatDate = d => d.toISOString().split('T')[0];
+
+            if (groupFilterMode === '7days') {
+                const start = new Date();
+                start.setDate(today.getDate() - 6);
+                groupStartDate = formatDate(start);
+                groupEndDate = formatDate(today);
+            } else if (groupFilterMode === 'day') {
+                const inputDay = document.getElementById('filter-single-day');
+                const selected = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+                groupStartDate = selected;
+                groupEndDate = selected;
+            } else if (groupFilterMode === 'week') {
+                const inputWeek = document.getElementById('filter-week-select');
+                let refDate = new Date();
+                if (inputWeek && inputWeek.value) {
+                    const [year, week] = inputWeek.value.split('-W');
+                    refDate = getFirstDayOfWeek(parseInt(year), parseInt(week));
+                } else {
+                    const day = today.getDay() || 7;
+                    refDate.setDate(today.getDate() - day + 1);
+                }
+                const monday = new Date(refDate);
+                const sunday = new Date(refDate);
+                sunday.setDate(monday.getDate() + 6);
+                groupStartDate = formatDate(monday);
+                groupEndDate = formatDate(sunday);
+            } else if (groupFilterMode === 'custom') {
+                const startInput = document.getElementById('filter-start-date');
+                const endInput = document.getElementById('filter-end-date');
+                groupStartDate = startInput && startInput.value ? startInput.value : formatDate(today);
+                groupEndDate = endInput && endInput.value ? endInput.value : formatDate(today);
+            }
+        }
+
+        function getFirstDayOfWeek(year, week) {
+            const date = new Date(year, 0, 1 + (week - 1) * 7);
+            const dayOfWeek = date.getDay();
+            const ISOweekStart = date;
+            if (dayOfWeek <= 4) ISOweekStart.setDate(date.getDate() - date.getDay() + 1);
+            else ISOweekStart.setDate(date.getDate() + 8 - date.getDay());
+            return ISOweekStart;
+        }
+
+        function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
+            const contentDiv = document.getElementById('content-area');
+
+            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
+            if (currentUserAdminInfo.isAdmin) {
+                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
+                groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            let dateInputsHtml = '';
+            if (groupFilterMode === 'day') {
+                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
+            } else if (groupFilterMode === 'week') {
+                dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
+            } else if (groupFilterMode === 'custom') {
+                dateInputsHtml = `
+                    De <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
+                    à <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">
+                `;
+            }
+
+            let html = `
+                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem; display:flex; align-items:center; gap:10px;">
+                    👥 Suivi : ${groupSelectorHtml}
+                </div>
+
+                <div class="date-filter-box">
+                    <strong>📅 Période :</strong>
+                    <select id="filter-mode-select" onchange="groupFilterMode = this.value; loadGroupConvoys();">
+                        <option value="7days" ${groupFilterMode === '7days' ? 'selected' : ''}>7 jours glissants</option>
+                        <option value="day" ${groupFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
+                        <option value="week" ${groupFilterMode === 'week' ? 'selected' : ''}>Semaine (Lun - Dim)</option>
+                        <option value="custom" ${groupFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
+                    </select>
+                    ${dateInputsHtml}
+                    ${groupFilterMode === 'custom' ? `<button onclick="loadGroupConvoys()">Appliquer</button>` : ''}
+                </div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                    Données du <strong>${formatDateFR(groupStartDate)}</strong> au <strong>${formatDateFR(groupEndDate)}</strong>.
+                </p>
+            `;
+
+            let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
+            dailyLogs.forEach(l => {
+                sumStart += l.start_terrain;
+                sumEnd += l.end_terrain;
+                sumDiff += l.terrain_diff;
+                sumRes += l.resources_generated;
+            });
+            const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
+
+            html += `
+                <div class="stats-summary">
+                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ</div></div>
+                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel</div></div>
+                    <div class="stat-card"><div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution Totale</div></div>
+                    <div class="stat-card"><div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
+                </div>
+            `;
+
+            if (currentGroupId !== -1 && playerPerfs.length > 0) {
+                html += `
+                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">👤 Performance des Joueurs</div>
+                    <div class="table-container"><table>
+                        <thead>
+                            <tr>
+                                <th>Joueur</th>
+                                <th>Terrain Départ</th>
+                                <th>Terrain Actuel</th>
+                                <th>Évolution</th>
+                                <th>Ressources Générées</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                playerPerfs.forEach(p => {
+                    const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
+                    const pDiffColor = p.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                    html += `<tr>
+                        <td><strong>${escapeHtml(p.pseudo)}</strong></td>
+                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
+                        <td><strong style="color:${pDiffColor}">${pDiffText} cm²</strong></td>
+                        <td><strong style="color:var(--accent);">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+
+            html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📦 Convois ${currentGroupId === -1 ? 'de toute l\'Alliance' : 'du Groupe'}</div>`;
+            if (convoys.length === 0) {
+                html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré sur cette période.</p>`;
+            } else {
+                html += `<div class="table-container"><table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            ${currentGroupId === -1 ? '<th>Grp</th>' : ''}
+                            <th>Expéditeur</th>
+                            <th>Destinataire</th>
+                            <th>Montant</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                convoys.forEach(c => {
+                    let badge = '<span class="badge badge-pending">En attente</span>';
+                    if (c.status === 'completed') badge = '<span class="badge badge-success">✅ Complété</span>';
+                    else if (c.status === 'failed') badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
+
+                    html += `<tr>
+                        <td>${formatDateFR(c.balance_date)}</td>
+                        ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
+                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
+                        <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                        <td>${badge}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+
+            contentDiv.innerHTML = html;
         }
 
         /* --- CARTE 2D --- */
@@ -723,7 +999,7 @@
             ctx.restore();
         }
 
-        /* --- CONVOIS & ADMIN --- */
+        /* --- CONVOIS ET ADMIN --- */
 
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
@@ -845,217 +1121,6 @@
             });
 
             contentDiv.innerHTML = html + `</tbody></table></div>`;
-        }
-
-        async function loadGroupConvoys(targetGroupId = null) {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            const contentDiv = document.getElementById('content-area');
-
-            try {
-                const bodyParams = { p_session_token: sessionToken };
-                if (targetGroupId) bodyParams.p_target_group_id = parseInt(targetGroupId);
-
-                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
-                });
-                if (!resConvoys.ok) return logout();
-                const convoysData = await resConvoys.json();
-
-                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
-                });
-                const logsData = resLogs.ok ? await resLogs.json() : [];
-
-                let playerPerfsData = [];
-                if (targetGroupId !== -1) {
-                    const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
-                        method: 'POST',
-                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(bodyParams)
-                    });
-                    if (resPerfs.ok) playerPerfsData = await resPerfs.json();
-                }
-
-                let availableGroups = [];
-                if (currentUserAdminInfo.isAdmin) {
-                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
-                        method: 'POST',
-                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
-                    });
-                    if (groupsRes.ok) availableGroups = await groupsRes.json();
-                }
-
-                const currentGroupId = targetGroupId !== null ? parseInt(targetGroupId) : (convoysData.length > 0 ? convoysData[0].group_id : (logsData.length > 0 ? logsData[0].group_id : null));
-                selectedGroupId = currentGroupId;
-
-                renderGroupConvoysTable(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
-
-            } catch (e) {
-                logout();
-            }
-        }
-
-        function renderGroupConvoysTable(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
-            const contentDiv = document.getElementById('content-area');
-
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
-            
-            if (currentUserAdminInfo.isAdmin) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
-                options += availableGroups.map(g => 
-                    `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`
-                ).join('');
-
-                groupSelectorHtml = `
-                    <select class="group-select" onchange="loadGroupConvoys(this.value)">
-                        ${options}
-                    </select>
-                `;
-            }
-
-            let html = `
-                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem; display:flex; align-items:center; gap:10px;">
-                    👥 Suivi : ${groupSelectorHtml}
-                </div>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Statistiques de terrain, performances des joueurs et convois associés.
-                </p>`;
-
-            if (currentGroupId === -1) {
-                if (dailyLogs.length > 0) {
-                    const latestDate = dailyLogs[0].log_date;
-                    const todayLogs = dailyLogs.filter(l => l.log_date === latestDate);
-
-                    let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-                    todayLogs.forEach(l => {
-                        sumStart += l.start_terrain;
-                        sumEnd += l.end_terrain;
-                        sumDiff += l.terrain_diff;
-                        sumRes += l.resources_generated;
-                    });
-
-                    const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
-
-                    html += `
-                        <div style="font-weight:bold; margin: 15px 0 8px 0; font-size:0.95rem; color:var(--primary);">
-                            📊 Total Alliance (Aujourd'hui - ${formatDateFR(latestDate)})
-                        </div>
-                        <div class="stats-summary">
-                            <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ Total</div></div>
-                            <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel Total</div></div>
-                            <div class="stat-card"><div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution Totale</div></div>
-                            <div class="stat-card"><div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Total Ressources Générées</div></div>
-                        </div>
-                    `;
-
-                    todayLogs.sort((a, b) => a.group_id - b.group_id);
-
-                    html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">📌 Détail par Groupe (Ordre 1 à ${todayLogs.length})</div>`;
-
-                    todayLogs.forEach(log => {
-                        const gDiff = log.terrain_diff >= 0 ? `+${log.terrain_diff.toLocaleString('fr-FR')}` : log.terrain_diff.toLocaleString('fr-FR');
-                        
-                        html += `
-                            <div class="group-block-card">
-                                <div class="group-block-title">
-                                    <span>Groupe #${log.group_id}</span>
-                                    <button class="btn-action" style="background:var(--group-color); font-size:0.7rem; padding:3px 8px;" onclick="loadGroupConvoys(${log.group_id})">Voir le groupe ➔</button>
-                                </div>
-                                <div class="stats-summary" style="margin-bottom:0;">
-                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem;">${log.start_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Départ</div></div>
-                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem;">${log.end_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Fin</div></div>
-                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem; color:${log.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${gDiff} cm²</div><div class="lbl">Gain</div></div>
-                                    <div class="stat-card" style="background:#fff;"><div class="val" style="font-size:0.9rem; color:var(--accent);">${log.resources_generated.toLocaleString('fr-FR')}</div><div class="lbl">Ressources</div></div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-            } else if (dailyLogs.length > 0) {
-                const todayLog = dailyLogs[0];
-                const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
-
-                html += `
-                    <div class="stats-summary">
-                        <div class="stat-card"><div class="val">${todayLog.start_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ</div></div>
-                        <div class="stat-card"><div class="val">${todayLog.end_terrain.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel</div></div>
-                        <div class="stat-card"><div class="val" style="color:${todayLog.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution du Terrain</div></div>
-                        <div class="stat-card"><div class="val" style="color:var(--accent);">${todayLog.resources_generated.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
-                    </div>
-                `;
-            }
-
-            if (currentGroupId !== -1 && playerPerfs.length > 0) {
-                html += `
-                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">👤 Performance des Joueurs du Groupe</div>
-                    <div class="table-container"><table>
-                        <thead>
-                            <tr>
-                                <th>Joueur</th>
-                                <th>Terrain Départ</th>
-                                <th>Terrain Actuel</th>
-                                <th>Évolution</th>
-                                <th>Ressources Générées</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-
-                playerPerfs.forEach(p => {
-                    const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
-                    const pDiffColor = p.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
-
-                    html += `<tr>
-                        <td><strong>${escapeHtml(p.pseudo)}</strong></td>
-                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
-                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
-                        <td><strong style="color:${pDiffColor}">${pDiffText} cm²</strong></td>
-                        <td><strong style="color:var(--accent);">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
-                    </tr>`;
-                });
-
-                html += `</tbody></table></div>`;
-            }
-
-            html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📦 Convois ${currentGroupId === -1 ? 'de toute l\'Alliance' : 'du Groupe'}</div>`;
-            if (convoys.length === 0) {
-                html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré.</p>`;
-            } else {
-                html += `<div class="table-container"><table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            ${currentGroupId === -1 ? '<th>Grp</th>' : ''}
-                            <th>Expéditeur</th>
-                            <th>Destinataire</th>
-                            <th>Montant</th>
-                            <th>Statut</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-                convoys.forEach(c => {
-                    let badge = '<span class="badge badge-pending">En attente</span>';
-                    if (c.status === 'completed') badge = '<span class="badge badge-success">✅ Complété</span>';
-                    else if (c.status === 'failed') badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
-
-                    html += `<tr>
-                        <td>${formatDateFR(c.balance_date)}</td>
-                        ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
-                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
-                        <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
-                        <td>${badge}</td>
-                    </tr>`;
-                });
-
-                html += `</tbody></table></div>`;
-            }
-
-            contentDiv.innerHTML = html;
         }
 
         async function loadAdminPanel() {
