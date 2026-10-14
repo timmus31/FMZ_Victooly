@@ -166,13 +166,26 @@
 
         .btn-action {
             display: inline-block;
-            padding: 6px 12px;
+            padding: 6px 10px;
             color: white;
             border-radius: 4px;
             text-decoration: none;
             font-weight: bold;
             font-size: 0.75rem;
         }
+
+        .btn-manual-ok {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .btn-manual-ok:hover { background: #219653; }
 
         .role-select, .group-select {
             padding: 5px 10px;
@@ -331,7 +344,6 @@
             document.getElementById('dashboard-section').style.display = 'block';
         }
 
-        // Vérification de la validité de la session auprès de Supabase
         async function checkSessionAndLoad() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
@@ -346,23 +358,20 @@
                 if (!res.ok) return logout();
 
                 const data = await res.json();
-                
-                // Si la session a été supprimée ou expirée, player_pseudo sera vide ou nul
-                if (!data || data.length === 0 || !data[0].player_pseudo) {
-                    return logout();
-                }
-
-                currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
-                if (currentUserAdminInfo.isAdmin) {
-                    document.getElementById('tab-admin-btn').style.display = 'inline-block';
+                if (data && data.length > 0) {
+                    currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
+                    if (currentUserAdminInfo.isAdmin) {
+                        document.getElementById('tab-admin-btn').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('tab-admin-btn').style.display = 'none';
+                    }
+                    showDashboard();
+                    renderTabContent();
                 } else {
-                    document.getElementById('tab-admin-btn').style.display = 'none';
+                    logout();
                 }
-
-                showDashboard();
-                renderTabContent();
             } catch (e) {
-                console.error("Session invalide", e);
+                console.error("Erreur check_is_admin", e);
                 logout();
             }
         }
@@ -374,7 +383,6 @@
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             
-            // Re-vérifie la session en BDD à chaque changement d d'onglet
             await checkSessionAndLoad();
         }
 
@@ -447,25 +455,59 @@
                     ? `<span class="badge badge-failed">⚠️ Échoué</span>`
                     : `<span class="badge badge-pending">En attente</span>`;
 
-                const actionBtn = isSender ? `
-                    <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
-                       target="_blank" 
-                       class="btn-action" 
-                       style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
-                        ${isFailed ? '🔄 Réessayer' : '🚀 Envoyer'}
-                    </a>
-                ` : '';
+                let actionBtns = '';
+                if (isSender) {
+                    actionBtns += `
+                        <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
+                           target="_blank" 
+                           class="btn-action" 
+                           style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
+                            ${isFailed ? '🔄 Réessayer' : '🚀 Envoyer'}
+                        </a>
+                        <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})">
+                            ✅ Fait
+                        </button>
+                    `;
+                }
 
                 html += `<tr class="${isFailed ? 'row-failed' : ''}">
                     <td>${c.balance_date}</td>
                     <td><strong>${escapeHtml(target)}</strong></td>
                     <td><strong>${Number(c.amount).toLocaleString('fr-FR')}</strong> Matériaux</td>
                     <td>${statusBadge}</td>
-                    ${isSender ? `<td>${actionBtn}</td>` : ''}
+                    ${isSender ? `<td>${actionBtns}</td>` : ''}
                 </tr>`;
             });
 
             return html + `</tbody></table></div>`;
+        }
+
+        async function markConvoyCompleted(convoyId) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            if (!sessionToken) return logout();
+
+            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) })
+                });
+
+                if (res.ok) {
+                    renderTabContent();
+                } else {
+                    const err = await res.json();
+                    alert("❌ Erreur : " + (err.message || "Action impossible"));
+                }
+            } catch (e) {
+                alert("❌ Erreur réseau.");
+            }
         }
 
         function renderHistoryConvoys(historyList) {
