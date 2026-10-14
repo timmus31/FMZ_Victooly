@@ -558,19 +558,23 @@
 
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
-
+        
             try {
                 if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
-
+        
                 computeDateRange();
-
+        
+                // Construction propre du payload RPC (évite d envoyer des clés invalides)
                 const bodyParams = { 
                     p_session_token: sessionToken,
-                    p_start_date: groupStartDate,
-                    p_end_date: groupEndDate
+                    p_start_date: groupStartDate || null,
+                    p_end_date: groupEndDate || null
                 };
-                if (selectedGroupId !== null) bodyParams.p_target_group_id = selectedGroupId;
-
+                
+                if (selectedGroupId !== null && !isNaN(selectedGroupId)) {
+                    bodyParams.p_target_group_id = selectedGroupId;
+                }
+        
                 // 1. Convois du groupe
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
@@ -579,16 +583,20 @@
                 });
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
-
-                // 2. Logs quotidiens du groupe avec la période
+        
+                // 2. Logs du groupe (Filtres de dates)
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(bodyParams)
                 });
+                
+                if (!resLogs.ok) {
+                    console.error("Erreur RPC get_group_daily_logs:", await resLogs.text());
+                }
                 const logsData = resLogs.ok ? await resLogs.json() : [];
-
-                // 3. Performances individuelles sur la période
+        
+                // 3. Performances individuelles
                 let playerPerfsData = [];
                 if (selectedGroupId !== -1) {
                     const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
@@ -598,7 +606,7 @@
                     });
                     if (resPerfs.ok) playerPerfsData = await resPerfs.json();
                 }
-
+        
                 // 4. Groupes disponibles
                 let availableGroups = [];
                 if (currentUserAdminInfo.isAdmin) {
@@ -608,13 +616,13 @@
                     });
                     if (groupsRes.ok) availableGroups = await groupsRes.json();
                 }
-
+        
                 const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
-
+        
                 renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
-
+        
             } catch (e) {
-                logout();
+                console.error("Erreur chargement groupe:", e);
             }
         }
 
