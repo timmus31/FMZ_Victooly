@@ -239,9 +239,9 @@
             <br><br>
             <div class="token-step">2. Validation de session (12h)</div>
             <input type="text" 
-               id="token-input" 
-               placeholder="Coller le token ou le JSON complet ici (ex: 6ace5bb10f2a6)" 
-               onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
+                   id="token-input" 
+                   placeholder="Coller le token ou le JSON complet ici (ex: 6ace5bb10f2a6)" 
+                   onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
             <button class="btn-primary" onclick="handleAuth()">Connexion au Tableau</button>
         </div>
 
@@ -267,8 +267,9 @@
         window.onload = () => {
             const savedSessionToken = localStorage.getItem('alliance_session_token');
             if (savedSessionToken) {
-                showDashboard();
                 checkAdminStatus();
+            } else {
+                logout();
             }
         };
 
@@ -303,7 +304,6 @@
             const rawInput = document.getElementById('token-input').value;
             const cleanedToken = cleanTokenInput(rawInput);
         
-            // Repose le token nettoyé dans l input pour que l utilisateur le voie
             document.getElementById('token-input').value = cleanedToken;
         
             if (!cleanedToken) {
@@ -327,7 +327,6 @@
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
         
-                showDashboard();
                 checkAdminStatus();
             } catch (err) {
                 alert("❌ Connexion échouée : " + err.message);
@@ -350,24 +349,31 @@
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
 
+                if (!res.ok) return logout();
+
                 const data = await res.json();
-                if (res.ok && data.length > 0) {
+                if (data && data.length > 0) {
                     currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
                     if (currentUserAdminInfo.isAdmin) {
                         document.getElementById('tab-admin-btn').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('tab-admin-btn').style.display = 'none';
                     }
+                    showDashboard();
+                    loadTabContent();
+                } else {
+                    logout();
                 }
             } catch (e) {
                 console.error("Erreur check_is_admin", e);
+                logout();
             }
-
-            loadTabContent();
         }
 
         function switchTab(tab) {
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
-            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'history-active' : ''}`;
+            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             loadTabContent();
@@ -392,14 +398,14 @@
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
 
+                if (!response.ok) return logout();
+
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || "Session expirée.");
 
                 if (activeTab === 'active') renderActiveConvoys(data);
                 else renderHistoryConvoys(data);
 
             } catch (err) {
-                alert("⚠️ " + err.message);
                 logout();
             }
         }
@@ -516,6 +522,7 @@
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(bodyParams)
                 });
+                if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
 
                 // 2. Logs quotidiens du groupe
@@ -553,7 +560,7 @@
                 renderGroupConvoysTable(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
 
             } catch (e) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
+                logout();
             }
         }
 
@@ -690,7 +697,7 @@
                 `;
             }
 
-            // --- NOUVEAU TABLEAU : PERFORMANCE INDIVIDUELLE DES JOUEURS ---
+            // --- TABLEAU : PERFORMANCE INDIVIDUELLE DES JOUEURS ---
             if (currentGroupId !== -1 && playerPerfs.length > 0) {
                 html += `
                     <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
@@ -776,12 +783,12 @@
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Erreur de chargement.");
+                if (!res.ok) return logout();
 
+                const data = await res.json();
                 renderAdminTable(data);
             } catch (e) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Erreur : ${e.message}</p>`;
+                logout();
             }
         }
 
@@ -866,8 +873,8 @@
         function logout() {
             localStorage.removeItem('alliance_session_token');
             document.getElementById('token-input').value = '';
-            document.getElementById('auth-section').style.display = 'block';
             document.getElementById('dashboard-section').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
         }
     </script>
 </body>
