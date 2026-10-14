@@ -217,7 +217,7 @@
         .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
         .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
 
-        /* Styles Carte 2D Améliorés */
+        /* Styles Carte 2D */
         .map-wrapper {
             display: flex;
             flex-direction: column;
@@ -367,10 +367,9 @@
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false };
         let selectedGroupId = null;
         let mapPlayersData = [];
-        let mapSelectedGroup = -1;
+        let mapSelectedGroup = -1; // -1 = Vue d ensemble Tous
         let mapSearchQuery = '';
 
-        // Variables de Zoom et Déplacement
         let zoomLevel = 1;
         let panX = 0;
         let panY = 0;
@@ -518,7 +517,7 @@
             }
         }
 
-        /* --- CARTE 2D OPTIMISÉE --- */
+        /* --- CARTE 2D --- */
 
         async function loadMapTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
@@ -534,7 +533,7 @@
                 if (!res.ok) return logout();
                 mapPlayersData = await res.json();
 
-                const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g > 0));
+                const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0));
                 const sortedGroups = Array.from(groupsSet).sort((a, b) => a - b);
 
                 renderMapUI(sortedGroups);
@@ -548,9 +547,10 @@
 
             let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Tous</button>`;
             groups.forEach(g => {
-                const color = GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
+                const color = g === 0 ? '#94a3b8' : GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
                 const activeClass = mapSelectedGroup === g ? 'active' : '';
-                filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">Groupe #${g}</button>`;
+                const label = g === 0 ? 'Non assigné' : `Groupe #${g}`;
+                filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">${label}</button>`;
             });
 
             contentDiv.innerHTML = `
@@ -579,7 +579,7 @@
 
         function setMapGroupFilter(groupId) {
             mapSelectedGroup = groupId;
-            const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g > 0));
+            const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0));
             renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
         }
 
@@ -605,7 +605,6 @@
             const tooltip = document.getElementById('map-tooltip');
             if (!canvas) return;
 
-            // Zoom à la molette
             canvas.onwheel = (e) => {
                 e.preventDefault();
                 const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
@@ -613,7 +612,6 @@
                 drawMap();
             };
 
-            // Glisser/Déplacer (Pan)
             canvas.onmousedown = (e) => {
                 isDragging = true;
                 dragStartX = e.clientX - panX;
@@ -641,10 +639,11 @@
                     });
 
                     if (found && tooltip) {
+                        const groupLabel = found.group_id === 0 ? 'Non assigné' : `#${found.group_id}`;
                         tooltip.style.display = 'block';
                         tooltip.style.left = `${mouseX + 15}px`;
                         tooltip.style.top = `${mouseY - 10}px`;
-                        tooltip.innerHTML = `<strong>${escapeHtml(found.pseudo)}</strong><br>Groupe #${found.group_id}<br>Coords : (${found.x}, ${found.y})`;
+                        tooltip.innerHTML = `<strong>${escapeHtml(found.pseudo)}</strong><br>Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})`;
                     } else if (tooltip) {
                         tooltip.style.display = 'none';
                     }
@@ -662,7 +661,6 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Délimitation des bornes
             let minX = -10, maxX = 10, minY = -10, maxY = 10;
             if (mapPlayersData.length > 0) {
                 minX = Math.min(...mapPlayersData.map(p => p.x)) - 2;
@@ -676,12 +674,10 @@
             const mapHeight = canvas.height - (padding * 2);
 
             ctx.save();
-            // Application du Zoom et du Pan
             ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
             ctx.scale(zoomLevel, zoomLevel);
             ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
-            // Dessin de la Grille
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 1 / zoomLevel;
             for (let i = 0; i <= canvas.width; i += 40) {
@@ -695,7 +691,6 @@
                 const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth;
                 const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
 
-                // Stocke les coordonnées écran recalculées pour l'interaction du survol
                 const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX;
                 const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
                 p._cx = screenX;
@@ -717,7 +712,6 @@
                     ctx.lineWidth = 1.5 / zoomLevel;
                     ctx.stroke();
 
-                    // Affiche les textes des pseudos uniquement quand c'est pertinent pour éviter le désordre
                     if (showLabels) {
                         ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#fbbf24' : '#f8fafc';
                         ctx.font = `${Math.max(9, 11 / zoomLevel)}px sans-serif`;
@@ -729,7 +723,7 @@
             ctx.restore();
         }
 
-        /* --- VUES CONVOIS ET ADMIN --- */
+        /* --- CONVOIS & ADMIN --- */
 
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
