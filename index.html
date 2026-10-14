@@ -267,7 +267,7 @@
         window.onload = () => {
             const savedSessionToken = localStorage.getItem('alliance_session_token');
             if (savedSessionToken) {
-                checkAdminStatus();
+                checkSessionAndLoad();
             } else {
                 logout();
             }
@@ -277,27 +277,20 @@
             if (!rawInput) return '';
             let cleaned = rawInput.trim();
         
-            // 1. Tente de parser si le joueur a collé le JSON complet
             if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
                 try {
                     const parsed = JSON.parse(cleaned);
                     if (parsed.Token) return parsed.Token.trim();
                     if (parsed.token) return parsed.token.trim();
-                } catch (e) {
-                    // Si le JSON est malformé, on continue avec les regex
-                }
+                } catch (e) {}
             }
         
-            // 2. Si le joueur a collé {"Token":"xyz"} sous forme de chaîne brute
             const jsonMatch = cleaned.match(/"Token"\s*:\s*"([^"]+)"/i);
             if (jsonMatch && jsonMatch[1]) {
                 return jsonMatch[1].trim();
             }
         
-            // 3. Suppression des guillemets simples/doubles/crochets résiduels autour du token
-            cleaned = cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
-        
-            return cleaned;
+            return cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
         }
         
         async function handleAuth() {
@@ -327,7 +320,7 @@
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
         
-                checkAdminStatus();
+                checkSessionAndLoad();
             } catch (err) {
                 alert("❌ Connexion échouée : " + err.message);
             }
@@ -338,7 +331,8 @@
             document.getElementById('dashboard-section').style.display = 'block';
         }
 
-        async function checkAdminStatus() {
+        // Vérification de la validité de la session auprès de Supabase
+        async function checkSessionAndLoad() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
 
@@ -352,34 +346,39 @@
                 if (!res.ok) return logout();
 
                 const data = await res.json();
-                if (data && data.length > 0) {
-                    currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
-                    if (currentUserAdminInfo.isAdmin) {
-                        document.getElementById('tab-admin-btn').style.display = 'inline-block';
-                    } else {
-                        document.getElementById('tab-admin-btn').style.display = 'none';
-                    }
-                    showDashboard();
-                    loadTabContent();
-                } else {
-                    logout();
+                
+                // Si la session a été supprimée ou expirée, player_pseudo sera vide ou nul
+                if (!data || data.length === 0 || !data[0].player_pseudo) {
+                    return logout();
                 }
+
+                currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
+                if (currentUserAdminInfo.isAdmin) {
+                    document.getElementById('tab-admin-btn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('tab-admin-btn').style.display = 'none';
+                }
+
+                showDashboard();
+                renderTabContent();
             } catch (e) {
-                console.error("Erreur check_is_admin", e);
+                console.error("Session invalide", e);
                 logout();
             }
         }
 
-        function switchTab(tab) {
+        async function switchTab(tab) {
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
-            loadTabContent();
+            
+            // Re-vérifie la session en BDD à chaque changement d d'onglet
+            await checkSessionAndLoad();
         }
 
-        async function loadTabContent() {
+        async function renderTabContent() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
 
@@ -516,7 +515,6 @@
                 const bodyParams = { p_session_token: sessionToken };
                 if (targetGroupId) bodyParams.p_target_group_id = parseInt(targetGroupId);
 
-                // 1. Convois du groupe
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
@@ -525,7 +523,6 @@
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
 
-                // 2. Logs quotidiens du groupe
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
@@ -533,7 +530,6 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
 
-                // 3. Performance individuelle des joueurs du groupe
                 let playerPerfsData = [];
                 if (targetGroupId !== -1) {
                     const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
@@ -544,7 +540,6 @@
                     if (resPerfs.ok) playerPerfsData = await resPerfs.json();
                 }
 
-                // 4. Groupes disponibles pour les admins
                 let availableGroups = [];
                 if (currentUserAdminInfo.isAdmin) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
@@ -590,7 +585,6 @@
                     Statistiques de terrain, performances des joueurs et convois associés.
                 </p>`;
 
-            // --- VUE GLOBALE (TOUS LES GROUPES) ---
             if (currentGroupId === -1) {
                 if (dailyLogs.length > 0) {
                     const latestDate = dailyLogs[0].log_date;
@@ -670,7 +664,6 @@
                     });
                 }
             } 
-            // --- VUE GROUPE UNIQUE ---
             else if (dailyLogs.length > 0) {
                 const todayLog = dailyLogs[0];
                 const diffFormatted = todayLog.terrain_diff >= 0 ? `+${todayLog.terrain_diff.toLocaleString('fr-FR')}` : todayLog.terrain_diff.toLocaleString('fr-FR');
@@ -697,7 +690,6 @@
                 `;
             }
 
-            // --- TABLEAU : PERFORMANCE INDIVIDUELLE DES JOUEURS ---
             if (currentGroupId !== -1 && playerPerfs.length > 0) {
                 html += `
                     <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">
@@ -731,7 +723,6 @@
                 html += `</tbody></table></div>`;
             }
 
-            // --- TABLEAU DES CONVOIS ---
             html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📦 Convois ${currentGroupId === -1 ? 'de toute l\'Alliance' : 'du Groupe'}</div>`;
             if (convoys.length === 0) {
                 html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré.</p>`;
