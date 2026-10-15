@@ -770,7 +770,6 @@
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
 
             // NOUVEAU CALCUL : On se base en priorité sur le Bilan Individuel
-            // Cela garantit une précision absolue et une correspondance parfaite avec le tableau
             if (currentGroupId !== -1 && playerPerfs && playerPerfs.length > 0) {
                 playerPerfs.forEach(p => {
                     sumStart += p.start_terrain;
@@ -779,18 +778,12 @@
                     sumRes += p.resources_generated;
                 });
             } else if (dailyLogs && dailyLogs.length > 0) {
-                // Solution de secours pour la vue Globale "Alliance entière"
-                // On additionne les gains de ressources et les variations
                 dailyLogs.forEach(l => {
                     sumDiff += l.terrain_diff;
                     sumRes += l.resources_generated;
                 });
-                
-                // Pour éviter d'additionner les territoires de chaque jour, 
-                // on prend la valeur du jour le plus ancien et du jour le plus récent
                 const startValues = dailyLogs.map(l => l.start_terrain);
                 const endValues = dailyLogs.map(l => l.end_terrain);
-                
                 sumStart = Math.min(...startValues.filter(v => v > 0)); 
                 sumEnd = Math.max(...endValues);
             }
@@ -800,8 +793,8 @@
 
             html += `
                 <div class="stats-summary">
-                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Initial</div></div>
-                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Actuel</div></div>
+                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Initial</div></div>
+                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Actuel</div></div>
                     <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
                     <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
                 </div>
@@ -814,8 +807,8 @@
                         <thead>
                             <tr>
                                 <th>Joueur</th>
-                                <th>Territoire Initial</th>
-                                <th>Territoire Actuel</th>
+                                <th>Terrain Initial</th>
+                                <th>Terrain Actuel</th>
                                 <th>Progression</th>
                                 <th>Ressources Générées</th>
                             </tr>
@@ -864,7 +857,7 @@
                         ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
                         <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td>
                         <td>${badge}</td>
                     </tr>`;
                 });
@@ -1119,7 +1112,7 @@
                     <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
                         <i class="fa-solid fa-box-open"></i>
                     </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel à expédier</h3>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources à expédier</h3>
                 </div>`;
             html += renderTable(toSend, true);
 
@@ -1128,7 +1121,7 @@
                     <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
                         <i class="fa-solid fa-box"></i>
                     </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel en approche</h3>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources en approche</h3>
                 </div>`;
             html += renderTable(toReceive, false);
 
@@ -1177,7 +1170,7 @@
                 html += `<tr class="${isFailed ? 'row-failed' : ''}">
                     <td>${formatDateFR(c.balance_date)}</td>
                     <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Matériaux</td>
+                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources</td>
                     <td>${statusBadge}</td>
                     ${isSender ? `<td>${actionBtns}</td>` : ''}
                 </tr>`;
@@ -1247,7 +1240,7 @@
                     <td>${formatDateFR(c.balance_date)}</td>
                     <td>${typeText}</td>
                     <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                    <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td>
                     <td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td>
                 </tr>`;
             });
