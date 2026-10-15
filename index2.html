@@ -927,11 +927,14 @@
                 computeDateRange();
         
                 const bodyParams = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
-                if (selectedGroupId !== null && !isNaN(selectedGroupId)) bodyParams.p_target_group_id = selectedGroupId;
+                // On n'envoie le paramètre de groupe que si ce n'est pas la vue globale (-1)
+                if (selectedGroupId !== null && !isNaN(selectedGroupId) && selectedGroupId !== -1) {
+                    bodyParams.p_target_group_id = selectedGroupId;
+                }
         
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId === -1 ? null : selectedGroupId })
                 });
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
@@ -942,14 +945,13 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
+                // NOUVEAU : On récupère toujours les perfs des joueurs, même en vue globale (-1)
                 let playerPerfsData = [];
-                if (selectedGroupId !== -1) {
-                    const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
-                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(bodyParams)
-                    });
-                    if (resPerfs.ok) playerPerfsData = await resPerfs.json();
-                }
+                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyParams)
+                });
+                if (resPerfs.ok) playerPerfsData = await resPerfs.json();
         
                 let availableGroups = [];
                 if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
@@ -961,7 +963,7 @@
         
                 const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
                 renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
-            } catch (e) {}
+            } catch (e) { console.error(e); }
         }
 
         function computeDateRange() {
