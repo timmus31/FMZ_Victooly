@@ -3,395 +3,417 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V — Gestion des Convois</title>
+    <title>Alliance V — Réseau Spatial</title>
+    
+    <!-- Scripts & Config -->
     <script src="config.js"></script>
-    <style>
-        :root {
-            --primary: #2c3e50;
-            --primary-hover: #1a252f;
-            --accent: #e67e22;
-            --success: #27ae60;
-            --danger: #e74c3c;
-            --group-color: #2980b9;
-            --admin-color: #8e44ad;
-            --bg: #f4f6f9;
-            --card-bg: #ffffff;
-            --text: #333333;
-            --text-muted: #7f8c8d;
-            --border: #e2e8f0;
-        }
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Shrikhand&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- Configuration Tailwind Rétro -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'retro-mint': '#3aafa9',
+                        'retro-mint-dark': '#2b8a85',
+                        'retro-coral': '#ff6f61',
+                        'retro-yellow': '#f4d03f',
+                        'retro-cream': '#f9f7f1',
+                        'retro-slate': '#1d2d44',
+                        'retro-avocado': '#8ba888',
+                    },
+                    fontFamily: {
+                        'shrikhand': ['Shrikhand', 'cursive'],
+                        'fredoka': ['Fredoka', 'sans-serif'],
+                        'outfit': ['Outfit', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'retro': '6px 6px 0px 0px #1d2d44',
+                        'retro-lg': '10px 10px 0px 0px #1d2d44',
+                        'retro-sm': '3px 3px 0px 0px #1d2d44',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Fond Grains et motif Googie */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px 10px;
+            background-color: #f9f7f1;
+            background-image: radial-gradient(#1d2d44 0.75px, transparent 0.75px), radial-gradient(#1d2d44 0.75px, #f9f7f1 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+            color: #1d2d44;
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
 
-        .main-container {
-            width: 100%;
-            max-width: 880px;
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            box-sizing: border-box;
-        }
-
-        .header-title { font-size: 1.5rem; color: var(--primary); margin: 0 0 20px 0; text-align: center; }
-
+        /* Classes rétro injectées dans le HTML JS */
         .token-box {
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background-color: #f9f7f1;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 10px 10px 0px 0px #1d2d44;
+            max-width: 42rem;
+            margin: 2rem auto;
+            position: relative;
+            overflow: hidden;
         }
 
-        .token-step { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--primary); }
+        .token-step {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1d2d44;
+            margin-bottom: 0.5rem;
+        }
 
-        .token-btn {
+        .token-btn, .btn-primary {
             display: inline-block;
-            background: var(--accent);
-            color: #fff;
-            text-decoration: none;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 0.85rem;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0 15px 0;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-        }
-
-        button.btn-primary {
-            width: 100%;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-weight: bold;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #1d2d44;
+            background-color: #f4d03f;
+            border: 3px solid #1d2d44;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            transition: all 0.15s ease;
+            text-align: center;
             cursor: pointer;
-            font-size: 0.95rem;
+            text-decoration: none;
         }
+        .btn-primary { width: 100%; margin-top: 10px; }
+        .token-btn:hover, .btn-primary:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0px 0px #1d2d44; }
+        .token-btn:active, .btn-primary:active { transform: translate(4px, 4px); box-shadow: none; }
+
+        input[type="text"], input[type="date"], input[type="week"], input[type="number"], select {
+            width: 100%;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: #1d2d44;
+            box-shadow: inset 3px 3px 0px rgba(29, 45, 68, 0.05);
+            outline: none;
+        }
+        input:focus, select:focus { border-color: #ff6f61; }
+        select { padding: 0.5rem 1rem; margin-bottom: 0; width: auto; cursor: pointer; }
 
         .nav-tabs {
             display: flex;
-            gap: 8px;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-            align-items: center;
             flex-wrap: wrap;
+            gap: 12px;
+            background-color: #f9f7f1;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            margin-bottom: 2rem;
+            align-items: center;
         }
 
         .tab-btn {
-            padding: 8px 14px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            background: #edf2f7;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-
-        .tab-btn.active { background: var(--primary); color: white; }
-        .tab-btn.group-active { background: var(--group-color); color: white; }
-        .tab-btn.map-active { background: #27ae60; color: white; }
-        .tab-btn.admin-active { background: var(--admin-color); color: white; }
-
-        .btn-logout {
-            margin-left: auto;
-            background: #e2e8f0;
-            color: #4a5568;
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .table-container { overflow-x: auto; margin-bottom: 20px; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-            background: white;
-        }
-
-        th {
-            background: #f8fafc;
-            color: var(--text-muted);
-            font-weight: 600;
-            text-align: left;
-            padding: 10px;
-            border-bottom: 2px solid var(--border);
-        }
-
-        td {
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-
-        .badge {
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            color: white;
-            display: inline-block;
-        }
-        .badge-pending { background: var(--accent); }
-        .badge-failed { background: var(--danger); }
-        .badge-success { background: var(--success); }
-        .badge-superadmin { background: var(--danger); }
-        .badge-admin { background: var(--admin-color); }
-        .badge-chef { background: #d35400; }
-        .badge-member { background: #95a5a6; }
-
-        .btn-action {
-            display: inline-block;
-            padding: 6px 10px;
-            color: white;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.75rem;
-        }
-
-        .btn-manual-ok {
-            background: var(--success);
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            cursor: pointer;
-            margin-left: 5px;
-        }
-
-        .role-select, .group-select {
-            padding: 5px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.85rem;
-            font-weight: 600;
-            background: #fff;
-            color: var(--text);
-            cursor: pointer;
-        }
-        .group-select { border-color: var(--group-color); color: var(--group-color); }
-
-        .stats-summary {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .stat-card {
-            flex: 1;
-            min-width: 130px;
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            text-align: center;
-        }
-        .stat-card .val { font-size: 1rem; font-weight: bold; color: var(--group-color); }
-        .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
-
-        /* Filtres de Période Onglet Groupe */
-        .date-filter-box {
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 15px;
-            margin-bottom: 15px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-            font-size: 0.85rem;
-        }
-        .date-filter-box select, .date-filter-box input[type="date"], .date-filter-box input[type="week"] {
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.82rem;
-            background: white;
-        }
-        .date-filter-box button {
-            background: var(--group-color);
-            color: white;
-            border: none;
-            padding: 7px 14px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        /* Carte 2D */
-        .map-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-        }
-        .map-controls {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            max-width: 700px;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .map-search {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.85rem;
-            width: 220px;
-            margin: 0;
-        }
-        .map-filters {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .map-filter-btn {
-            padding: 5px 10px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            background: #f8fafc;
-            font-size: 0.78rem;
-            font-weight: bold;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #1d2d44;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.75rem;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
             cursor: pointer;
             transition: all 0.15s ease;
         }
-        .map-filter-btn.active {
-            background: var(--group-color);
-            color: white;
-            border-color: var(--group-color);
+        .tab-btn:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+        .tab-btn.active { background-color: #ff6f61; color: white; }
+        .tab-btn.group-active { background-color: #3aafa9; color: white; }
+        .tab-btn.map-active { background-color: #8ba888; color: white; }
+        .tab-btn.admin-active { background-color: #f4d03f; color: #1d2d44; }
+
+        .btn-logout {
+            margin-left: auto;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #f9f7f1;
+            background-color: #1d2d44;
+            border: 2px solid #1d2d44;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
+            transition: all 0.15s;
         }
-        .canvas-container {
-            position: relative;
-            width: 100%;
-            max-width: 700px;
-            overflow: hidden;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        .btn-logout:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+
+        /* Conteneurs et Tableaux générés par JS */
+        .table-container {
+            background-color: #ffffff;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            overflow-x: auto;
+            margin-bottom: 2rem;
         }
-        canvas#alliance-map {
-            background: #0b1329;
-            cursor: grab;
-            display: block;
-            width: 100%;
-            height: auto;
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { 
+            background-color: #1d2d44; 
+            color: #f9f7f1; 
+            font-family: 'Fredoka', sans-serif; 
+            padding: 1rem 1.25rem; 
+            white-space: nowrap; 
         }
-        canvas#alliance-map:active {
-            cursor: grabbing;
+        td { 
+            padding: 0.75rem 1.25rem; 
+            border-bottom: 2px solid rgba(29, 45, 68, 0.1); 
+            font-weight: 500; 
         }
-        .map-tools-overlay {
-            position: absolute;
-            bottom: 12px;
-            right: 12px;
+        tr:last-child td { border-bottom: none; }
+        tr.row-failed { background-color: rgba(255, 111, 97, 0.05); }
+
+        .badge {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            border: 2px solid #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            font-size: 0.75rem;
+            display: inline-block;
+            color: #1d2d44;
+        }
+        .badge-pending { background-color: #f4d03f; }
+        .badge-success { background-color: #3aafa9; color: white; }
+        .badge-failed { background-color: #ff6f61; color: white; }
+        .badge-superadmin { background-color: #ff6f61; color: white; }
+        .badge-admin { background-color: #f4d03f; }
+        .badge-chef { background-color: #3aafa9; color: white; }
+        .badge-member { background-color: #e2e8f0; }
+
+        .btn-action, .btn-manual-ok {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.75rem;
+            border: 2px solid #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            color: #1d2d44;
+            display: inline-block;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .btn-manual-ok { background-color: #3aafa9; color: white; margin-left: 0.5rem; }
+        .btn-action:hover, .btn-manual-ok:hover { transform: translate(1px, 1px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+
+        /* Cartes de Stats de l'onglet Groupe */
+        .stats-summary { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+        .stat-card {
+            flex: 1;
+            min-width: 140px;
+            background-color: #f9f7f1;
+            border: 3px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 1.25rem;
+            text-align: center;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-card .val { font-family: 'Shrikhand', cursive; font-size: 1.75rem; color: #1d2d44; line-height: 1; margin-bottom: 0.25rem; }
+        .stat-card .lbl { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 0.8rem; color: #4a5d73; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Sélecteurs de date et filtres */
+        .date-filter-box {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
-            z-index: 5;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            border-radius: 1.25rem;
+            padding: 1rem 1.5rem;
+            box-shadow: 4px 4px 0px 0px #1d2d44;
+            margin-bottom: 1rem;
+        }
+        .date-filter-box button {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            background-color: #1d2d44;
+            color: #f9f7f1;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            border: 2px solid #1d2d44;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .date-filter-box button:hover { background-color: #ff6f61; }
+
+        /* Carte spatiale 2D */
+        .tv-screen {
+            border: 4px solid #1d2d44;
+            border-radius: 40px / 30px;
+            overflow: hidden;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            position: relative;
+            background-color: #0b1329;
+        }
+        .map-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; max-width: 700px; margin-bottom: 1rem; }
+        .map-filter-btn {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.35rem 1rem;
+            border-radius: 9999px;
+            border: 2px solid #1d2d44;
+            background-color: #ffffff;
+            color: #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s ease;
+        }
+        .map-filter-btn.active {
+            background-color: #1d2d44;
+            color: #f9f7f1;
+            box-shadow: none;
+            transform: translate(2px, 2px);
         }
         .map-tool-btn {
-            width: 32px;
-            height: 32px;
-            background: rgba(15, 23, 42, 0.85);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            cursor: pointer;
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #f9f7f1;
+            border: 2px solid #1d2d44;
+            border-radius: 0.75rem;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            color: #1d2d44;
+            font-family: 'Shrikhand', cursive;
+            font-size: 1.25rem;
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s ease;
         }
-        .map-tool-btn:hover { background: rgba(30, 41, 59, 0.95); }
-        .map-tooltip {
-            position: absolute;
-            background: rgba(15, 23, 42, 0.95);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            pointer-events: none;
-            display: none;
-            z-index: 10;
-            border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-        .map-legend {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
+        .map-tool-btn:hover { background-color: #f4d03f; }
+
+        /* Animation Starburst pour le design */
+        .spin-starburst { animation: spin-slow 25s linear infinite; }
+        @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+
+        /* Notification Toast Rétro */
+        #retro-toast { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     </style>
 </head>
 <body>
 
-    <div class="main-container">
-        <h1 class="header-title">📦 Convois Alliance V</h1>
-
-        <!-- Écran de connexion -->
-        <div id="auth-section" class="token-box">
-            <div class="token-step">1. Récupération du Token Fourmizzz</div>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
-                Générez un jeton éphémère depuis votre compte de jeu :
-            </p>
-            <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn">🔑 Obtenir mon Token</a>
-            
-            <br><br>
-            <div class="token-step">2. Validation de session (12h)</div>
-            <input type="text" 
-                   id="token-input" 
-                   placeholder="Coller le token ou le JSON complet ici (ex: 6ace5bb10f2a6)" 
-                   onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
-            <button class="btn-primary" onclick="handleAuth()">Connexion au Tableau</button>
-        </div>
-
-        <!-- Dashboard -->
-        <div id="dashboard-section" style="display:none;">
-            <div class="nav-tabs">
-                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">En cours</button>
-                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">📜 Historique</button>
-                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">👥 Groupe</button>
-                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')">🗺️ Carte</button>
-                <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Admin</button>
-                <button class="btn-logout" onclick="logout()">Changer de session</button>
-            </div>
-
-            <div id="content-area">Chargement des données...</div>
+    <!-- Toast Notification Overlay -->
+    <div id="retro-toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 bg-retro-yellow border-4 border-retro-slate p-4 rounded-2xl shadow-retro flex items-center gap-3 max-w-sm">
+        <div class="text-3xl text-retro-slate"><i class="fa-solid fa-satellite-dish fa-spin-pulse"></i></div>
+        <div>
+            <h4 class="font-shrikhand text-lg text-retro-slate leading-tight" id="toast-title">Avis Spatiale!</h4>
+            <p class="font-fredoka text-sm text-retro-slate/90" id="toast-msg">Opération exécutée avec succès.</p>
         </div>
     </div>
+
+    <!-- Header / Navbar Rétro-Futuriste -->
+    <header class="sticky top-0 z-40 bg-retro-cream/90 backdrop-blur-md border-b-4 border-retro-slate px-4 lg:px-8 py-3 w-full">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3 group cursor-default">
+                <div class="relative w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center shadow-retro-sm group-hover:rotate-12 transition-transform">
+                    <i class="fa-solid fa-rocket text-retro-cream text-xl"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-shrikhand text-2xl tracking-wide text-retro-slate leading-none">ALLIANCE V</span>
+                    <span class="font-fredoka text-xs text-retro-coral font-bold tracking-widest uppercase">Bureau Central Spatial</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteneur principal -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- Écran de connexion (Login) -->
+        <div id="auth-section" class="token-box">
+            <!-- Déco Starburst -->
+            <svg class="absolute top-4 right-8 w-24 h-24 text-retro-coral opacity-20 spin-starburst pointer-events-none" viewBox="0 0 100 100">
+                <path fill="currentColor" d="M50,0 L58,35 L95,15 L68,42 L100,50 L68,58 L95,85 L58,65 L50,100 L42,65 L5,85 L32,58 L0,50 L32,42 L5,15 L42,35 Z"/>
+            </svg>
+
+            <h2 class="font-shrikhand text-3xl text-retro-slate mb-6 relative z-10">Identification Requise</h2>
+            
+            <div class="relative z-10 space-y-6">
+                <div>
+                    <div class="token-step">1. Récupération du Disque de Chiffrement</div>
+                    <p class="text-sm text-retro-slate/80 font-medium mb-3">
+                        Générez votre jeton d'accès atomique (Token Fourmizzz) :
+                    </p>
+                    <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn text-sm">
+                        <i class="fa-solid fa-key mr-2"></i> Obtenir mon Token
+                    </a>
+                </div>
+                
+                <div>
+                    <div class="token-step">2. Validation Temporelle (Session continue)</div>
+                    <input type="text" 
+                           id="token-input" 
+                           placeholder="Insérez le code du continuum spatial ici..." 
+                           onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
+                    <button class="btn-primary flex items-center justify-center gap-2" onclick="handleAuth()">
+                        <i class="fa-solid fa-satellite-dish"></i> Connexion au Radar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau de Bord (Dashboard) -->
+        <div id="dashboard-section" style="display:none;">
+            <!-- Onglets -->
+            <div class="nav-tabs">
+                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">
+                    <i class="fa-solid fa-bolt text-retro-yellow mr-1 drop-shadow-md"></i> En cours
+                </button>
+                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">
+                    <i class="fa-solid fa-scroll mr-1"></i> Historique
+                </button>
+                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">
+                    <i class="fa-solid fa-users-viewfinder mr-1"></i> Escouade
+                </button>
+                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')">
+                    <i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D
+                </button>
+                <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')">
+                    <i class="fa-solid fa-gears mr-1"></i> Admin
+                </button>
+                <button class="btn-logout flex items-center gap-2" onclick="logout()">
+                    <i class="fa-solid fa-power-off text-retro-coral"></i> Quitter
+                </button>
+            </div>
+
+            <!-- Zone de contenu injectée via JS -->
+            <div id="content-area">
+                <p class="text-center font-shrikhand text-retro-slate text-xl animate-pulse">Chargement de la matrice...</p>
+            </div>
+        </div>
+
+    </main>
 
     <script>
         let activeTab = 'active';
@@ -399,7 +421,7 @@
         let selectedGroupId = null;
 
         // Variables Filtre de Période
-        let groupFilterMode = '7days'; // 'day', '7days', 'week', 'custom'
+        let groupFilterMode = '7days'; 
         let groupStartDate = null;
         let groupEndDate = null;
 
@@ -414,9 +436,11 @@
         let dragStartX = 0;
         let dragStartY = 0;
 
+        // Palette rétro pour la carte
         const GROUP_COLORS = [
-            '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
-            '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
+            '#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', 
+            '#e74c3c', '#9b59b6', '#3498db', '#f39c12',
+            '#1abc9c', '#d35400'
         ];
 
         function formatDateFR(dateStr) {
@@ -425,6 +449,21 @@
             const parts = cleanDate.split('-');
             if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
             return dateStr;
+        }
+
+        // --- Système de Toast (Rétro Futuriste) ---
+        function showToast(title, message) {
+            const toast = document.getElementById('retro-toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-msg').innerText = message;
+
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 3500);
         }
 
         window.onload = () => {
@@ -459,7 +498,10 @@
             const cleanedToken = cleanTokenInput(rawInput);
             document.getElementById('token-input').value = cleanedToken;
         
-            if (!cleanedToken) return alert("Veuillez saisir un token Fourmizzz valide.");
+            if (!cleanedToken) {
+                showToast("Erreur", "Veuillez saisir un token valide.");
+                return;
+            }
         
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_with_fourmizzz_token`, {
@@ -473,10 +515,11 @@
         
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
-        
+                
+                showToast("Accès Autorisé", "Connexion à la base orbitale réussie.");
                 checkSessionAndLoad();
             } catch (err) {
-                alert("❌ Connexion échouée : " + err.message);
+                showToast("Échec", "Connexion échouée : " + err.message);
             }
         }
 
@@ -508,7 +551,6 @@
                         isSuperAdmin: userRole === 'superadmin' 
                     };
         
-                    // Affichage de l'onglet Admin pour SuperAdmin, Admin ET Chef de rang
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
                     document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
         
@@ -538,7 +580,7 @@
             if (!sessionToken) return logout();
 
             const contentDiv = document.getElementById('content-area');
-            contentDiv.innerHTML = "<p style='text-align:center; color: var(--text-muted);'>Chargement en cours...</p>";
+            contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-atom fa-spin text-4xl text-retro-coral"></i></div>`;
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
@@ -584,7 +626,6 @@
                     bodyParams.p_target_group_id = selectedGroupId;
                 }
         
-                // 1. Convois du groupe
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
@@ -593,19 +634,14 @@
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
         
-                // 2. Logs du groupe (Filtres de dates)
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(bodyParams)
                 });
                 
-                if (!resLogs.ok) {
-                    console.error("Erreur RPC get_group_daily_logs:", await resLogs.text());
-                }
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                // 3. Performances individuelles
                 let playerPerfsData = [];
                 if (selectedGroupId !== -1) {
                     const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
@@ -616,7 +652,6 @@
                     if (resPerfs.ok) playerPerfsData = await resPerfs.json();
                 }
         
-                // 4. Groupes disponibles (Uniquement pour Admins et SuperAdmins)
                 let availableGroups = [];
                 if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
@@ -686,10 +721,10 @@
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
 
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
+            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Escouade #${currentGroupId}`;
             if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
-                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
+                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Toutes les escouades (Global)</option>`;
+                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Escouade #${g.group_id}</option>`).join('');
                 groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
             }
 
@@ -701,18 +736,23 @@
                 dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
             } else if (groupFilterMode === 'custom') {
                 dateInputsHtml = `
-                    De <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
-                    à <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">
+                    <span class="font-fredoka text-retro-slate font-bold">De</span> 
+                    <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
+                    <span class="font-fredoka text-retro-slate font-bold">à</span> 
+                    <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">
                 `;
             }
 
             let html = `
-                <div style="font-weight:bold; color: var(--group-color); margin: 15px 0 5px 0; font-size: 1.1rem; display:flex; align-items:center; gap:10px;">
-                    👥 Suivi : ${groupSelectorHtml}
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-users-viewfinder"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport Stratégique : ${groupSelectorHtml}</h3>
                 </div>
 
                 <div class="date-filter-box">
-                    <strong>📅 Période :</strong>
+                    <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
                     <select id="filter-mode-select" onchange="groupFilterMode = this.value; loadGroupConvoys();">
                         <option value="7days" ${groupFilterMode === '7days' ? 'selected' : ''}>7 jours glissants</option>
                         <option value="day" ${groupFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
@@ -720,10 +760,10 @@
                         <option value="custom" ${groupFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
                     </select>
                     ${dateInputsHtml}
-                    ${groupFilterMode === 'custom' ? `<button onclick="loadGroupConvoys()">Appliquer</button>` : ''}
+                    ${groupFilterMode === 'custom' ? `<button onclick="loadGroupConvoys()"><i class="fa-solid fa-check"></i> Activer</button>` : ''}
                 </div>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Données du <strong>${formatDateFR(groupStartDate)}</strong> au <strong>${formatDateFR(groupEndDate)}</strong>.
+                <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">
+                    Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.
                 </p>
             `;
 
@@ -735,74 +775,75 @@
                 sumRes += l.resources_generated;
             });
             const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
+            const diffColor = sumDiff >= 0 ? '#3aafa9' : '#ff6f61';
 
             html += `
                 <div class="stats-summary">
-                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Départ</div></div>
-                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')} cm²</div><div class="lbl">Terrain Actuel</div></div>
-                    <div class="stat-card"><div class="val" style="color:${sumDiff >= 0 ? 'var(--success)' : 'var(--danger)'}">${diffFormatted} cm²</div><div class="lbl">Évolution Totale</div></div>
-                    <div class="stat-card"><div class="val" style="color:var(--accent);">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
+                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Initial</div></div>
+                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Actuel</div></div>
+                    <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
+                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Énergie Générée</div></div>
                 </div>
             `;
 
             if (currentGroupId !== -1 && playerPerfs.length > 0) {
                 html += `
-                    <div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem; color:var(--primary);">👤 Performance des Joueurs</div>
+                    <h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
                     <div class="table-container"><table>
                         <thead>
                             <tr>
-                                <th>Joueur</th>
-                                <th>Terrain Départ</th>
-                                <th>Terrain Actuel</th>
-                                <th>Évolution</th>
-                                <th>Ressources Générées</th>
+                                <th>Pilote</th>
+                                <th>Territoire Initial</th>
+                                <th>Territoire Actuel</th>
+                                <th>Progression</th>
+                                <th>Énergie Générée</th>
                             </tr>
                         </thead>
                         <tbody>`;
 
                 playerPerfs.forEach(p => {
                     const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
-                    const pDiffColor = p.terrain_diff >= 0 ? 'var(--success)' : 'var(--danger)';
+                    const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
 
                     html += `<tr>
                         <td><strong>${escapeHtml(p.pseudo)}</strong></td>
                         <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
                         <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
-                        <td><strong style="color:${pDiffColor}">${pDiffText} cm²</strong></td>
-                        <td><strong style="color:var(--accent);">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
+                        <td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
                     </tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
 
-            html += `<div style="font-weight:bold; margin: 25px 0 10px 0; font-size:0.95rem;">📦 Convois ${currentGroupId === -1 ? 'de toute l\'Alliance' : 'du Groupe'}</div>`;
+            html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">📦 Livraisons de l'Escouade</h3>`;
             if (convoys.length === 0) {
-                html += `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi enregistré sur cette période.</p>`;
+                html += `<p class="font-fredoka text-retro-slate/60 italic">Le radar spatial n'indique aucune livraison sur cette période.</p>`;
             } else {
                 html += `<div class="table-container"><table>
                     <thead>
                         <tr>
-                            <th>Date</th>
+                            <th>Date Stellaire</th>
                             ${currentGroupId === -1 ? '<th>Grp</th>' : ''}
                             <th>Expéditeur</th>
                             <th>Destinataire</th>
-                            <th>Montant</th>
+                            <th>Matière</th>
                             <th>Statut</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
                 convoys.forEach(c => {
-                    let badge = '<span class="badge badge-pending">En attente</span>';
-                    if (c.status === 'completed') badge = '<span class="badge badge-success">✅ Complété</span>';
-                    else if (c.status === 'failed') badge = '<span class="badge badge-failed">⚠️ Échoué</span>';
+                    let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> Transit</span>';
+                    if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Sécurisé</span>';
+                    else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Perdu</span>';
 
                     html += `<tr>
                         <td>${formatDateFR(c.balance_date)}</td>
                         ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
                         <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} unités</td>
                         <td>${badge}</td>
                     </tr>`;
                 });
@@ -840,31 +881,46 @@
         function renderMapUI(groups) {
             const contentDiv = document.getElementById('content-area');
 
-            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Tous</button>`;
+            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Galaxie Entière</button>`;
             groups.forEach(g => {
                 const color = g === 0 ? '#94a3b8' : GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
                 const activeClass = mapSelectedGroup === g ? 'active' : '';
-                const label = g === 0 ? 'Non assigné' : `Groupe #${g}`;
+                const label = g === 0 ? 'Exilés' : `Escouade #${g}`;
                 filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">${label}</button>`;
             });
 
             contentDiv.innerHTML = `
-                <div class="map-wrapper">
-                    <div style="font-weight:bold; color: var(--primary); font-size: 1.1rem;">🗺️ Carte 2D de l'Alliance</div>
-                    <div class="map-controls">
-                        <input type="text" class="map-search" placeholder="🔍 Chercher un joueur..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
-                        <div class="map-filters">${filterButtons}</div>
-                    </div>
-                    <div class="canvas-container">
-                        <canvas id="alliance-map" width="700" height="600"></canvas>
-                        <div class="map-tools-overlay">
-                            <button class="map-tool-btn" onclick="zoomMap(1.25)">+</button>
-                            <button class="map-tool-btn" onclick="zoomMap(0.8)">-</button>
-                            <button class="map-tool-btn" onclick="resetMapTransform()" title="Réinitialiser la vue">⟲</button>
+                <div class="flex flex-col items-center w-full">
+                    <div class="flex items-center gap-3 mb-6 w-full max-w-3xl">
+                        <div class="w-12 h-12 bg-retro-avocado border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                            <i class="fa-solid fa-radar"></i>
                         </div>
-                        <div id="map-tooltip" class="map-tooltip"></div>
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Radar Spatial Actif</h3>
                     </div>
-                    <div class="map-legend">💡 Utilisez la molette pour zoomer et le clic-glisser pour déplacer la carte.</div>
+
+                    <div class="map-controls">
+                        <input type="text" class="map-search" placeholder="🔍 Localiser un vaisseau..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
+                        <div class="flex gap-2 flex-wrap justify-end">${filterButtons}</div>
+                    </div>
+                    
+                    <div class="w-full max-w-3xl relative tv-screen">
+                        <!-- Effet reflet TV -->
+                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/5 to-transparent z-10"></div>
+                        
+                        <canvas id="alliance-map" width="700" height="600" class="w-full h-auto cursor-grab active:cursor-grabbing"></canvas>
+                        
+                        <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
+                            <button class="map-tool-btn" onclick="zoomMap(1.25)" title="Zoom Avant"><i class="fa-solid fa-magnifying-glass-plus text-base"></i></button>
+                            <button class="map-tool-btn" onclick="zoomMap(0.8)" title="Zoom Arrière"><i class="fa-solid fa-magnifying-glass-minus text-base"></i></button>
+                            <button class="map-tool-btn" onclick="resetMapTransform()" title="Recalibrer"><i class="fa-solid fa-compress text-base"></i></button>
+                        </div>
+                        
+                        <div id="map-tooltip" class="absolute bg-retro-slate/90 backdrop-blur text-retro-cream p-3 rounded-xl border-2 border-retro-cream text-xs hidden z-30 shadow-retro pointer-events-none font-outfit"></div>
+                    </div>
+                    
+                    <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider">
+                        <i class="fa-solid fa-lightbulb text-retro-yellow"></i> Maniez la molette pour zoomer et glissez la carte pour explorer.
+                    </div>
                 </div>
             `;
 
@@ -934,11 +990,16 @@
                     });
 
                     if (found && tooltip) {
-                        const groupLabel = found.group_id === 0 ? 'Non assigné' : `#${found.group_id}`;
+                        const groupLabel = found.group_id === 0 ? 'Exilé' : `#${found.group_id}`;
                         tooltip.style.display = 'block';
                         tooltip.style.left = `${mouseX + 15}px`;
                         tooltip.style.top = `${mouseY - 10}px`;
-                        tooltip.innerHTML = `<strong>${escapeHtml(found.pseudo)}</strong><br>Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})`;
+                        tooltip.innerHTML = `
+                            <div class="border-b border-retro-cream/30 pb-1 mb-1">
+                                <strong class="font-fredoka text-sm text-retro-yellow">${escapeHtml(found.pseudo)}</strong>
+                            </div>
+                            Escouade ${groupLabel}<br>Coords : (${found.x}, ${found.y})
+                        `;
                     } else if (tooltip) {
                         tooltip.style.display = 'none';
                     }
@@ -973,9 +1034,10 @@
             ctx.scale(zoomLevel, zoomLevel);
             ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
-            ctx.strokeStyle = '#1e293b';
+            // Grille "Radar"
+            ctx.strokeStyle = 'rgba(58, 175, 169, 0.15)'; // Vert fluo discret
             ctx.lineWidth = 1 / zoomLevel;
-            for (let i = 0; i <= canvas.width; i += 40) {
+            for (let i = -canvas.width; i <= canvas.width * 2; i += 50) {
                 ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke();
             }
@@ -999,8 +1061,14 @@
 
                 ctx.beginPath();
                 ctx.arc(normX, normY, isHighlight ? 7 : 3, 0, Math.PI * 2);
-                ctx.fillStyle = isHighlight ? color : 'rgba(148, 163, 184, 0.15)';
+                ctx.fillStyle = isHighlight ? color : 'rgba(249, 247, 241, 0.1)';
+                
+                if (isHighlight) {
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 10 / zoomLevel;
+                }
                 ctx.fill();
+                ctx.shadowBlur = 0; // reset
 
                 if (isHighlight) {
                     ctx.strokeStyle = '#ffffff';
@@ -1008,9 +1076,9 @@
                     ctx.stroke();
 
                     if (showLabels) {
-                        ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#fbbf24' : '#f8fafc';
-                        ctx.font = `${Math.max(9, 11 / zoomLevel)}px sans-serif`;
-                        ctx.fillText(p.pseudo, normX + 9, normY + 3);
+                        ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#f4d03f' : '#f9f7f1';
+                        ctx.font = `bold ${Math.max(9, 11 / zoomLevel)}px 'Fredoka'`;
+                        ctx.fillText(p.pseudo, normX + 12, normY + 4);
                     }
                 }
             });
@@ -1025,26 +1093,38 @@
             const toSend = convoys.filter(c => c.is_sender);
             const toReceive = convoys.filter(c => !c.is_sender);
 
-            let html = `<div style="font-weight:bold; color: var(--accent); margin: 15px 0 10px 0;">📤 Convois à envoyer</div>`;
+            let html = `
+                <div class="flex items-center gap-3 mb-6 mt-4">
+                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-rocket"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel à expédier</h3>
+                </div>`;
             html += renderTable(toSend, true);
 
-            html += `<div style="font-weight:bold; color: var(--success); margin: 25px 0 10px 0;">📥 Convois à recevoir</div>`;
+            html += `
+                <div class="flex items-center gap-3 mb-6 mt-12">
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel en approche</h3>
+                </div>`;
             html += renderTable(toReceive, false);
 
             contentDiv.innerHTML = html;
         }
 
         function renderTable(list, isSender) {
-            if (list.length === 0) return `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi dans cette catégorie.</p>`;
+            if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune cargaison orbitale en vue.</p>`;
 
             let html = `<div class="table-container"><table>
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Joueur</th>
-                        <th>Montant</th>
-                        <th>Statut</th>
-                        ${isSender ? '<th>Action</th>' : ''}
+                        <th>Date Stellaire</th>
+                        <th>Vaisseau Cible</th>
+                        <th>Quantité</th>
+                        <th>État</th>
+                        ${isSender ? '<th>Commande</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1055,28 +1135,28 @@
                 const isFailed = c.status === 'failed';
 
                 const statusBadge = isFailed 
-                    ? `<span class="badge badge-failed">⚠️ Échoué</span>`
-                    : `<span class="badge badge-pending">En attente</span>`;
+                    ? `<span class="badge badge-failed"><i class="fa-solid fa-skull"></i> Échec</span>`
+                    : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> Préparation</span>`;
 
                 let actionBtns = '';
                 if (isSender) {
+                    const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
                     actionBtns += `
                         <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
                            target="_blank" 
-                           class="btn-action" 
-                           style="background:${isFailed ? 'var(--danger)' : 'var(--accent)'};">
-                            ${isFailed ? '🔄 Réessayer' : '🚀 Envoyer'}
+                           class="btn-action ${btnColor}">
+                            ${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}
                         </a>
                         <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})">
-                            ✅ Fait
+                            <i class="fa-solid fa-check"></i> Acté
                         </button>
                     `;
                 }
 
                 html += `<tr class="${isFailed ? 'row-failed' : ''}">
                     <td>${formatDateFR(c.balance_date)}</td>
-                    <td><strong>${escapeHtml(target)}</strong></td>
-                    <td><strong>${Number(c.amount).toLocaleString('fr-FR')}</strong> Matériaux</td>
+                    <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
+                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> unités</td>
                     <td>${statusBadge}</td>
                     ${isSender ? `<td>${actionBtns}</td>` : ''}
                 </tr>`;
@@ -1089,7 +1169,7 @@
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
 
-            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
+            if (!confirm("Confirmer la validation du convoi dans l'hyper-espace ?")) return;
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
@@ -1098,28 +1178,40 @@
                     body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) })
                 });
 
-                if (res.ok) renderTabContent();
-                else alert("❌ Erreur lors de la validation.");
+                if (res.ok) {
+                    showToast("Confirmation Orbitale", "Marchandises livrées avec succès !");
+                    renderTabContent();
+                }
+                else alert("❌ Erreur de transmission.");
             } catch (e) {
-                alert("❌ Erreur réseau.");
+                alert("❌ Erreur réseau intergalactique.");
             }
         }
 
         function renderHistoryConvoys(historyList) {
             const contentDiv = document.getElementById('content-area');
+            
+            let header = `
+                <div class="flex items-center gap-3 mb-6 mt-4">
+                    <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-file-invoice"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives Logistiques</h3>
+                </div>`;
+
             if (historyList.length === 0) {
-                contentDiv.innerHTML = `<p style="color:var(--text-muted); font-style:italic;">Aucun convoi complété récemment.</p>`;
+                contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive spatiale pour le moment.</p>`;
                 return;
             }
 
-            let html = `<div class="table-container"><table>
+            let html = header + `<div class="table-container"><table>
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Partenaire</th>
-                        <th>Montant</th>
-                        <th>Statut</th>
+                        <th>Date Stellaire</th>
+                        <th>Flux</th>
+                        <th>Allié</th>
+                        <th>Matière</th>
+                        <th>État final</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1127,15 +1219,15 @@
             historyList.forEach(c => {
                 const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
                 const typeText = c.is_sender 
-                    ? '<span style="color: var(--accent); font-weight: bold;">📤 Envoyé</span>' 
-                    : '<span style="color: var(--success); font-weight: bold;">📥 Reçu</span>';
+                    ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Export</span>' 
+                    : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Import</span>';
 
                 html += `<tr>
                     <td>${formatDateFR(c.balance_date)}</td>
                     <td>${typeText}</td>
-                    <td><strong>${escapeHtml(target)}</strong></td>
-                    <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
-                    <td><span class="badge badge-success">✅ Complété</span></td>
+                    <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
+                    <td>${Number(c.amount).toLocaleString('fr-FR')} unités</td>
+                    <td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Classé</span></td>
                 </tr>`;
             });
 
@@ -1155,7 +1247,7 @@
 
                 if (!res.ok) {
                     const err = await res.json();
-                    contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ ${escapeHtml(err.message || "Accès refusé.")}</p>`;
+                    contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console des commandes : ${escapeHtml(err.message)}</p>`;
                     return;
                 }
 
@@ -1170,78 +1262,81 @@
 
                 renderAdminTable(data);
             } catch (e) {
-                contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ Erreur réseau.</p>`;
+                contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Interférence réseau avec la base.</p>`;
             }
         }
 
         function renderAdminTable(members) {
             const contentDiv = document.getElementById('content-area');
-            const myRole = currentUserAdminInfo.role; // 'superadmin', 'admin', 'chef_de_rang', 'member'
+            const myRole = currentUserAdminInfo.role; 
             const myGroupId = currentUserAdminInfo.group_id;
 
             const buildGroupOptions = (currentGroup) => {
-                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Exilés (H.S)</option>`;
                 for (let g = 1; g <= 10; g++) {
-                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
+                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Escouade #${g}</option>`;
                 }
                 return opts;
             };
 
             let html = `
-                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Connecté en tant que : <strong>${myRole.toUpperCase()}</strong>
-                </p>
-                <div class="table-container"><table>
+                <div class="flex items-center gap-3 mb-2 mt-4">
+                    <div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-gears"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console de Commandement</h3>
+                        <span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Accréditation : ${myRole}</span>
+                    </div>
+                </div>
+                
+                <div class="table-container mt-6"><table>
                     <thead>
                         <tr>
-                            <th>Joueur</th>
-                            <th style="text-align:center;">Groupe</th>
-                            <th style="text-align:center;">Rôle Groupe</th>
-                            <th style="text-align:center;">Étage</th>
-                            <th style="text-align:center;">Droits Admin</th>
+                            <th>Pilote</th>
+                            <th style="text-align:center;">Affectation</th>
+                            <th style="text-align:center;">Spécialité</th>
+                            <th style="text-align:center;">Niveau</th>
+                            <th style="text-align:center;">Grade</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
             members.forEach(m => {
-                let badge = '<span class="badge badge-member">Membre</span>';
-                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
-                else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
-                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
+                let badge = '<span class="badge badge-member">Pilote</span>';
+                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Amiral</span>';
+                else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Capitaine</span>';
+                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Lieutenant</span>';
 
                 const gRole = m.group_role || 'chasseur';
                 const showFloor = gRole === 'passeur_inter';
 
-                // 1. Permission Groupe : SuperAdmin et Admin modifient TOUT LE MONDE
                 const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
                 const groupCell = canEditGroup ? `
                     <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
                         ${buildGroupOptions(m.group_id)}
-                    </select>` : `<span style="font-size:0.85rem;">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
+                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Exilé' : 'Escouade #' + m.group_id}</span>`;
 
-                // 2. Permission Tactique : SuperAdmin / Admin (TOUS), Chef de rang (SON GROUPE)
                 const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
                                        (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
 
                 const tacticsCell = canEditTactics ? `
                     <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
                         <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
-                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
-                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
-                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
-                    </select>` : `<span style="font-size:0.85rem;">${gRole}</span>`;
+                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur Bas</option>
+                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Relais Spat.</option>
+                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Base Sûre</option>
+                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
 
                 const floorCell = canEditTactics ? `
                     <input type="number" id="floor-input-${m.player_id}" 
                            value="${m.floor_level !== null ? m.floor_level : ''}" 
                            placeholder="Ex: 2" min="1" max="100"
-                           style="width: 55px; text-align:center; display: ${showFloor ? 'inline-block' : 'none'};" 
+                           style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" 
                            onchange="updatePlayerTactics(${m.player_id})" />
-                    <span id="floor-dash-${m.player_id}" style="color:var(--text-muted); display: ${showFloor ? 'none' : 'inline'};">-</span>` 
-                    : `<span style="font-size:0.85rem;">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
+                    <span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` 
+                    : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
 
-                // 3. Permission Droits Admin : SuperAdmin (TOUS), Admin (Sauf SuperAdmin)
                 let adminRoleAction = badge;
                 const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
 
@@ -1251,16 +1346,16 @@
                     } else {
                         adminRoleAction = `
                             <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
-                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
-                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
-                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
+                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Pilote</option>
+                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Lieutenant</option>
+                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Capitaine</option>
                             </select>
                         `;
                     }
                 }
 
                 html += `<tr>
-                    <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
+                    <td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td>
                     <td style="text-align:center;">${groupCell}</td>
                     <td style="text-align:center;">${tacticsCell}</td>
                     <td style="text-align:center;">${floorCell}</td>
@@ -1272,22 +1367,16 @@
             contentDiv.innerHTML = html;
         }
         
-        // Fonction pour mettre à jour les droits admin
         async function updatePlayerAdminRole(targetPlayerId, newRole) {
             const sessionToken = localStorage.getItem('alliance_session_token');
-        
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_player_id: parseInt(targetPlayerId), 
-                        p_new_role: newRole 
-                    })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole })
                 });
-        
                 if (res.ok) {
+                    showToast("Mise à jour Base", "Grades synchronisés.");
                     loadAdminPanel();
                 } else {
                     const err = await res.json();
@@ -1299,7 +1388,6 @@
             }
         }
         
-        // Mettre à jour le rôle tactique et l'étage
         async function updatePlayerTactics(playerId) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             const roleSelect = document.getElementById(`role-select-${playerId}`);
@@ -1309,7 +1397,6 @@
             const selectedRole = roleSelect.value;
             const isInter = selectedRole === 'passeur_inter';
         
-            // Affichage dynamique du champ Étage
             floorInput.style.display = isInter ? 'inline-block' : 'none';
             floorDash.style.display = isInter ? 'none' : 'inline';
         
@@ -1319,34 +1406,24 @@
                 await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group_role_and_floor`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_player_id: parseInt(playerId), 
-                        p_group_role: selectedRole,
-                        p_floor_level: floorValue
-                    })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(playerId), p_group_role: selectedRole, p_floor_level: floorValue })
                 });
+                showToast("Mise à jour Base", "Nouvelles directives tactiques appliquées.");
             } catch (e) {
                 alert("❌ Erreur de sauvegarde.");
             }
         }
         
-        // Fonction pour sauvegarder le changement de groupe
         async function updatePlayerGroup(targetPlayerId, newGroupId) {
             const sessionToken = localStorage.getItem('alliance_session_token');
-        
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_player_id: parseInt(targetPlayerId), 
-                        p_new_group_id: parseInt(newGroupId) 
-                    })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) })
                 });
-        
                 if (res.ok) {
+                    showToast("Mise à jour Base", "Nouvelle escouade assignée.");
                     loadAdminPanel();
                 } else {
                     const err = await res.json();
