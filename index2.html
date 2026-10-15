@@ -393,6 +393,56 @@
             z-index: 10;
             display: none;
         }
+
+        .chat-msg-bubble {
+            background: white;
+            border: 2px solid #1d2d44;
+            padding: 0.6rem 1rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            position: relative;
+            animation: popIn 0.2s ease-out;
+        }
+        /* Pour que la bulle englobe bien les éléments flottants sans s'écraser */
+        .chat-msg-bubble::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        
+        /* Message d'un autre joueur (à gauche) */
+        .chat-msg-bubble.is-other {
+            border-bottom-left-radius: 0;
+            align-self: flex-start;
+        }
+        
+        /* Mon propre message (à droite) */
+        .chat-msg-bubble.is-me {
+            background-color: #f9f7f1; /* Légèrement grisé/crème pour se démarquer */
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 1rem; /* on remet l'arrondi classique à gauche */
+            align-self: flex-end;
+        }
+
+        /* Le bloc contenant le Pseudo et l'Heure */
+        .chat-meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+        .chat-meta.is-other {
+            float: left; /* Le texte l'enroulera par la droite */
+            margin-right: 0.5rem;
+            margin-bottom: 0.2rem;
+            align-items: flex-start;
+        }
+        .chat-meta.is-me {
+            float: right; /* Le texte l'enroulera par la gauche */
+            margin-left: 0.5rem;
+            margin-bottom: 0.2rem;
+            align-items: flex-end;
+        }
     </style>
 </head>
 <body>
@@ -506,10 +556,20 @@
             return dateStr;
         }
 
-        function formatTimeLocal(timestamp) {
-            if (!timestamp) return '';
-            const d = new Date(timestamp);
-            return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        // Formatage de la date (Heure si jour J, Date+Heure sinon)
+        function formatChatTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            if (d.toDateString() === now.toDateString()) {
+                return timeStr; // Aujourd'hui : juste 14:30
+            } else {
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                return `${day}/${month} - ${timeStr}`; // Plus ancien : 14/10 - 14:30
+            }
         }
 
         function showToast(title, message) {
@@ -788,28 +848,39 @@
             if (loader) loader.style.display = 'none';
         }
 
+        // Affichage des bulles
         function appendMessagesToDOM(messages, prepend) {
             const container = document.getElementById('chat-content');
             let html = '';
 
             messages.forEach(m => {
-                const dateHtml = `<span class="text-[0.65rem] text-retro-slate/50 ml-2">${formatTimeLocal(m.created_at)}</span>`;
+                const dateHtml = `<span class="text-[0.65rem] text-retro-slate/60 mt-0.5">${formatChatTime(m.created_at)}</span>`;
                 
-                // Codes couleurs par grade
-                let colorClass = 'text-retro-slate'; // member
+                // Code couleur selon le grade
+                let colorClass = 'text-retro-slate'; 
                 if (m.role === 'superadmin') colorClass = 'text-retro-coral';
                 else if (m.role === 'admin') colorClass = 'text-[#8e44ad]';
                 else if (m.role === 'chef_de_rang') colorClass = 'text-retro-mint-dark';
 
-                // Message stylisé
+                // Détection de si c'est MON message ou celui d'un autre
+                const isMe = m.pseudo === currentUserAdminInfo.pseudo;
+                
+                const bubbleClass = isMe ? 'is-me' : 'is-other';
+                const metaClass = isMe ? 'is-me' : 'is-other';
+
+                // Le conteneur "chat-meta" est mis en float (left ou right).
+                // Le texte s'enroulera automatiquement autour !
                 html += `
-                    <div class="chat-msg-bubble">
-                        <div class="font-fredoka font-bold text-sm ${colorClass} mb-0.5">
-                            ${escapeHtml(m.pseudo)} ${dateHtml}
+                    <div class="chat-msg-bubble ${bubbleClass}">
+                        <div class="chat-meta ${metaClass}">
+                            <strong class="font-fredoka font-bold text-sm ${colorClass}">
+                                ${escapeHtml(m.pseudo)}
+                            </strong>
+                            ${dateHtml}
                         </div>
-                        <div class="text-sm font-outfit text-retro-slate leading-snug">
+                        <span class="text-sm font-outfit text-retro-slate leading-snug break-words">
                             ${escapeHtml(m.message).replace(/\n/g, '<br>')}
-                        </div>
+                        </span>
                     </div>
                 `;
             });
