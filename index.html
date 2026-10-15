@@ -1154,32 +1154,52 @@
 
         function renderAdminTable(members) {
             const contentDiv = document.getElementById('content-area');
-
+        
+            // Génération dynamique des options de groupe de 1 à 10 + option 0 (Hors-chaîne)
+            const buildGroupOptions = (currentGroup) => {
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne (Gr. 0)</option>`;
+                for (let g = 1; g <= 10; g++) {
+                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
+                }
+                return opts;
+            };
+        
             let html = `
-                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion des Rôles de l'Alliance</div>
-                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">Seul le Super Admin (<strong>Stroke</strong>) peut modifier les attributions de rôles.</p>
+                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                    Atribuez un groupe ou modifiez les rôles des membres de l'alliance.
+                </p>
                 <div class="table-container"><table>
                     <thead>
                         <tr>
                             <th>Joueur</th>
+                            <th style="text-align:center;">Groupe</th>
                             <th style="text-align:center;">Rôle Actuel</th>
-                            ${currentUserAdminInfo.isSuperAdmin ? '<th style="text-align:center;">Modifier le Rôle</th>' : ''}
+                            ${currentUserAdminInfo.isSuperAdmin ? '<th style="text-align:center;">Action Rôle</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>`;
-
+        
             members.forEach(m => {
                 let badge = '<span class="badge badge-member">Membre</span>';
                 if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
                 else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
                 else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
-
-                let actionElement = '';
+        
+                // Selecteur de Groupe (Disponible pour Admins & SuperAdmins)
+                const groupSelect = `
+                    <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
+                        ${buildGroupOptions(m.group_id)}
+                    </select>
+                `;
+        
+                // Selecteur de Rôle (Reservé au SuperAdmin)
+                let roleActionElement = '';
                 if (currentUserAdminInfo.isSuperAdmin) {
                     if (m.role === 'superadmin') {
-                        actionElement = '<em style="color:var(--text-muted); font-size:0.75rem;">Inmodifiable</em>';
+                        roleActionElement = '<em style="color:var(--text-muted); font-size:0.75rem;">Inmodifiable</em>';
                     } else {
-                        actionElement = `
+                        roleActionElement = `
                             <select class="role-select" onchange="updatePlayerRole(${m.player_id}, this.value)">
                                 <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
                                 <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
@@ -1188,33 +1208,39 @@
                         `;
                     }
                 }
-
+        
                 html += `<tr>
                     <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
+                    <td style="text-align:center;">${groupSelect}</td>
                     <td style="text-align:center;">${badge}</td>
-                    ${currentUserAdminInfo.isSuperAdmin ? `<td style="text-align:center;">${actionElement}</td>` : ''}
+                    ${currentUserAdminInfo.isSuperAdmin ? `<td style="text-align:center;">${roleActionElement}</td>` : ''}
                 </tr>`;
             });
-
+        
             html += `</tbody></table></div>`;
             contentDiv.innerHTML = html;
         }
-
-        async function updatePlayerRole(targetPlayerId, newRole) {
+        
+        // Fonction pour sauvegarder le changement de groupe
+        async function updatePlayerGroup(targetPlayerId, newGroupId) {
             const sessionToken = localStorage.getItem('alliance_session_token');
-
+        
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_role`, {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole })
+                    body: JSON.stringify({ 
+                        p_session_token: sessionToken, 
+                        p_target_player_id: parseInt(targetPlayerId), 
+                        p_new_group_id: parseInt(newGroupId) 
+                    })
                 });
-
+        
                 if (res.ok) {
                     loadAdminPanel();
                 } else {
                     const err = await res.json();
-                    alert("❌ Action refusée : " + (err.message || "Seul le Super Admin peut modifier les rôles."));
+                    alert("❌ Action refusée : " + (err.message || "Erreur lors du changement de groupe."));
                     loadAdminPanel();
                 }
             } catch (e) {
