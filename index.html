@@ -1160,9 +1160,8 @@
         function renderAdminTable(members) {
             const contentDiv = document.getElementById('content-area');
         
-            // Génération dynamique des options de groupe de 1 à 10 + option 0 (Hors-chaîne)
             const buildGroupOptions = (currentGroup) => {
-                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne (Gr. 0)</option>`;
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
                 for (let g = 1; g <= 10; g++) {
                     opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
                 }
@@ -1172,15 +1171,16 @@
             let html = `
                 <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-                    Atribuez un groupe ou modifiez les rôles des membres de l'alliance.
+                    Gérez les groupes, les rôles tactiques (chasseur, passeur, grenier) et les étages.
                 </p>
                 <div class="table-container"><table>
                     <thead>
                         <tr>
                             <th>Joueur</th>
                             <th style="text-align:center;">Groupe</th>
-                            <th style="text-align:center;">Rôle Actuel</th>
-                            ${currentUserAdminInfo.isSuperAdmin ? '<th style="text-align:center;">Action Rôle</th>' : ''}
+                            <th style="text-align:center;">Rôle Groupe</th>
+                            <th style="text-align:center;">Étage</th>
+                            <th style="text-align:center;">Droits Admin</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -1191,39 +1191,70 @@
                 else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
                 else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
         
-                // Selecteur de Groupe (Disponible pour Admins & SuperAdmins)
-                const groupSelect = `
-                    <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
-                        ${buildGroupOptions(m.group_id)}
-                    </select>
-                `;
-        
-                // Selecteur de Rôle (Reservé au SuperAdmin)
-                let roleActionElement = '';
-                if (currentUserAdminInfo.isSuperAdmin) {
-                    if (m.role === 'superadmin') {
-                        roleActionElement = '<em style="color:var(--text-muted); font-size:0.75rem;">Inmodifiable</em>';
-                    } else {
-                        roleActionElement = `
-                            <select class="role-select" onchange="updatePlayerRole(${m.player_id}, this.value)">
-                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
-                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
-                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
-                            </select>
-                        `;
-                    }
-                }
+                const gRole = m.group_role || 'chasseur';
+                const showFloor = gRole === 'passeur_inter';
         
                 html += `<tr>
                     <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
-                    <td style="text-align:center;">${groupSelect}</td>
+                    <td style="text-align:center;">
+                        <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
+                            ${buildGroupOptions(m.group_id)}
+                        </select>
+                    </td>
+                    <td style="text-align:center;">
+                        <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
+                            <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
+                            <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
+                            <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
+                            <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
+                        </select>
+                    </td>
+                    <td style="text-align:center;">
+                        <input type="number" id="floor-input-${m.player_id}" 
+                               value="${m.floor_level !== null ? m.floor_level : ''}" 
+                               placeholder="Ex: 2" min="1" max="100"
+                               style="width: 55px; text-align:center; display: ${showFloor ? 'inline-block' : 'none'};" 
+                               onchange="updatePlayerTactics(${m.player_id})" />
+                        <span id="floor-dash-${m.player_id}" style="color:var(--text-muted); display: ${showFloor ? 'none' : 'inline'};">-</span>
+                    </td>
                     <td style="text-align:center;">${badge}</td>
-                    ${currentUserAdminInfo.isSuperAdmin ? `<td style="text-align:center;">${roleActionElement}</td>` : ''}
                 </tr>`;
             });
         
             html += `</tbody></table></div>`;
             contentDiv.innerHTML = html;
+        }
+        
+        // Mettre à jour le rôle tactique et l'étage
+        async function updatePlayerTactics(playerId) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const roleSelect = document.getElementById(`role-select-${playerId}`);
+            const floorInput = document.getElementById(`floor-input-${playerId}`);
+            const floorDash = document.getElementById(`floor-dash-${playerId}`);
+        
+            const selectedRole = roleSelect.value;
+            const isInter = selectedRole === 'passeur_inter';
+        
+            // Affichage dynamique du champ Étage
+            floorInput.style.display = isInter ? 'inline-block' : 'none';
+            floorDash.style.display = isInter ? 'none' : 'inline';
+        
+            const floorValue = isInter && floorInput.value !== '' ? parseInt(floorInput.value) : null;
+        
+            try {
+                await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group_role_and_floor`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        p_session_token: sessionToken, 
+                        p_target_player_id: parseInt(playerId), 
+                        p_group_role: selectedRole,
+                        p_floor_level: floorValue
+                    })
+                });
+            } catch (e) {
+                alert("❌ Erreur de sauvegarde.");
+            }
         }
         
         // Fonction pour sauvegarder le changement de groupe
