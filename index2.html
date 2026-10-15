@@ -626,7 +626,7 @@
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
-            if (activeTab === 'chat') { loadChatTab(selectedGroupId); return; }
+            if (activeTab === 'chat') { loadChatTab(); return; }
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
@@ -650,7 +650,18 @@
             chatHasMore = true;
             chatIsFetching = false;
 
-            if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
+            // Logique de priorité :
+            // 1. Si on a cliqué sur un groupe dans la liste déroulante du chat, on l'utilise.
+            if (targetGroupId !== null) {
+                chatSelectedGroupId = parseInt(targetGroupId);
+            } 
+            // 2. Sinon, si on ouvre l'onglet pour la première fois, on prend le groupe du joueur !
+            else if (chatSelectedGroupId === null) {
+                chatSelectedGroupId = currentUserAdminInfo.group_id;
+                
+                // Sécurité : si le joueur est hors-chaîne (0), on lui montre le groupe 1 par défaut pour éviter un écran vide
+                if (!chatSelectedGroupId || chatSelectedGroupId < 1) chatSelectedGroupId = 1;
+            }
 
             try {
                 // 1. Récupération des groupes dispo si admin
@@ -663,26 +674,7 @@
                     if (groupsRes.ok) availableGroups = await groupsRes.json();
                 }
 
-                // 2. Si pas de groupe sélectionné, on tape la base pour savoir dans lequel il est
-                let effectiveGroupId = selectedGroupId;
-                if (effectiveGroupId === null || effectiveGroupId === undefined) {
-                    const perfsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
-                        method: 'POST',
-                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ p_session_token: sessionToken })
-                    });
-                    if (perfsRes.ok) {
-                        const testData = await perfsRes.json();
-                        // Par défaut, s'il n'y a rien on met 1, ou on prend le selectedGroupId
-                        effectiveGroupId = 1; 
-                    }
-                }
-                
-                // Petit hack pour forcer l'init si pas d'infos directes
-                if (!effectiveGroupId || effectiveGroupId === -1) effectiveGroupId = 1; 
-                selectedGroupId = effectiveGroupId;
-
-                renderChatBaseUI(effectiveGroupId, availableGroups);
+                renderChatBaseUI(chatSelectedGroupId, availableGroups);
                 await fetchChatMessages(null, null, true);
 
                 // Polling toutes les 5 secondes
