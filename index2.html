@@ -1041,6 +1041,12 @@
                 <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
             `;
 
+            if (currentGroupId === -1) {
+                if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
+                if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
+                if (convoys) convoys = convoys.filter(c => c.group_id > 0);
+            }
+
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
             
             // CORRECTION ICI : On utilise toujours les playerPerfs, même pour l'alliance entière !
