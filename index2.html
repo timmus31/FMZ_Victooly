@@ -258,7 +258,9 @@
             overflow: hidden;
             box-shadow: 6px 6px 0px 0px #1d2d44;
             position: relative;
-            background-color: #0b1329;
+            background-color: #f2ead0; /* Couleur Ivoire / Vieux papier */
+            background-image: radial-gradient(rgba(29, 45, 68, 0.15) 1px, transparent 1px);
+            background-size: 15px 15px;
         }
         .map-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; max-width: 700px; margin-bottom: 1rem; }
         .map-filter-btn {
@@ -1125,14 +1127,18 @@
                         <div class="flex gap-2 flex-wrap justify-end">${filterButtons}</div>
                     </div>
                     <div class="w-full max-w-3xl relative tv-screen">
-                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/5 to-transparent z-10"></div>
+                        <!-- Effet d'usure sur les bords (Vignettage) -->
+                        <div class="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-retro-slate/10 z-10"></div>
+                        
                         <canvas id="alliance-map" width="700" height="600" class="w-full h-auto cursor-grab active:cursor-grabbing"></canvas>
+                        
                         <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
                             <button class="map-tool-btn" onclick="zoomMap(1.25)" title="Zoom Avant"><i class="fa-solid fa-magnifying-glass-plus text-base"></i></button>
                             <button class="map-tool-btn" onclick="zoomMap(0.8)" title="Zoom Arrière"><i class="fa-solid fa-magnifying-glass-minus text-base"></i></button>
                             <button class="map-tool-btn" onclick="resetMapTransform()" title="Recalibrer"><i class="fa-solid fa-compress text-base"></i></button>
                         </div>
-                        <div id="map-tooltip" class="absolute bg-retro-slate/90 backdrop-blur text-retro-cream p-3 rounded-xl border-2 border-retro-cream text-xs hidden z-30 shadow-retro pointer-events-none font-outfit"></div>
+                        
+                        <div id="map-tooltip" class="absolute bg-retro-slate/95 text-retro-cream p-3 rounded-xl border-2 border-retro-cream text-xs hidden z-30 shadow-retro pointer-events-none font-outfit"></div>
                     </div>
                     <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider"><i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.</div>
                 </div>
@@ -1173,21 +1179,46 @@
             if (mapPlayersData.length > 0) { minX = Math.min(...mapPlayersData.map(p => p.x)) - 2; maxX = Math.max(...mapPlayersData.map(p => p.x)) + 2; minY = Math.min(...mapPlayersData.map(p => p.y)) - 2; maxY = Math.max(...mapPlayersData.map(p => p.y)) + 2; }
             const padding = 60; const mapWidth = canvas.width - (padding * 2); const mapHeight = canvas.height - (padding * 2);
             ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoomLevel, zoomLevel); ctx.translate(-canvas.width / 2, -canvas.height / 2);
-            ctx.strokeStyle = 'rgba(58, 175, 169, 0.15)'; ctx.lineWidth = 1 / zoomLevel;
+            
+            // Grille "Planisphère" : Lignes bleu ardoise très fines
+            ctx.strokeStyle = 'rgba(29, 45, 68, 0.15)'; 
+            ctx.lineWidth = 1 / zoomLevel;
             for (let i = -canvas.width; i <= canvas.width * 2; i += 50) { ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke(); }
+            
             const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
+            
             mapPlayersData.forEach(p => {
                 const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth; const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
                 const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX; const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
                 p._cx = screenX; p._cy = screenY;
+                
                 const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup); const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery); const isHighlight = isGroupMatch && isSearchMatch;
                 const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
-                ctx.beginPath(); ctx.arc(normX, normY, isHighlight ? 7 : 3, 0, Math.PI * 2); ctx.fillStyle = isHighlight ? color : 'rgba(249, 247, 241, 0.1)';
-                if (isHighlight) { ctx.shadowColor = color; ctx.shadowBlur = 10 / zoomLevel; }
-                ctx.fill(); ctx.shadowBlur = 0;
+                
+                ctx.beginPath(); 
+                ctx.arc(normX, normY, isHighlight ? 7 : 4, 0, Math.PI * 2); 
+                
+                // Remplissage avec des couleurs pleines
+                ctx.fillStyle = isHighlight ? color : 'rgba(29, 45, 68, 0.1)';
+                ctx.fill(); 
+                
                 if (isHighlight) {
-                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 / zoomLevel; ctx.stroke();
-                    if (showLabels) { ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#f4d03f' : '#f9f7f1'; ctx.font = `bold ${Math.max(9, 11 / zoomLevel)}px 'Fredoka'`; ctx.fillText(p.pseudo, normX + 12, normY + 4); }
+                    // Encrage néo-rétro : Bordure épaisse bleu nuit
+                    ctx.strokeStyle = '#1d2d44'; 
+                    ctx.lineWidth = 2.5 / zoomLevel; 
+                    ctx.stroke();
+                    
+                    if (showLabels) { 
+                        // Texte en sombre pour ressortir sur le fond ivoire
+                        ctx.fillStyle = '#1d2d44'; 
+                        ctx.font = `bold ${Math.max(10, 12 / zoomLevel)}px 'Fredoka'`; 
+                        
+                        // Petit contour blanc pour détacher le texte si des points se superposent
+                        ctx.strokeStyle = '#f2ead0';
+                        ctx.lineWidth = 3 / zoomLevel;
+                        ctx.strokeText(p.pseudo, normX + 12, normY + 4);
+                        ctx.fillText(p.pseudo, normX + 12, normY + 4); 
+                    }
                 }
             });
             ctx.restore();
