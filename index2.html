@@ -1042,13 +1042,21 @@
             `;
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-            if (currentGroupId !== -1 && playerPerfs && playerPerfs.length > 0) {
-                playerPerfs.forEach(p => { sumStart += p.start_terrain; sumEnd += p.end_terrain; sumDiff += p.terrain_diff; sumRes += p.resources_generated; });
+            
+            // CORRECTION ICI : On utilise toujours les playerPerfs, même pour l'alliance entière !
+            if (playerPerfs && playerPerfs.length > 0) {
+                playerPerfs.forEach(p => { 
+                    sumStart += p.start_terrain; 
+                    sumEnd += p.end_terrain; 
+                    sumDiff += p.terrain_diff; 
+                    sumRes += p.resources_generated; 
+                });
             } else if (dailyLogs && dailyLogs.length > 0) {
                 dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += l.resources_generated; });
                 const startValues = dailyLogs.map(l => l.start_terrain);
                 const endValues = dailyLogs.map(l => l.end_terrain);
-                sumStart = Math.min(...startValues.filter(v => v > 0)); sumEnd = Math.max(...endValues);
+                sumStart = Math.min(...startValues.filter(v => v > 0)); 
+                sumEnd = Math.max(...endValues);
             }
 
             const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
