@@ -736,16 +736,21 @@
             if (beforeId && loader) loader.style.display = 'block';
 
             try {
+                // Construction dynamique pour éviter d'envoyer "null" et déclencher l'erreur 400
+                const bodyParams = { 
+                    p_session_token: sessionToken, 
+                    p_target_group_id: chatSelectedGroupId,
+                    p_limit: 30
+                };
+                
+                // On n'ajoute ces clés que si elles ont une valeur réelle
+                if (beforeId) bodyParams.p_before_id = beforeId;
+                if (afterId) bodyParams.p_after_id = afterId;
+
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_messages`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_group_id: chatSelectedGroupId,
-                        p_limit: 30,
-                        p_before_id: beforeId || null,
-                        p_after_id: afterId || null
-                    })
+                    body: JSON.stringify(bodyParams)
                 });
 
                 if (res.ok) {
@@ -774,6 +779,8 @@
                     } else if (beforeId) {
                         chatHasMore = false; // Plus d'anciens messages
                     }
+                } else {
+                    console.error("Erreur Supabase :", await res.text());
                 }
             } catch (e) { console.error(e); }
             
