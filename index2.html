@@ -1182,17 +1182,21 @@
         function drawMap() {
             const canvas = document.getElementById('alliance-map'); if (!canvas) return;
             const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
-            let minX = -10, maxX = 10, minY = -10, maxY = 10;
-            if (mapPlayersData.length > 0) { minX = Math.min(...mapPlayersData.map(p => p.x)) - 2; maxX = Math.max(...mapPlayersData.map(p => p.x)) + 2; minY = Math.min(...mapPlayersData.map(p => p.y)) - 2; maxY = Math.max(...mapPlayersData.map(p => p.y)) + 2; }
-            const padding = 70; const mapWidth = canvas.width - (padding * 2); const mapHeight = canvas.height - (padding * 2);
+            
+            // 1. On force la carte sur une échelle stricte de 0 à 100
+            let minX = 0, maxX = 100, minY = 0, maxY = 100;
+            const padding = 70; 
+            const mapWidth = canvas.width - (padding * 2); 
+            const mapHeight = canvas.height - (padding * 2);
+            
             ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoomLevel, zoomLevel); ctx.translate(-canvas.width / 2, -canvas.height / 2);
             
-            // Grille "Planisphère" : Lignes bleu ardoise très fines
+            // Grille "Planisphère"
             ctx.strokeStyle = 'rgba(29, 45, 68, 0.15)'; 
             ctx.lineWidth = 1 / zoomLevel;
             for (let i = -canvas.width; i <= canvas.width * 2; i += 50) { ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke(); }
             
-            // NOUVEAU : CADRE FAÇON CARTE AU TRÉSOR AVEC COORDONNÉES
+            // Cadre façon Carte au trésor
             ctx.strokeStyle = '#1d2d44';
             ctx.lineWidth = 3 / zoomLevel;
             ctx.strokeRect(padding - 15, padding - 15, mapWidth + 30, mapHeight + 30);
@@ -1202,21 +1206,19 @@
             ctx.textBaseline = 'middle';
             ctx.font = `bold ${Math.max(10, 13 / zoomLevel)}px 'Fredoka'`;
             
+            // 2. Coordonnées fixes : 0, 25, 50, 75, 100
             for (let i = 0; i <= 4; i++) {
-                const ratio = i / 4;
-                const curX = Math.round(minX + (maxX - minX) * ratio);
-                const curY = Math.round(minY + (maxY - minY) * ratio);
-                const plotX = padding + mapWidth * ratio;
-                const plotY = padding + mapHeight * ratio;
+                const val = i * 25; 
+                const plotX = padding + mapWidth * (i / 4);
+                const plotY = padding + mapHeight * (i / 4);
                 
-                // Textes X
-                ctx.fillText(curX, plotX, padding - 28);
-                ctx.fillText(curX, plotX, padding + mapHeight + 28);
-                // Textes Y
-                ctx.fillText(curY, padding - 38, plotY);
-                ctx.fillText(curY, padding + mapWidth + 38, plotY);
+                // Textes
+                ctx.fillText(val, plotX, padding - 28);
+                ctx.fillText(val, plotX, padding + mapHeight + 28);
+                ctx.fillText(val, padding - 38, plotY);
+                ctx.fillText(val, padding + mapWidth + 38, plotY);
                 
-                // Petites encoches
+                // Encoches
                 ctx.beginPath(); ctx.moveTo(plotX, padding - 15); ctx.lineTo(plotX, padding - 5); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(plotX, padding + mapHeight + 15); ctx.lineTo(plotX, padding + mapHeight + 5); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(padding - 15, plotY); ctx.lineTo(padding - 5, plotY); ctx.stroke();
@@ -1225,12 +1227,20 @@
 
             const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
             
+            // Tableau pour stocker l'emplacement des textes déjà dessinés
+            const drawnRects = []; 
+            
             mapPlayersData.forEach(p => {
-                const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth; const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
-                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX; const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
+                const normX = padding + ((p.x - minX) / (maxX - minX)) * mapWidth; 
+                const normY = padding + ((p.y - minY) / (maxY - minY)) * mapHeight;
+                
+                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX; 
+                const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
                 p._cx = screenX; p._cy = screenY;
                 
-                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup); const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery); const isHighlight = isGroupMatch && isSearchMatch;
+                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup); 
+                const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery); 
+                const isHighlight = isGroupMatch && isSearchMatch;
                 const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
                 
                 ctx.beginPath(); 
@@ -1245,12 +1255,48 @@
                     ctx.stroke();
                     
                     if (showLabels) { 
-                        ctx.fillStyle = '#1d2d44'; 
                         ctx.font = `bold ${Math.max(10, 12 / zoomLevel)}px 'Fredoka'`; 
-                        ctx.strokeStyle = '#f2ead0';
-                        ctx.lineWidth = 3 / zoomLevel;
-                        ctx.strokeText(p.pseudo, normX + 12, normY + 4);
-                        ctx.fillText(p.pseudo, normX + 12, normY + 4); 
+                        const tw = ctx.measureText(p.pseudo).width;
+                        const th = 14 / zoomLevel;
+                        
+                        // 3. Anti-collision : on essaie 4 positions (Droite, Bas, Haut, Gauche)
+                        const positions = [
+                            {x: normX + 12, y: normY, align: 'left', base: 'middle'},
+                            {x: normX, y: normY + 14, align: 'center', base: 'top'},
+                            {x: normX, y: normY - 14, align: 'center', base: 'bottom'},
+                            {x: normX - 12, y: normY, align: 'right', base: 'middle'}
+                        ];
+                        
+                        for (let pos of positions) {
+                            let rx = pos.x; let ry = pos.y;
+                            if (pos.align === 'center') rx -= tw/2;
+                            if (pos.align === 'right') rx -= tw;
+                            if (pos.base === 'middle') ry -= th/2;
+                            if (pos.base === 'bottom') ry -= th;
+                            
+                            const rect = {x: rx - 2, y: ry - 2, w: tw + 4, h: th + 4};
+                            let overlap = false;
+                            
+                            // Vérifie si le rectangle du texte touche un autre texte déjà dessiné
+                            for (let dr of drawnRects) {
+                                if (!(rect.x > dr.x + dr.w || rect.x + rect.w < dr.x || rect.y > dr.y + dr.h || rect.y + rect.h < dr.y)) {
+                                    overlap = true; break;
+                                }
+                            }
+                            
+                            // Si c'est libre, on dessine et on l'enregistre !
+                            if (!overlap) {
+                                ctx.textAlign = pos.align;
+                                ctx.textBaseline = pos.base;
+                                ctx.fillStyle = '#1d2d44'; 
+                                ctx.strokeStyle = '#f2ead0';
+                                ctx.lineWidth = 3 / zoomLevel;
+                                ctx.strokeText(p.pseudo, pos.x, pos.y);
+                                ctx.fillText(p.pseudo, pos.x, pos.y);
+                                drawnRects.push(rect);
+                                break; 
+                            }
+                        }
                     }
                 }
             });
