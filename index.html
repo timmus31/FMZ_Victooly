@@ -488,20 +488,30 @@
         async function checkSessionAndLoad() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
-
+        
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_is_admin`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
-
+        
                 if (!res.ok) return logout();
-
+        
                 const data = await res.json();
                 if (data && data.length > 0) {
-                    currentUserAdminInfo = { isAdmin: data[0].is_admin, isSuperAdmin: data[0].is_superadmin };
-                    document.getElementById('tab-admin-btn').style.display = currentUserAdminInfo.isAdmin ? 'inline-block' : 'none';
+                    const userRole = data[0].role || (data[0].is_superadmin ? 'superadmin' : (data[0].is_admin ? 'admin' : 'member'));
+                    
+                    currentUserAdminInfo = { 
+                        role: userRole,
+                        isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
+                        isSuperAdmin: userRole === 'superadmin' 
+                    };
+        
+                    // Affichage de l'onglet Admin pour SuperAdmin, Admin ET Chef de rang
+                    const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
+                    document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
+        
                     showDashboard();
                     renderTabContent();
                 } else {
