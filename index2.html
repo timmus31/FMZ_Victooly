@@ -756,6 +756,9 @@
         async function fetchChatMessages(beforeId, afterId, isInitial = false) {
             if (chatIsFetching) return;
             chatIsFetching = true;
+            
+            // Sécurité : On mémorise le groupe actif au moment où la requête part
+            const currentFetchGroupId = chatSelectedGroupId; 
             const sessionToken = localStorage.getItem('alliance_session_token');
             const box = document.getElementById('chat-messages-box');
             const loader = document.getElementById('chat-loader');
@@ -765,7 +768,7 @@
             try {
                 const bodyParams = { 
                     p_session_token: sessionToken, 
-                    p_target_group_id: chatSelectedGroupId,
+                    p_target_group_id: currentFetchGroupId,
                     p_limit: 30
                 };
                 
@@ -779,6 +782,12 @@
                 });
 
                 if (res.ok) {
+                    // Si l'utilisateur a changé de groupe pendant le temps de réponse du réseau, on annule l'affichage !
+                    if (currentFetchGroupId !== chatSelectedGroupId) {
+                        chatIsFetching = false;
+                        return; 
+                    }
+
                     let messages = await res.json();
                     if (messages && messages.length > 0) {
                         messages.reverse();
@@ -788,23 +797,23 @@
                             const oldScrollHeight = box.scrollHeight;
                             appendMessagesToDOM(messages, true);
                             box.scrollTop = box.scrollHeight - oldScrollHeight; 
-                        } else if (afterId) {
+                        } else {
+                            // CORRECTION : S'applique au chargement, aux nouveaux messages, ET si le chat était vide
+                            if (!chatOldestId) chatOldestId = messages[0].message_id;
                             chatLatestId = messages[messages.length - 1].message_id;
+                            
                             const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
                             appendMessagesToDOM(messages, false);
-                            if (isNearBottom) scrollToBottomChat();
-                            else document.getElementById('chat-new-msg-pill').style.display = 'block';
-                        } else if (isInitial) {
-                            chatOldestId = messages[0].message_id;
-                            chatLatestId = messages[messages.length - 1].message_id;
-                            appendMessagesToDOM(messages, false);
-                            scrollToBottomChat();
+                            
+                            if (isInitial || isNearBottom || !afterId) {
+                                scrollToBottomChat();
+                            } else {
+                                document.getElementById('chat-new-msg-pill').style.display = 'block';
+                            }
                         }
                     } else if (beforeId) {
                         chatHasMore = false;
                     }
-                } else {
-                    console.error("Erreur Supabase :", await res.text());
                 }
             } catch (e) { console.error(e); }
             
@@ -876,7 +885,7 @@
             if (!msg) return;
 
             const sessionToken = localStorage.getItem('alliance_session_token');
-            input.value = ''; 
+            input.value = ''; // On vide de suite pour le confort
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_group_message`, {
@@ -890,7 +899,16 @@
                 });
 
                 if (res.ok) {
-                    fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
+                    // CORRECTION CONFLIT : Si l'actualisation auto des 5s est déjà en train de tourner, 
+                    // on attend 500ms puis on force le rafraîchissement pour voir notre message
+                    const checkAndFetch = () => {
+                        if (chatIsFetching) {
+                            setTimeout(checkAndFetch, 500);
+                        } else {
+                            fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
+                        }
+                    };
+                    checkAndFetch();
                 } else {
                     showToast("Erreur", "Transmission échouée.");
                 }
