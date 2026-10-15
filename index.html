@@ -768,12 +768,33 @@
             `;
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-            dailyLogs.forEach(l => {
-                sumStart += l.start_terrain;
-                sumEnd += l.end_terrain;
-                sumDiff += l.terrain_diff;
-                sumRes += l.resources_generated;
-            });
+
+            // NOUVEAU CALCUL : On se base en priorité sur le Bilan Individuel
+            // Cela garantit une précision absolue et une correspondance parfaite avec le tableau
+            if (currentGroupId !== -1 && playerPerfs && playerPerfs.length > 0) {
+                playerPerfs.forEach(p => {
+                    sumStart += p.start_terrain;
+                    sumEnd += p.end_terrain;
+                    sumDiff += p.terrain_diff;
+                    sumRes += p.resources_generated;
+                });
+            } else if (dailyLogs && dailyLogs.length > 0) {
+                // Solution de secours pour la vue Globale "Alliance entière"
+                // On additionne les gains de ressources et les variations
+                dailyLogs.forEach(l => {
+                    sumDiff += l.terrain_diff;
+                    sumRes += l.resources_generated;
+                });
+                
+                // Pour éviter d'additionner les territoires de chaque jour, 
+                // on prend la valeur du jour le plus ancien et du jour le plus récent
+                const startValues = dailyLogs.map(l => l.start_terrain);
+                const endValues = dailyLogs.map(l => l.end_terrain);
+                
+                sumStart = Math.min(...startValues.filter(v => v > 0)); 
+                sumEnd = Math.max(...endValues);
+            }
+
             const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
             const diffColor = sumDiff >= 0 ? '#3aafa9' : '#ff6f61';
 
