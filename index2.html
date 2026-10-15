@@ -324,31 +324,9 @@
             gap: 0.75rem;
             background-color: #f4f6f9;
         }
-        /* Custom scrollbar pour le chat */
         .chat-messages::-webkit-scrollbar { width: 8px; }
         .chat-messages::-webkit-scrollbar-track { background: transparent; }
         .chat-messages::-webkit-scrollbar-thumb { background-color: rgba(29, 45, 68, 0.2); border-radius: 10px; }
-        
-        .chat-msg-bubble {
-            background: white;
-            border: 2px solid #1d2d44;
-            padding: 0.6rem 1rem;
-            border-radius: 1rem;
-            border-bottom-left-radius: 0;
-            max-width: 85%;
-            align-self: flex-start;
-            box-shadow: 2px 2px 0px 0px #1d2d44;
-            position: relative;
-            animation: popIn 0.2s ease-out;
-        }
-        .chat-msg-bubble.is-me {
-            background: #eef2ff;
-            border-bottom-left-radius: 1rem;
-            border-bottom-right-radius: 0;
-            align-self: flex-end;
-            background-color: #f9f7f1;
-        }
-        @keyframes popIn { 0% { transform: scale(0.95); opacity:0;} 100% { transform: scale(1); opacity:1;} }
         
         .chat-input-area {
             display: flex;
@@ -404,45 +382,42 @@
             position: relative;
             animation: popIn 0.2s ease-out;
         }
-        /* Pour que la bulle englobe bien les éléments flottants sans s'écraser */
         .chat-msg-bubble::after {
             content: "";
             display: table;
             clear: both;
         }
         
-        /* Message d'un autre joueur (à gauche) */
         .chat-msg-bubble.is-other {
             border-bottom-left-radius: 0;
             align-self: flex-start;
         }
         
-        /* Mon propre message (à droite) */
         .chat-msg-bubble.is-me {
-            background-color: #f9f7f1; /* Légèrement grisé/crème pour se démarquer */
+            background-color: #f9f7f1; 
             border-bottom-right-radius: 0;
-            border-bottom-left-radius: 1rem; /* on remet l'arrondi classique à gauche */
+            border-bottom-left-radius: 1rem; 
             align-self: flex-end;
         }
 
-        /* Le bloc contenant le Pseudo et l'Heure */
         .chat-meta {
             display: flex;
             flex-direction: column;
             line-height: 1.1;
         }
         .chat-meta.is-other {
-            float: left; /* Le texte l'enroulera par la droite */
+            float: left; 
             margin-right: 0.5rem;
             margin-bottom: 0.2rem;
             align-items: flex-start;
         }
         .chat-meta.is-me {
-            float: right; /* Le texte l'enroulera par la gauche */
+            float: right; 
             margin-left: 0.5rem;
             margin-bottom: 0.2rem;
             align-items: flex-end;
         }
+        @keyframes popIn { 0% { transform: scale(0.95); opacity:0;} 100% { transform: scale(1); opacity:1;} }
     </style>
 </head>
 <body>
@@ -568,7 +543,7 @@
             } else {
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
-                return `${day}/${month} - ${timeStr}`; // Plus ancien : 14/10 - 14:30
+                return `${day}/${month} -${timeStr}`; // Plus ancien : 14/10 - 14:30
             }
         }
 
@@ -651,7 +626,7 @@
                         role: userRole,
                         isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
                         isSuperAdmin: userRole === 'superadmin',
-                        pseudo: currentUserAdminInfo.pseudo,
+                        pseudo: data[0].pseudo || currentUserAdminInfo.pseudo, // RÉCUPÉRATION DU PSEUDO CORRIGÉE
                         group_id: data[0].group_id
                     };
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
@@ -710,21 +685,14 @@
             chatHasMore = true;
             chatIsFetching = false;
 
-            // Logique de priorité :
-            // 1. Si on a cliqué sur un groupe dans la liste déroulante du chat, on l'utilise.
             if (targetGroupId !== null) {
                 chatSelectedGroupId = parseInt(targetGroupId);
-            } 
-            // 2. Sinon, si on ouvre l'onglet pour la première fois, on prend le groupe du joueur !
-            else if (chatSelectedGroupId === null) {
+            } else if (chatSelectedGroupId === null) {
                 chatSelectedGroupId = currentUserAdminInfo.group_id;
-                
-                // Sécurité : si le joueur est hors-chaîne (0), on lui montre le groupe 1 par défaut pour éviter un écran vide
                 if (!chatSelectedGroupId || chatSelectedGroupId < 1) chatSelectedGroupId = 1;
             }
 
             try {
-                // 1. Récupération des groupes dispo si admin
                 let availableGroups = [];
                 if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
@@ -737,7 +705,6 @@
                 renderChatBaseUI(chatSelectedGroupId, availableGroups);
                 await fetchChatMessages(null, null, true);
 
-                // Polling toutes les 5 secondes
                 if (chatInterval) clearInterval(chatInterval);
                 chatInterval = setInterval(() => {
                     fetchChatMessages(null, chatLatestId, false);
@@ -796,14 +763,12 @@
             if (beforeId && loader) loader.style.display = 'block';
 
             try {
-                // Construction dynamique pour éviter d'envoyer "null" et déclencher l'erreur 400
                 const bodyParams = { 
                     p_session_token: sessionToken, 
                     p_target_group_id: chatSelectedGroupId,
                     p_limit: 30
                 };
                 
-                // On n'ajoute ces clés que si elles ont une valeur réelle
                 if (beforeId) bodyParams.p_before_id = beforeId;
                 if (afterId) bodyParams.p_after_id = afterId;
 
@@ -816,14 +781,13 @@
                 if (res.ok) {
                     let messages = await res.json();
                     if (messages && messages.length > 0) {
-                        // Tri chrono (le SQL renvoie ORDER BY id DESC pour la limite, on inverse)
                         messages.reverse();
 
                         if (beforeId) {
                             chatOldestId = messages[0].message_id;
                             const oldScrollHeight = box.scrollHeight;
                             appendMessagesToDOM(messages, true);
-                            box.scrollTop = box.scrollHeight - oldScrollHeight; // maintien position
+                            box.scrollTop = box.scrollHeight - oldScrollHeight; 
                         } else if (afterId) {
                             chatLatestId = messages[messages.length - 1].message_id;
                             const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
@@ -837,7 +801,7 @@
                             scrollToBottomChat();
                         }
                     } else if (beforeId) {
-                        chatHasMore = false; // Plus d'anciens messages
+                        chatHasMore = false;
                     }
                 } else {
                     console.error("Erreur Supabase :", await res.text());
@@ -848,7 +812,6 @@
             if (loader) loader.style.display = 'none';
         }
 
-        // Affichage des bulles
         function appendMessagesToDOM(messages, prepend) {
             const container = document.getElementById('chat-content');
             let html = '';
@@ -856,20 +819,18 @@
             messages.forEach(m => {
                 const dateHtml = `<span class="text-[0.65rem] text-retro-slate/60 mt-0.5">${formatChatTime(m.created_at)}</span>`;
                 
-                // Code couleur selon le grade
-                let colorClass = 'text-retro-slate'; 
+                // Code couleur selon le grade : Bleu par défaut pour les membres classiques !
+                let colorClass = 'text-[#3498db]'; 
                 if (m.role === 'superadmin') colorClass = 'text-retro-coral';
                 else if (m.role === 'admin') colorClass = 'text-[#8e44ad]';
                 else if (m.role === 'chef_de_rang') colorClass = 'text-retro-mint-dark';
 
-                // Détection de si c'est MON message ou celui d'un autre
+                // Détection stricte de MA bulle 
                 const isMe = m.pseudo === currentUserAdminInfo.pseudo;
                 
                 const bubbleClass = isMe ? 'is-me' : 'is-other';
                 const metaClass = isMe ? 'is-me' : 'is-other';
 
-                // Le conteneur "chat-meta" est mis en float (left ou right).
-                // Le texte s'enroulera automatiquement autour !
                 html += `
                     <div class="chat-msg-bubble ${bubbleClass}">
                         <div class="chat-meta ${metaClass}">
@@ -893,12 +854,10 @@
             const box = document.getElementById('chat-messages-box');
             if (!box || chatIsFetching) return;
 
-            // Scroll Infini vers le haut
             if (box.scrollTop < 50 && chatHasMore && chatOldestId) {
                 fetchChatMessages(chatOldestId, null, false);
             }
 
-            // Disparition de la bulle "Nouveau message" si on redescend
             const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
             if (isNearBottom) {
                 document.getElementById('chat-new-msg-pill').style.display = 'none';
@@ -917,7 +876,7 @@
             if (!msg) return;
 
             const sessionToken = localStorage.getItem('alliance_session_token');
-            input.value = ''; // On vide de suite pour le confort
+            input.value = ''; 
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_group_message`, {
@@ -931,7 +890,6 @@
                 });
 
                 if (res.ok) {
-                    // On force le fetch immédiat des nouveautés
                     fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
                 } else {
                     showToast("Erreur", "Transmission échouée.");
