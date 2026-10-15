@@ -471,6 +471,7 @@
         let activeTab = 'active';
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
+        let chatSelectedGroupId = null;
 
         let groupFilterMode = '7days'; 
         let groupStartDate = null;
@@ -590,7 +591,8 @@
                         role: userRole,
                         isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
                         isSuperAdmin: userRole === 'superadmin',
-                        pseudo: currentUserAdminInfo.pseudo // gardé de la connexion
+                        pseudo: currentUserAdminInfo.pseudo,
+                        group_id: data[0].group_id
                     };
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
                     document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
