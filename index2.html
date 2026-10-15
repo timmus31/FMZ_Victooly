@@ -741,7 +741,7 @@
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         p_session_token: sessionToken, 
-                        p_target_group_id: selectedGroupId,
+                        p_target_group_id: chatSelectedGroupId,
                         p_limit: 30,
                         p_before_id: beforeId || null,
                         p_after_id: afterId || null
@@ -847,7 +847,7 @@
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         p_session_token: sessionToken, 
-                        p_target_group_id: selectedGroupId,
+                        p_target_group_id: chatSelectedGroupId,
                         p_message: msg
                     })
                 });
