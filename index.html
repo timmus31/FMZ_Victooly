@@ -1134,30 +1134,39 @@
         }
 
         async function loadAdminPanel() {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            const contentDiv = document.getElementById('content-area');
-        
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken })
-                });
-        
-                if (!res.ok) {
-                    const err = await res.json();
-                    contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ ${escapeHtml(err.message || "Accès refusé au panneau d'administration.")}</p>`;
-                    return;
-                }
-        
-                const data = await res.json();
-                renderAdminTable(data);
-            } catch (e) {
-                contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ Erreur réseau lors du chargement de l'administration.</p>`;
-            }
+    const sessionToken = localStorage.getItem('alliance_session_token');
+    const contentDiv = document.getElementById('content-area');
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_session_token: sessionToken })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ ${escapeHtml(err.message || "Accès refusé.")}</p>`;
+            return;
         }
 
-        function renderAdminTable(members) {
+        const data = await res.json();
+        
+        // Mettre à jour l'info de l'utilisateur actuel à partir de la réponse SQL
+        if (data && data.length > 0) {
+            currentUserAdminInfo = {
+                role: data[0].current_user_role,
+                group_id: data[0].current_user_group_id
+            };
+        }
+
+        renderAdminTable(data);
+    } catch (e) {
+        contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ Erreur réseau.</p>`;
+    }
+}
+
+function renderAdminTable(members) {
     const contentDiv = document.getElementById('content-area');
     const myRole = currentUserAdminInfo.role; // 'superadmin', 'admin', 'chef_de_rang', 'member'
     const myGroupId = currentUserAdminInfo.group_id;
@@ -1173,7 +1182,7 @@
     let html = `
         <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-            Gestion des rôles tactiques et des accès d'administration.
+            Connecté en tant que : <strong>${myRole.toUpperCase()}</strong>
         </p>
         <div class="table-container"><table>
             <thead>
@@ -1196,14 +1205,14 @@
         const gRole = m.group_role || 'chasseur';
         const showFloor = gRole === 'passeur_inter';
 
-        // 1. Permission de changer le groupe (SuperAdmin & Admin uniquement)
+        // 1. Permission Groupe : SuperAdmin et Admin modifient TOUT LE MONDE
         const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
         const groupCell = canEditGroup ? `
             <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
                 ${buildGroupOptions(m.group_id)}
             </select>` : `<span style="font-size:0.85rem;">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
 
-        // 2. Permission de changer la tactique (SuperAdmin, Admin, OU Chef de rang sur son propre groupe)
+        // 2. Permission Tactique : SuperAdmin / Admin (TOUS), Chef de rang (SON GROUPE)
         const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
                                (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
 
@@ -1224,13 +1233,13 @@
             <span id="floor-dash-${m.player_id}" style="color:var(--text-muted); display: ${showFloor ? 'none' : 'inline'};">-</span>` 
             : `<span style="font-size:0.85rem;">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
 
-        // 3. Permission de changer le rôle Admin
+        // 3. Permission Droits Admin : SuperAdmin (TOUS), Admin (Sauf SuperAdmin)
         let adminRoleAction = badge;
         const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
 
         if (canEditAdminRole) {
             if (m.role === 'superadmin') {
-                adminRoleAction = badge; // Le superadmin reste inmodifiable par l'Admin
+                adminRoleAction = badge;
             } else {
                 adminRoleAction = `
                     <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
@@ -1253,34 +1262,34 @@
 
     html += `</tbody></table></div>`;
     contentDiv.innerHTML = html;
-}
-
-// Fonction pour mettre à jour les droits admin
-async function updatePlayerAdminRole(targetPlayerId, newRole) {
-    const sessionToken = localStorage.getItem('alliance_session_token');
-
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                p_session_token: sessionToken, 
-                p_target_player_id: parseInt(targetPlayerId), 
-                p_new_role: newRole 
-            })
-        });
-
-        if (res.ok) {
-            loadAdminPanel();
-        } else {
-            const err = await res.json();
-            alert("❌ Action refusée : " + (err.message || "Erreur de droit."));
-            loadAdminPanel();
         }
-    } catch (e) {
-        alert("❌ Erreur réseau.");
-    }
-}
+        
+        // Fonction pour mettre à jour les droits admin
+        async function updatePlayerAdminRole(targetPlayerId, newRole) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+        
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        p_session_token: sessionToken, 
+                        p_target_player_id: parseInt(targetPlayerId), 
+                        p_new_role: newRole 
+                    })
+                });
+        
+                if (res.ok) {
+                    loadAdminPanel();
+                } else {
+                    const err = await res.json();
+                    alert("❌ Action refusée : " + (err.message || "Erreur de droit."));
+                    loadAdminPanel();
+                }
+            } catch (e) {
+                alert("❌ Erreur réseau.");
+            }
+        }
         
         // Mettre à jour le rôle tactique et l'étage
         async function updatePlayerTactics(playerId) {
