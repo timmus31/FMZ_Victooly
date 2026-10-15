@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V — Réseau Spatial</title>
+    <title>Alliance V — Gestion des Convois</title>
     
     <!-- Scripts & Config -->
     <script src="config.js"></script>
@@ -325,9 +325,9 @@
 
     <!-- Toast Notification Overlay -->
     <div id="retro-toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 bg-retro-yellow border-4 border-retro-slate p-4 rounded-2xl shadow-retro flex items-center gap-3 max-w-sm">
-        <div class="text-3xl text-retro-slate"><i class="fa-solid fa-satellite-dish fa-spin-pulse"></i></div>
+        <div class="text-3xl text-retro-slate"><i class="fa-solid fa-circle-info fa-bounce"></i></div>
         <div>
-            <h4 class="font-shrikhand text-lg text-retro-slate leading-tight" id="toast-title">Avis Spatiale!</h4>
+            <h4 class="font-shrikhand text-lg text-retro-slate leading-tight" id="toast-title">Notification!</h4>
             <p class="font-fredoka text-sm text-retro-slate/90" id="toast-msg">Opération exécutée avec succès.</p>
         </div>
     </div>
@@ -337,7 +337,7 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3 group cursor-default">
                 <div class="relative w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center shadow-retro-sm group-hover:rotate-12 transition-transform">
-                    <i class="fa-solid fa-rocket text-retro-cream text-xl"></i>
+                    <i class="fa-solid fa-bug text-retro-cream text-xl"></i>
                 </div>
                 <div class="flex flex-col">
                     <span class="font-shrikhand text-2xl tracking-wide text-retro-slate leading-none">ALLIANCE V</span>
@@ -361,9 +361,9 @@
             
             <div class="relative z-10 space-y-6">
                 <div>
-                    <div class="token-step">1. Récupération du Disque de Chiffrement</div>
+                    <div class="token-step">1. Récupération du Token Fourmizzz</div>
                     <p class="text-sm text-retro-slate/80 font-medium mb-3">
-                        Générez votre jeton d'accès atomique (Token Fourmizzz) :
+                        Générez votre jeton d'accès depuis votre compte de jeu :
                     </p>
                     <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn text-sm">
                         <i class="fa-solid fa-key mr-2"></i> Obtenir mon Token
@@ -371,13 +371,13 @@
                 </div>
                 
                 <div>
-                    <div class="token-step">2. Validation Temporelle (Session continue)</div>
+                    <div class="token-step">2. Validation de session (continue)</div>
                     <input type="text" 
                            id="token-input" 
-                           placeholder="Insérez le code du continuum spatial ici..." 
+                           placeholder="Coller le token ou le JSON complet ici..." 
                            onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
                     <button class="btn-primary flex items-center justify-center gap-2" onclick="handleAuth()">
-                        <i class="fa-solid fa-satellite-dish"></i> Connexion au Radar
+                        <i class="fa-solid fa-right-to-bracket"></i> Connexion au Tableau
                     </button>
                 </div>
             </div>
@@ -394,7 +394,7 @@
                     <i class="fa-solid fa-scroll mr-1"></i> Historique
                 </button>
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">
-                    <i class="fa-solid fa-users-viewfinder mr-1"></i> Escouade
+                    <i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe
                 </button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')">
                     <i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D
@@ -409,7 +409,7 @@
 
             <!-- Zone de contenu injectée via JS -->
             <div id="content-area">
-                <p class="text-center font-shrikhand text-retro-slate text-xl animate-pulse">Chargement de la matrice...</p>
+                <p class="text-center font-shrikhand text-retro-slate text-xl animate-pulse">Chargement des données...</p>
             </div>
         </div>
 
@@ -451,7 +451,7 @@
             return dateStr;
         }
 
-        // --- Système de Toast (Rétro Futuriste) ---
+        // --- Système de Toast (Rétro) ---
         function showToast(title, message) {
             const toast = document.getElementById('retro-toast');
             document.getElementById('toast-title').innerText = title;
@@ -516,7 +516,7 @@
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
                 
-                showToast("Accès Autorisé", "Connexion à la base orbitale réussie.");
+                showToast("Accès Autorisé", "Connexion au bureau central réussie.");
                 checkSessionAndLoad();
             } catch (err) {
                 showToast("Échec", "Connexion échouée : " + err.message);
@@ -580,7 +580,7 @@
             if (!sessionToken) return logout();
 
             const contentDiv = document.getElementById('content-area');
-            contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-atom fa-spin text-4xl text-retro-coral"></i></div>`;
+            contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>`;
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
@@ -721,10 +721,10 @@
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
 
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Escouade #${currentGroupId}`;
+            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
             if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Toutes les escouades (Global)</option>`;
-                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Escouade #${g.group_id}</option>`).join('');
+                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
                 groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
             }
 
@@ -782,7 +782,7 @@
                     <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Initial</div></div>
                     <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')}</div><div class="lbl">Territoire Actuel</div></div>
                     <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
-                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Énergie Générée</div></div>
+                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
                 </div>
             `;
 
@@ -792,11 +792,11 @@
                     <div class="table-container"><table>
                         <thead>
                             <tr>
-                                <th>Pilote</th>
+                                <th>Joueur</th>
                                 <th>Territoire Initial</th>
                                 <th>Territoire Actuel</th>
                                 <th>Progression</th>
-                                <th>Énergie Générée</th>
+                                <th>Ressources Générées</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -816,34 +816,34 @@
                 html += `</tbody></table></div>`;
             }
 
-            html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">📦 Livraisons de l'Escouade</h3>`;
+            html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">📦 Convois du Groupe</h3>`;
             if (convoys.length === 0) {
-                html += `<p class="font-fredoka text-retro-slate/60 italic">Le radar spatial n'indique aucune livraison sur cette période.</p>`;
+                html += `<p class="font-fredoka text-retro-slate/60 italic">Aucun convoi enregistré sur cette période.</p>`;
             } else {
                 html += `<div class="table-container"><table>
                     <thead>
                         <tr>
-                            <th>Date Stellaire</th>
+                            <th>Date</th>
                             ${currentGroupId === -1 ? '<th>Grp</th>' : ''}
                             <th>Expéditeur</th>
                             <th>Destinataire</th>
-                            <th>Matière</th>
+                            <th>Montant</th>
                             <th>Statut</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
                 convoys.forEach(c => {
-                    let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> Transit</span>';
-                    if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Sécurisé</span>';
-                    else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Perdu</span>';
+                    let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> En attente</span>';
+                    if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Complété</span>';
+                    else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>';
 
                     html += `<tr>
                         <td>${formatDateFR(c.balance_date)}</td>
                         ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
                         <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} unités</td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
                         <td>${badge}</td>
                     </tr>`;
                 });
@@ -881,11 +881,11 @@
         function renderMapUI(groups) {
             const contentDiv = document.getElementById('content-area');
 
-            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Galaxie Entière</button>`;
+            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Alliance entière</button>`;
             groups.forEach(g => {
                 const color = g === 0 ? '#94a3b8' : GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
                 const activeClass = mapSelectedGroup === g ? 'active' : '';
-                const label = g === 0 ? 'Exilés' : `Escouade #${g}`;
+                const label = g === 0 ? 'Hors-chaîne' : `Groupe #${g}`;
                 filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">${label}</button>`;
             });
 
@@ -895,16 +895,16 @@
                         <div class="w-12 h-12 bg-retro-avocado border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
                             <i class="fa-solid fa-radar"></i>
                         </div>
-                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Radar Spatial Actif</h3>
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Radar Actif</h3>
                     </div>
 
                     <div class="map-controls">
-                        <input type="text" class="map-search" placeholder="🔍 Localiser un vaisseau..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
+                        <input type="text" class="map-search" placeholder="🔍 Localiser un joueur..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
                         <div class="flex gap-2 flex-wrap justify-end">${filterButtons}</div>
                     </div>
                     
                     <div class="w-full max-w-3xl relative tv-screen">
-                        <!-- Effet reflet TV -->
+                        <!-- Effet reflet écran -->
                         <div class="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/5 to-transparent z-10"></div>
                         
                         <canvas id="alliance-map" width="700" height="600" class="w-full h-auto cursor-grab active:cursor-grabbing"></canvas>
@@ -919,7 +919,7 @@
                     </div>
                     
                     <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider">
-                        <i class="fa-solid fa-lightbulb text-retro-yellow"></i> Maniez la molette pour zoomer et glissez la carte pour explorer.
+                        <i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.
                     </div>
                 </div>
             `;
@@ -990,7 +990,7 @@
                     });
 
                     if (found && tooltip) {
-                        const groupLabel = found.group_id === 0 ? 'Exilé' : `#${found.group_id}`;
+                        const groupLabel = found.group_id === 0 ? 'Hors-chaîne' : `#${found.group_id}`;
                         tooltip.style.display = 'block';
                         tooltip.style.left = `${mouseX + 15}px`;
                         tooltip.style.top = `${mouseY - 10}px`;
@@ -998,7 +998,7 @@
                             <div class="border-b border-retro-cream/30 pb-1 mb-1">
                                 <strong class="font-fredoka text-sm text-retro-yellow">${escapeHtml(found.pseudo)}</strong>
                             </div>
-                            Escouade ${groupLabel}<br>Coords : (${found.x}, ${found.y})
+                            Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})
                         `;
                     } else if (tooltip) {
                         tooltip.style.display = 'none';
@@ -1035,7 +1035,7 @@
             ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
             // Grille "Radar"
-            ctx.strokeStyle = 'rgba(58, 175, 169, 0.15)'; // Vert fluo discret
+            ctx.strokeStyle = 'rgba(58, 175, 169, 0.15)'; 
             ctx.lineWidth = 1 / zoomLevel;
             for (let i = -canvas.width; i <= canvas.width * 2; i += 50) {
                 ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke();
@@ -1096,7 +1096,7 @@
             let html = `
                 <div class="flex items-center gap-3 mb-6 mt-4">
                     <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-rocket"></i>
+                        <i class="fa-solid fa-box-open"></i>
                     </div>
                     <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel à expédier</h3>
                 </div>`;
@@ -1105,7 +1105,7 @@
             html += `
                 <div class="flex items-center gap-3 mb-6 mt-12">
                     <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-satellite-dish"></i>
+                        <i class="fa-solid fa-box"></i>
                     </div>
                     <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Matériel en approche</h3>
                 </div>`;
@@ -1115,16 +1115,16 @@
         }
 
         function renderTable(list, isSender) {
-            if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune cargaison orbitale en vue.</p>`;
+            if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucun convoi dans cette catégorie.</p>`;
 
             let html = `<div class="table-container"><table>
                 <thead>
                     <tr>
-                        <th>Date Stellaire</th>
-                        <th>Vaisseau Cible</th>
-                        <th>Quantité</th>
-                        <th>État</th>
-                        ${isSender ? '<th>Commande</th>' : ''}
+                        <th>Date</th>
+                        <th>Destinataire</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
+                        ${isSender ? '<th>Action</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1135,8 +1135,8 @@
                 const isFailed = c.status === 'failed';
 
                 const statusBadge = isFailed 
-                    ? `<span class="badge badge-failed"><i class="fa-solid fa-skull"></i> Échec</span>`
-                    : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> Préparation</span>`;
+                    ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>`
+                    : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
 
                 let actionBtns = '';
                 if (isSender) {
@@ -1148,7 +1148,7 @@
                             ${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}
                         </a>
                         <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})">
-                            <i class="fa-solid fa-check"></i> Acté
+                            <i class="fa-solid fa-check"></i> Acter
                         </button>
                     `;
                 }
@@ -1156,7 +1156,7 @@
                 html += `<tr class="${isFailed ? 'row-failed' : ''}">
                     <td>${formatDateFR(c.balance_date)}</td>
                     <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> unités</td>
+                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Matériaux</td>
                     <td>${statusBadge}</td>
                     ${isSender ? `<td>${actionBtns}</td>` : ''}
                 </tr>`;
@@ -1169,7 +1169,7 @@
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
 
-            if (!confirm("Confirmer la validation du convoi dans l'hyper-espace ?")) return;
+            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
@@ -1179,12 +1179,12 @@
                 });
 
                 if (res.ok) {
-                    showToast("Confirmation Orbitale", "Marchandises livrées avec succès !");
+                    showToast("Confirmation", "Convoi validé avec succès !");
                     renderTabContent();
                 }
-                else alert("❌ Erreur de transmission.");
+                else alert("❌ Erreur lors de la validation.");
             } catch (e) {
-                alert("❌ Erreur réseau intergalactique.");
+                alert("❌ Erreur réseau.");
             }
         }
 
@@ -1196,22 +1196,22 @@
                     <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl">
                         <i class="fa-solid fa-file-invoice"></i>
                     </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives Logistiques</h3>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives</h3>
                 </div>`;
 
             if (historyList.length === 0) {
-                contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive spatiale pour le moment.</p>`;
+                contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`;
                 return;
             }
 
             let html = header + `<div class="table-container"><table>
                 <thead>
                     <tr>
-                        <th>Date Stellaire</th>
+                        <th>Date</th>
                         <th>Flux</th>
-                        <th>Allié</th>
-                        <th>Matière</th>
-                        <th>État final</th>
+                        <th>Partenaire</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1219,15 +1219,15 @@
             historyList.forEach(c => {
                 const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
                 const typeText = c.is_sender 
-                    ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Export</span>' 
-                    : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Import</span>';
+                    ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Envoyé</span>' 
+                    : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Reçu</span>';
 
                 html += `<tr>
                     <td>${formatDateFR(c.balance_date)}</td>
                     <td>${typeText}</td>
                     <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td>${Number(c.amount).toLocaleString('fr-FR')} unités</td>
-                    <td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Classé</span></td>
+                    <td>${Number(c.amount).toLocaleString('fr-FR')} Matériaux</td>
+                    <td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td>
                 </tr>`;
             });
 
@@ -1247,7 +1247,7 @@
 
                 if (!res.ok) {
                     const err = await res.json();
-                    contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console des commandes : ${escapeHtml(err.message)}</p>`;
+                    contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console d'administration : ${escapeHtml(err.message)}</p>`;
                     return;
                 }
 
@@ -1262,7 +1262,7 @@
 
                 renderAdminTable(data);
             } catch (e) {
-                contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Interférence réseau avec la base.</p>`;
+                contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur réseau.</p>`;
             }
         }
 
@@ -1272,9 +1272,9 @@
             const myGroupId = currentUserAdminInfo.group_id;
 
             const buildGroupOptions = (currentGroup) => {
-                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Exilés (H.S)</option>`;
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
                 for (let g = 1; g <= 10; g++) {
-                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Escouade #${g}</option>`;
+                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
                 }
                 return opts;
             };
@@ -1285,28 +1285,28 @@
                         <i class="fa-solid fa-gears"></i>
                     </div>
                     <div class="flex flex-col">
-                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console de Commandement</h3>
-                        <span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Accréditation : ${myRole}</span>
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3>
+                        <span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span>
                     </div>
                 </div>
                 
                 <div class="table-container mt-6"><table>
                     <thead>
                         <tr>
-                            <th>Pilote</th>
-                            <th style="text-align:center;">Affectation</th>
-                            <th style="text-align:center;">Spécialité</th>
-                            <th style="text-align:center;">Niveau</th>
-                            <th style="text-align:center;">Grade</th>
+                            <th>Joueur</th>
+                            <th style="text-align:center;">Groupe</th>
+                            <th style="text-align:center;">Rôle Groupe</th>
+                            <th style="text-align:center;">Étage</th>
+                            <th style="text-align:center;">Droits Admin</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
             members.forEach(m => {
-                let badge = '<span class="badge badge-member">Pilote</span>';
-                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Amiral</span>';
-                else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Capitaine</span>';
-                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Lieutenant</span>';
+                let badge = '<span class="badge badge-member">Membre</span>';
+                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Super Admin</span>';
+                else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>';
+                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Chef de rang</span>';
 
                 const gRole = m.group_role || 'chasseur';
                 const showFloor = gRole === 'passeur_inter';
@@ -1315,7 +1315,7 @@
                 const groupCell = canEditGroup ? `
                     <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
                         ${buildGroupOptions(m.group_id)}
-                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Exilé' : 'Escouade #' + m.group_id}</span>`;
+                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
 
                 const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
                                        (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
@@ -1323,9 +1323,9 @@
                 const tacticsCell = canEditTactics ? `
                     <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
                         <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
-                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur Bas</option>
-                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Relais Spat.</option>
-                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Base Sûre</option>
+                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
+                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
+                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
                     </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
 
                 const floorCell = canEditTactics ? `
@@ -1346,9 +1346,9 @@
                     } else {
                         adminRoleAction = `
                             <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
-                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Pilote</option>
-                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Lieutenant</option>
-                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Capitaine</option>
+                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
+                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
+                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
                             </select>
                         `;
                     }
@@ -1376,7 +1376,7 @@
                     body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole })
                 });
                 if (res.ok) {
-                    showToast("Mise à jour Base", "Grades synchronisés.");
+                    showToast("Mise à jour", "Droits d'administration modifiés.");
                     loadAdminPanel();
                 } else {
                     const err = await res.json();
@@ -1408,7 +1408,7 @@
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(playerId), p_group_role: selectedRole, p_floor_level: floorValue })
                 });
-                showToast("Mise à jour Base", "Nouvelles directives tactiques appliquées.");
+                showToast("Mise à jour", "Nouvelles directives tactiques appliquées.");
             } catch (e) {
                 alert("❌ Erreur de sauvegarde.");
             }
@@ -1423,7 +1423,7 @@
                     body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) })
                 });
                 if (res.ok) {
-                    showToast("Mise à jour Base", "Nouvelle escouade assignée.");
+                    showToast("Mise à jour", "Nouveau groupe assigné.");
                     loadAdminPanel();
                 } else {
                     const err = await res.json();
