@@ -395,7 +395,7 @@
 
     <script>
         let activeTab = 'active';
-        let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false };
+        let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member' };
         let selectedGroupId = null;
 
         // Variables Filtre de Période
@@ -574,7 +574,6 @@
         
                 computeDateRange();
         
-                // Construction propre du payload RPC (évite d envoyer des clés invalides)
                 const bodyParams = { 
                     p_session_token: sessionToken,
                     p_start_date: groupStartDate || null,
@@ -617,9 +616,9 @@
                     if (resPerfs.ok) playerPerfsData = await resPerfs.json();
                 }
         
-                // 4. Groupes disponibles
+                // 4. Groupes disponibles (Uniquement pour Admins et SuperAdmins)
                 let availableGroups = [];
-                if (currentUserAdminInfo.isAdmin) {
+                if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
                         method: 'POST',
                         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
@@ -688,7 +687,7 @@
             const contentDiv = document.getElementById('content-area');
 
             let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
-            if (currentUserAdminInfo.isAdmin) {
+            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
                 let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
                 groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
@@ -1144,134 +1143,133 @@
         }
 
         async function loadAdminPanel() {
-    const sessionToken = localStorage.getItem('alliance_session_token');
-    const contentDiv = document.getElementById('content-area');
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const contentDiv = document.getElementById('content-area');
 
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ p_session_token: sessionToken })
-        });
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
 
-        if (!res.ok) {
-            const err = await res.json();
-            contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ ${escapeHtml(err.message || "Accès refusé.")}</p>`;
-            return;
-        }
+                if (!res.ok) {
+                    const err = await res.json();
+                    contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ ${escapeHtml(err.message || "Accès refusé.")}</p>`;
+                    return;
+                }
 
-        const data = await res.json();
-        
-        // Mettre à jour l'info de l'utilisateur actuel à partir de la réponse SQL
-        if (data && data.length > 0) {
-            currentUserAdminInfo = {
-                role: data[0].current_user_role,
-                group_id: data[0].current_user_group_id
-            };
-        }
+                const data = await res.json();
+                
+                if (data && data.length > 0) {
+                    currentUserAdminInfo = {
+                        role: data[0].current_user_role,
+                        group_id: data[0].current_user_group_id
+                    };
+                }
 
-        renderAdminTable(data);
-    } catch (e) {
-        contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ Erreur réseau.</p>`;
-    }
-}
-
-function renderAdminTable(members) {
-    const contentDiv = document.getElementById('content-area');
-    const myRole = currentUserAdminInfo.role; // 'superadmin', 'admin', 'chef_de_rang', 'member'
-    const myGroupId = currentUserAdminInfo.group_id;
-
-    const buildGroupOptions = (currentGroup) => {
-        let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
-        for (let g = 1; g <= 10; g++) {
-            opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
-        }
-        return opts;
-    };
-
-    let html = `
-        <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
-            Connecté en tant que : <strong>${myRole.toUpperCase()}</strong>
-        </p>
-        <div class="table-container"><table>
-            <thead>
-                <tr>
-                    <th>Joueur</th>
-                    <th style="text-align:center;">Groupe</th>
-                    <th style="text-align:center;">Rôle Groupe</th>
-                    <th style="text-align:center;">Étage</th>
-                    <th style="text-align:center;">Droits Admin</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-    members.forEach(m => {
-        let badge = '<span class="badge badge-member">Membre</span>';
-        if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
-        else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
-        else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
-
-        const gRole = m.group_role || 'chasseur';
-        const showFloor = gRole === 'passeur_inter';
-
-        // 1. Permission Groupe : SuperAdmin et Admin modifient TOUT LE MONDE
-        const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
-        const groupCell = canEditGroup ? `
-            <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
-                ${buildGroupOptions(m.group_id)}
-            </select>` : `<span style="font-size:0.85rem;">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
-
-        // 2. Permission Tactique : SuperAdmin / Admin (TOUS), Chef de rang (SON GROUPE)
-        const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
-                               (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
-
-        const tacticsCell = canEditTactics ? `
-            <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
-                <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
-                <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
-                <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
-                <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
-            </select>` : `<span style="font-size:0.85rem;">${gRole}</span>`;
-
-        const floorCell = canEditTactics ? `
-            <input type="number" id="floor-input-${m.player_id}" 
-                   value="${m.floor_level !== null ? m.floor_level : ''}" 
-                   placeholder="Ex: 2" min="1" max="100"
-                   style="width: 55px; text-align:center; display: ${showFloor ? 'inline-block' : 'none'};" 
-                   onchange="updatePlayerTactics(${m.player_id})" />
-            <span id="floor-dash-${m.player_id}" style="color:var(--text-muted); display: ${showFloor ? 'none' : 'inline'};">-</span>` 
-            : `<span style="font-size:0.85rem;">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
-
-        // 3. Permission Droits Admin : SuperAdmin (TOUS), Admin (Sauf SuperAdmin)
-        let adminRoleAction = badge;
-        const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
-
-        if (canEditAdminRole) {
-            if (m.role === 'superadmin') {
-                adminRoleAction = badge;
-            } else {
-                adminRoleAction = `
-                    <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
-                        <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
-                        <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
-                        <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
-                    </select>
-                `;
+                renderAdminTable(data);
+            } catch (e) {
+                contentDiv.innerHTML = `<p style="color:var(--danger); text-align:center;">⚠️ Erreur réseau.</p>`;
             }
         }
 
-        html += `<tr>
-            <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
-            <td style="text-align:center;">${groupCell}</td>
-            <td style="text-align:center;">${tacticsCell}</td>
-            <td style="text-align:center;">${floorCell}</td>
-            <td style="text-align:center;">${adminRoleAction}</td>
-        </tr>`;
-    });
+        function renderAdminTable(members) {
+            const contentDiv = document.getElementById('content-area');
+            const myRole = currentUserAdminInfo.role; // 'superadmin', 'admin', 'chef_de_rang', 'member'
+            const myGroupId = currentUserAdminInfo.group_id;
 
-    html += `</tbody></table></div>`;
-    contentDiv.innerHTML = html;
+            const buildGroupOptions = (currentGroup) => {
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
+                for (let g = 1; g <= 10; g++) {
+                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
+                }
+                return opts;
+            };
+
+            let html = `
+                <div style="font-weight:bold; color: var(--admin-color); margin: 15px 0 5px 0; font-size: 1.1rem;">⚙️ Gestion de l'Alliance</div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px;">
+                    Connecté en tant que : <strong>${myRole.toUpperCase()}</strong>
+                </p>
+                <div class="table-container"><table>
+                    <thead>
+                        <tr>
+                            <th>Joueur</th>
+                            <th style="text-align:center;">Groupe</th>
+                            <th style="text-align:center;">Rôle Groupe</th>
+                            <th style="text-align:center;">Étage</th>
+                            <th style="text-align:center;">Droits Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            members.forEach(m => {
+                let badge = '<span class="badge badge-member">Membre</span>';
+                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin">👑 Super Admin</span>';
+                else if (m.role === 'admin') badge = '<span class="badge badge-admin">🛡️ Admin</span>';
+                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef">🎖️ Chef de rang</span>';
+
+                const gRole = m.group_role || 'chasseur';
+                const showFloor = gRole === 'passeur_inter';
+
+                // 1. Permission Groupe : SuperAdmin et Admin modifient TOUT LE MONDE
+                const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
+                const groupCell = canEditGroup ? `
+                    <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
+                        ${buildGroupOptions(m.group_id)}
+                    </select>` : `<span style="font-size:0.85rem;">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
+
+                // 2. Permission Tactique : SuperAdmin / Admin (TOUS), Chef de rang (SON GROUPE)
+                const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
+                                       (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
+
+                const tacticsCell = canEditTactics ? `
+                    <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
+                        <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
+                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
+                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
+                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
+                    </select>` : `<span style="font-size:0.85rem;">${gRole}</span>`;
+
+                const floorCell = canEditTactics ? `
+                    <input type="number" id="floor-input-${m.player_id}" 
+                           value="${m.floor_level !== null ? m.floor_level : ''}" 
+                           placeholder="Ex: 2" min="1" max="100"
+                           style="width: 55px; text-align:center; display: ${showFloor ? 'inline-block' : 'none'};" 
+                           onchange="updatePlayerTactics(${m.player_id})" />
+                    <span id="floor-dash-${m.player_id}" style="color:var(--text-muted); display: ${showFloor ? 'none' : 'inline'};">-</span>` 
+                    : `<span style="font-size:0.85rem;">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
+
+                // 3. Permission Droits Admin : SuperAdmin (TOUS), Admin (Sauf SuperAdmin)
+                let adminRoleAction = badge;
+                const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
+
+                if (canEditAdminRole) {
+                    if (m.role === 'superadmin') {
+                        adminRoleAction = badge;
+                    } else {
+                        adminRoleAction = `
+                            <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
+                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
+                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
+                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
+                            </select>
+                        `;
+                    }
+                }
+
+                html += `<tr>
+                    <td><strong>${escapeHtml(m.member_pseudo)}</strong></td>
+                    <td style="text-align:center;">${groupCell}</td>
+                    <td style="text-align:center;">${tacticsCell}</td>
+                    <td style="text-align:center;">${floorCell}</td>
+                    <td style="text-align:center;">${adminRoleAction}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            contentDiv.innerHTML = html;
         }
         
         // Fonction pour mettre à jour les droits admin
