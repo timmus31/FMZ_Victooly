@@ -923,45 +923,48 @@
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
-                if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
+                // 1. Par défaut, on charge le groupe du joueur (ou Global s'il est hors-chaîne)
+                if (targetGroupId !== null) {
+                    selectedGroupId = parseInt(targetGroupId);
+                } else if (selectedGroupId === null) {
+                    selectedGroupId = currentUserAdminInfo.group_id > 0 ? currentUserAdminInfo.group_id : -1;
+                }
+                
                 computeDateRange();
         
-                // ON ENVOIE TOUJOURS LE GROUPE (Y COMPRIS -1)
-                const bodyParams = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
-                if (selectedGroupId !== null && !isNaN(selectedGroupId)) {
-                    bodyParams.p_target_group_id = selectedGroupId;
-                }
+                const paramsGlobal = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
+                const paramForConvoysAndLogs = selectedGroupId === -1 ? null : selectedGroupId;
         
+                // 2. Convois et Logs (reçoivent "null" si on veut le Global)
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs })
                 });
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
         
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: paramForConvoysAndLogs })
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                let playerPerfsData = [];
+                // 3. Performances (reçoivent "-1" pour le Global, sinon le SQL utilise le groupe du joueur par erreur)
                 const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
                 });
+                let playerPerfsData = [];
                 if (resPerfs.ok) playerPerfsData = await resPerfs.json();
         
+                // 4. TOUT LE MONDE récupère la liste des groupes (plus de verrou Admin)
                 let availableGroups = [];
-                if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
-                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
-                    });
-                    if (groupsRes.ok) availableGroups = await groupsRes.json();
-                }
+                const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                });
+                if (groupsRes.ok) availableGroups = await groupsRes.json();
         
-                const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
-                renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
+                renderGroupUI(convoysData, logsData, playerPerfsData, selectedGroupId, availableGroups);
             } catch (e) { console.error(e); }
         }
 
@@ -1005,12 +1008,13 @@
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
-            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            
+            // ACCÈS LIBRE : Tout le monde a le menu déroulant !
+            let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
-                groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
             }
+            let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
             let dateInputsHtml = '';
@@ -1040,6 +1044,7 @@
                 <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
             `;
 
+            // Filtre strict pour la vue Global : on exclut les inactifs/hors-chaîne
             if (currentGroupId === -1) {
                 if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
                 if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
@@ -1048,7 +1053,6 @@
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
             
-            // CORRECTION ICI : On utilise toujours les playerPerfs, même pour l'alliance entière !
             if (playerPerfs && playerPerfs.length > 0) {
                 playerPerfs.forEach(p => { 
                     sumStart += p.start_terrain; 
@@ -1076,7 +1080,7 @@
                 </div>
             `;
 
-            // AFFICHAGE DU BILAN MEME POUR LA VUE GLOBALE
+            // CORRECTION : On affiche le tableau même si currentGroupId est égal à -1
             if (playerPerfs && playerPerfs.length > 0) {
                 html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
                     <div class="table-container"><table><thead><tr><th>Joueur</th><th>Terrain Initial</th><th>Terrain Actuel</th><th>Progression</th><th>Ressources Générées</th></tr></thead><tbody>`;
