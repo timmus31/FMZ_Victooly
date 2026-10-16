@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alliance V — Gestion des Convois</title>
+    <title>Victooly — Gestion des Convois</title>
     
     <!-- Scripts & Config -->
     <script src="config.js"></script>
@@ -47,7 +47,6 @@
     </script>
 
     <style>
-        /* Fond Grains et motif Googie */
         body {
             background-color: #f9f7f1;
             background-image: radial-gradient(#1d2d44 0.75px, transparent 0.75px), radial-gradient(#1d2d44 0.75px, #f9f7f1 0.75px);
@@ -60,7 +59,6 @@
             flex-direction: column;
         }
 
-        /* Classes rétro injectées dans le HTML JS */
         .token-box {
             background-color: #f9f7f1;
             border: 4px solid #1d2d44;
@@ -146,6 +144,7 @@
         .tab-btn.group-active { background-color: #3aafa9; color: white; }
         .tab-btn.map-active { background-color: #8ba888; color: white; }
         .tab-btn.admin-active { background-color: #f4d03f; color: #1d2d44; }
+        .tab-btn.chat-active { background-color: #8e44ad; color: white; }
 
         .btn-logout {
             margin-left: auto;
@@ -162,7 +161,6 @@
         }
         .btn-logout:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #1d2d44; }
 
-        /* Conteneurs et Tableaux générés par JS */
         .table-container {
             background-color: #ffffff;
             border: 4px solid #1d2d44;
@@ -172,18 +170,8 @@
             margin-bottom: 2rem;
         }
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { 
-            background-color: #1d2d44; 
-            color: #f9f7f1; 
-            font-family: 'Fredoka', sans-serif; 
-            padding: 1rem 1.25rem; 
-            white-space: nowrap; 
-        }
-        td { 
-            padding: 0.75rem 1.25rem; 
-            border-bottom: 2px solid rgba(29, 45, 68, 0.1); 
-            font-weight: 500; 
-        }
+        th { background-color: #1d2d44; color: #f9f7f1; font-family: 'Fredoka', sans-serif; padding: 1rem 1.25rem; white-space: nowrap; }
+        td { padding: 0.75rem 1.25rem; border-bottom: 2px solid rgba(29, 45, 68, 0.1); font-weight: 500; }
         tr:last-child td { border-bottom: none; }
         tr.row-failed { background-color: rgba(255, 111, 97, 0.05); }
 
@@ -202,7 +190,7 @@
         .badge-success { background-color: #3aafa9; color: white; }
         .badge-failed { background-color: #ff6f61; color: white; }
         .badge-superadmin { background-color: #ff6f61; color: white; }
-        .badge-admin { background-color: #f4d03f; }
+        .badge-admin { background-color: #8e44ad; color: white;}
         .badge-chef { background-color: #3aafa9; color: white; }
         .badge-member { background-color: #e2e8f0; }
 
@@ -223,7 +211,6 @@
         .btn-manual-ok { background-color: #3aafa9; color: white; margin-left: 0.5rem; }
         .btn-action:hover, .btn-manual-ok:hover { transform: translate(1px, 1px); box-shadow: 1px 1px 0px 0px #1d2d44; }
 
-        /* Cartes de Stats de l'onglet Groupe */
         .stats-summary { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
         .stat-card {
             flex: 1;
@@ -240,7 +227,6 @@
         .stat-card .val { font-family: 'Shrikhand', cursive; font-size: 1.75rem; color: #1d2d44; line-height: 1; margin-bottom: 0.25rem; }
         .stat-card .lbl { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 0.8rem; color: #4a5d73; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* Sélecteurs de date et filtres */
         .date-filter-box {
             display: flex;
             flex-wrap: wrap;
@@ -266,14 +252,15 @@
         }
         .date-filter-box button:hover { background-color: #ff6f61; }
 
-        /* Carte spatiale 2D */
         .tv-screen {
             border: 4px solid #1d2d44;
             border-radius: 40px / 30px;
             overflow: hidden;
             box-shadow: 6px 6px 0px 0px #1d2d44;
             position: relative;
-            background-color: #0b1329;
+            background-color: #f2ead0; /* Couleur Ivoire / Vieux papier */
+            background-image: radial-gradient(rgba(29, 45, 68, 0.15) 1px, transparent 1px);
+            background-size: 15px 15px;
         }
         .map-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; max-width: 700px; margin-bottom: 1rem; }
         .map-filter-btn {
@@ -313,26 +300,140 @@
         }
         .map-tool-btn:hover { background-color: #f4d03f; }
 
-        /* Animation Starburst pour le design */
         .spin-starburst { animation: spin-slow 25s linear infinite; }
         @keyframes spin-slow { 100% { transform: rotate(360deg); } }
 
-        /* Notification Toast Rétro */
         #retro-toast { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Styles spécifiques au CHAT */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            height: 550px;
+            overflow: hidden;
+            position: relative;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background-color: #f4f6f9;
+        }
+        .chat-messages::-webkit-scrollbar { width: 8px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background-color: rgba(29, 45, 68, 0.2); border-radius: 10px; }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 1rem;
+            background: white;
+            border-top: 3px solid #1d2d44;
+        }
+        .chat-input-area input {
+            margin-bottom: 0;
+            box-shadow: inset 2px 2px 0px rgba(29, 45, 68, 0.05);
+        }
+        .chat-btn-send {
+            background-color: #ff6f61;
+            color: white;
+            border: 3px solid #1d2d44;
+            border-radius: 0.75rem;
+            padding: 0 1.5rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
+            transition: all 0.1s;
+        }
+        .chat-btn-send:hover { transform: translate(1px,1px); box-shadow: 2px 2px 0px 0px #1d2d44;}
+        .chat-btn-send:active { transform: translate(3px,3px); box-shadow: none;}
+        
+        .new-messages-pill {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f4d03f;
+            color: #1d2d44;
+            border: 2px solid #1d2d44;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: bold;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #1d2d44;
+            z-index: 10;
+            display: none;
+        }
+
+        .chat-msg-bubble {
+            background: white;
+            border: 2px solid #1d2d44;
+            padding: 0.6rem 1rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            position: relative;
+            animation: popIn 0.2s ease-out;
+        }
+        .chat-msg-bubble::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        
+        .chat-msg-bubble.is-other {
+            border-bottom-left-radius: 0;
+            align-self: flex-start;
+        }
+        
+        .chat-msg-bubble.is-me {
+            background-color: #f9f7f1; 
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 1rem; 
+            align-self: flex-end;
+        }
+
+        .chat-meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+        .chat-meta.is-other {
+            float: left; 
+            margin-right: 0.5rem;
+            margin-bottom: 0.2rem;
+            align-items: flex-start;
+        }
+        .chat-meta.is-me {
+            float: right; 
+            margin-left: 0.5rem;
+            margin-bottom: 0.2rem;
+            align-items: flex-end;
+        }
+        @keyframes popIn { 0% { transform: scale(0.95); opacity:0;} 100% { transform: scale(1); opacity:1;} }
     </style>
 </head>
 <body>
 
-    <!-- Toast Notification Overlay -->
+    <!-- Toast Notification -->
     <div id="retro-toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 bg-retro-yellow border-4 border-retro-slate p-4 rounded-2xl shadow-retro flex items-center gap-3 max-w-sm">
         <div class="text-3xl text-retro-slate"><i class="fa-solid fa-circle-info fa-bounce"></i></div>
         <div>
             <h4 class="font-shrikhand text-lg text-retro-slate leading-tight" id="toast-title">Notification!</h4>
-            <p class="font-fredoka text-sm text-retro-slate/90" id="toast-msg">Opération exécutée avec succès.</p>
+            <p class="font-fredoka text-sm text-retro-slate/90" id="toast-msg">Opération exécutée.</p>
         </div>
     </div>
 
-    <!-- Header / Navbar Rétro-Futuriste -->
+    <!-- Header -->
     <header class="sticky top-0 z-40 bg-retro-cream/90 backdrop-blur-md border-b-4 border-retro-slate px-4 lg:px-8 py-3 w-full">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3 group cursor-default">
@@ -340,42 +441,32 @@
                     <i class="fa-solid fa-bug text-retro-cream text-xl"></i>
                 </div>
                 <div class="flex flex-col">
-                    <span class="font-shrikhand text-2xl tracking-wide text-retro-slate leading-none">ALLIANCE V</span>
+                    <span class="font-shrikhand text-2xl tracking-wide text-retro-slate leading-none">Victooly</span>
                     <span class="font-fredoka text-xs text-retro-coral font-bold tracking-widest uppercase">Bureau Central</span>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Conteneur principal -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
 
-        <!-- Écran de connexion (Login) -->
+        <!-- Login -->
         <div id="auth-section" class="token-box">
-            <!-- Déco Starburst -->
             <svg class="absolute top-4 right-8 w-24 h-24 text-retro-coral opacity-20 spin-starburst pointer-events-none" viewBox="0 0 100 100">
                 <path fill="currentColor" d="M50,0 L58,35 L95,15 L68,42 L100,50 L68,58 L95,85 L58,65 L50,100 L42,65 L5,85 L32,58 L0,50 L32,42 L5,15 L42,35 Z"/>
             </svg>
-
             <h2 class="font-shrikhand text-3xl text-retro-slate mb-6 relative z-10">Identification Requise</h2>
-            
             <div class="relative z-10 space-y-6">
                 <div>
                     <div class="token-step">1. Récupération du Token Fourmizzz</div>
-                    <p class="text-sm text-retro-slate/80 font-medium mb-3">
-                        Générez votre jeton d'accès depuis votre compte de jeu :
-                    </p>
+                    <p class="text-sm text-retro-slate/80 font-medium mb-3">Générez votre jeton d'accès depuis votre compte de jeu :</p>
                     <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn text-sm">
                         <i class="fa-solid fa-key mr-2"></i> Obtenir mon Token
                     </a>
                 </div>
-                
                 <div>
                     <div class="token-step">2. Validation de session (continue)</div>
-                    <input type="text" 
-                           id="token-input" 
-                           placeholder="Coller le token ou le JSON complet ici..." 
-                           onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
+                    <input type="text" id="token-input" placeholder="Coller le token ou le JSON complet ici..." onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
                     <button class="btn-primary flex items-center justify-center gap-2" onclick="handleAuth()">
                         <i class="fa-solid fa-right-to-bracket"></i> Connexion au Tableau
                     </button>
@@ -383,31 +474,19 @@
             </div>
         </div>
 
-        <!-- Tableau de Bord (Dashboard) -->
+        <!-- Dashboard -->
         <div id="dashboard-section" style="display:none;">
             <!-- Onglets -->
             <div class="nav-tabs">
-                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')">
-                    <i class="fa-solid fa-bolt text-retro-yellow mr-1 drop-shadow-md"></i> En cours
-                </button>
-                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')">
-                    <i class="fa-solid fa-scroll mr-1"></i> Historique
-                </button>
-                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')">
-                    <i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe
-                </button>
-                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')">
-                    <i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D
-                </button>
-                <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')">
-                    <i class="fa-solid fa-gears mr-1"></i> Admin
-                </button>
-                <button class="btn-logout flex items-center gap-2" onclick="logout()">
-                    <i class="fa-solid fa-power-off text-retro-coral"></i> Quitter
-                </button>
+                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')"><i class="fa-solid fa-bolt text-retro-yellow mr-1"></i> En cours</button>
+                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')"><i class="fa-solid fa-scroll mr-1"></i> Historique</button>
+                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
+                <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
+                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
+                <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
+                <button class="btn-logout flex items-center gap-2" onclick="logout()"><i class="fa-solid fa-power-off text-retro-coral"></i> Quitter</button>
             </div>
 
-            <!-- Zone de contenu injectée via JS -->
             <div id="content-area">
                 <p class="text-center font-shrikhand text-retro-slate text-xl animate-pulse">Chargement des données...</p>
             </div>
@@ -417,26 +496,29 @@
 
     <script>
         let activeTab = 'active';
-        let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member' };
+        let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
+        let chatSelectedGroupId = null;
 
-        // Variables Filtre de Période
-        let groupFilterMode = '7days'; 
+        let groupFilterMode = 'day'; 
         let groupStartDate = null;
         let groupEndDate = null;
 
-        // Variables Carte 2D
         let mapPlayersData = [];
         let mapSelectedGroup = -1;
         let mapSearchQuery = '';
         let zoomLevel = 1;
-        let panX = 0;
-        let panY = 0;
+        let panX = 0; let panY = 0;
         let isDragging = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
+        let dragStartX = 0; let dragStartY = 0;
 
-        // Palette rétro pour la carte
+        // Variables CHAT
+        let chatInterval = null;
+        let chatOldestId = null;
+        let chatLatestId = null;
+        let chatIsFetching = false;
+        let chatHasMore = true;
+
         const GROUP_COLORS = [
             '#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', 
             '#e74c3c', '#9b59b6', '#3498db', '#f39c12',
@@ -451,15 +533,28 @@
             return dateStr;
         }
 
-        // --- Système de Toast (Rétro) ---
+        // Formatage de la date (Heure si jour J, Date+Heure sinon)
+        function formatChatTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            if (d.toDateString() === now.toDateString()) {
+                return timeStr; // Aujourd'hui : juste 14:30
+            } else {
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                return `${day}/${month} -${timeStr}`; // Plus ancien : 14/10 - 14:30
+            }
+        }
+
         function showToast(title, message) {
             const toast = document.getElementById('retro-toast');
             document.getElementById('toast-title').innerText = title;
             document.getElementById('toast-msg').innerText = message;
-
             toast.classList.remove('translate-y-[-150%]', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
-
             setTimeout(() => {
                 toast.classList.remove('translate-y-0', 'opacity-100');
                 toast.classList.add('translate-y-[-150%]', 'opacity-0');
@@ -468,17 +563,13 @@
 
         window.onload = () => {
             const savedSessionToken = localStorage.getItem('alliance_session_token');
-            if (savedSessionToken) {
-                checkSessionAndLoad();
-            } else {
-                logout();
-            }
+            if (savedSessionToken) checkSessionAndLoad();
+            else logout();
         };
 
         function cleanTokenInput(rawInput) {
             if (!rawInput) return '';
             let cleaned = rawInput.trim();
-        
             if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
                 try {
                     const parsed = JSON.parse(cleaned);
@@ -486,10 +577,8 @@
                     if (parsed.token) return parsed.token.trim();
                 } catch (e) {}
             }
-        
             const jsonMatch = cleaned.match(/"Token"\s*:\s*"([^"]+)"/i);
             if (jsonMatch && jsonMatch[1]) return jsonMatch[1].trim();
-        
             return cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
         }
         
@@ -497,11 +586,7 @@
             const rawInput = document.getElementById('token-input').value;
             const cleanedToken = cleanTokenInput(rawInput);
             document.getElementById('token-input').value = cleanedToken;
-        
-            if (!cleanedToken) {
-                showToast("Erreur", "Veuillez saisir un token valide.");
-                return;
-            }
+            if (!cleanedToken) return showToast("Erreur", "Veuillez saisir un token valide.");
         
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_with_fourmizzz_token`, {
@@ -509,13 +594,11 @@
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_fourmizzz_token: cleanedToken })
                 });
-        
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.message || "Token invalide.");
-        
                 const sessionData = data[0];
                 localStorage.setItem('alliance_session_token', sessionData.session_token);
-                
+                currentUserAdminInfo.pseudo = sessionData.pseudo;
                 showToast("Accès Autorisé", "Connexion au bureau central réussie.");
                 checkSessionAndLoad();
             } catch (err) {
@@ -531,37 +614,31 @@
         async function checkSessionAndLoad() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
-        
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_is_admin`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
-        
                 if (!res.ok) return logout();
-        
                 const data = await res.json();
                 if (data && data.length > 0) {
                     const userRole = data[0].role || (data[0].is_superadmin ? 'superadmin' : (data[0].is_admin ? 'admin' : 'member'));
-                    
                     currentUserAdminInfo = { 
                         role: userRole,
                         isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
-                        isSuperAdmin: userRole === 'superadmin' 
+                        isSuperAdmin: userRole === 'superadmin',
+                        pseudo: data[0].pseudo || currentUserAdminInfo.pseudo, // RÉCUPÉRATION DU PSEUDO CORRIGÉE
+                        group_id: data[0].group_id
                     };
-        
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
                     document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
-        
                     showDashboard();
                     renderTabContent();
                 } else {
                     logout();
                 }
-            } catch (e) {
-                logout();
-            }
+            } catch (e) { logout(); }
         }
 
         async function switchTab(tab) {
@@ -569,89 +646,55 @@
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
+            document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             
+            if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
             await checkSessionAndLoad();
         }
 
         async function renderTabContent() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             if (!sessionToken) return logout();
-
             const contentDiv = document.getElementById('content-area');
             contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>`;
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
+            if (activeTab === 'chat') { loadChatTab(); return; }
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
-
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcEndpoint}`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
-
                 if (!response.ok) return logout();
                 const data = await response.json();
-
                 if (activeTab === 'active') renderActiveConvoys(data);
                 else renderHistoryConvoys(data);
-
-            } catch (err) {
-                logout();
-            }
+            } catch (err) { logout(); }
         }
 
-        /* --- ONGLET GROUPE (AVEC FILTRE DE PÉRIODE) --- */
-
-        async function loadGroupConvoys(targetGroupId = null) {
+        /* --- ONGLET CHAT (Coms) --- */
+        async function loadChatTab(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
-        
+            chatOldestId = null;
+            chatLatestId = null;
+            chatHasMore = true;
+            chatIsFetching = false;
+
+            if (targetGroupId !== null) {
+                chatSelectedGroupId = parseInt(targetGroupId);
+            } else if (chatSelectedGroupId === null) {
+                chatSelectedGroupId = currentUserAdminInfo.group_id;
+                if (!chatSelectedGroupId || chatSelectedGroupId < 1) chatSelectedGroupId = 1;
+            }
+
             try {
-                if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
-        
-                computeDateRange();
-        
-                const bodyParams = { 
-                    p_session_token: sessionToken,
-                    p_start_date: groupStartDate || null,
-                    p_end_date: groupEndDate || null
-                };
-                
-                if (selectedGroupId !== null && !isNaN(selectedGroupId)) {
-                    bodyParams.p_target_group_id = selectedGroupId;
-                }
-        
-                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId })
-                });
-                if (!resConvoys.ok) return logout();
-                const convoysData = await resConvoys.json();
-        
-                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
-                });
-                
-                const logsData = resLogs.ok ? await resLogs.json() : [];
-        
-                let playerPerfsData = [];
-                if (selectedGroupId !== -1) {
-                    const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
-                        method: 'POST',
-                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify(bodyParams)
-                    });
-                    if (resPerfs.ok) playerPerfsData = await resPerfs.json();
-                }
-        
                 let availableGroups = [];
                 if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
                     const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
@@ -660,47 +703,297 @@
                     });
                     if (groupsRes.ok) availableGroups = await groupsRes.json();
                 }
-        
-                const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
-        
-                renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
-        
-            } catch (e) {
-                console.error("Erreur chargement groupe:", e);
+
+                renderChatBaseUI(chatSelectedGroupId, availableGroups);
+                await fetchChatMessages(null, null, true);
+
+                if (chatInterval) clearInterval(chatInterval);
+                chatInterval = setInterval(() => {
+                    fetchChatMessages(null, chatLatestId, false);
+                }, 5000);
+
+            } catch (e) { console.error("Erreur Chat:", e); }
+        }
+
+        function renderChatBaseUI(currentGroupId, availableGroups) {
+            const contentDiv = document.getElementById('content-area');
+            
+            let groupSelectorHtml = `Groupe #${currentGroupId}`;
+            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
+                let options = ``;
+                availableGroups.forEach(g => {
+                    if (g.group_id > 0) {
+                        options += `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`;
+                    }
+                });
+                groupSelectorHtml = `<select class="group-select" onchange="loadChatTab(this.value)">${options}</select>`;
             }
+
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 bg-[#8e44ad] border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Transmission : ${groupSelectorHtml}</h3>
+                </div>
+
+                <div class="chat-container">
+                    <div id="chat-messages-box" class="chat-messages" onscroll="handleChatScroll()">
+                        <div id="chat-loader" class="text-center py-2 text-retro-slate/50 font-fredoka text-sm italic hidden">Récupération des archives...</div>
+                        <div id="chat-content" class="flex flex-col gap-3"></div>
+                    </div>
+                    
+                    <button id="chat-new-msg-pill" class="new-messages-pill" onclick="scrollToBottomChat()">
+                        ⬇️ Nouveaux messages
+                    </button>
+
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Saisissez votre transmission..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                        <button class="chat-btn-send" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchChatMessages(beforeId, afterId, isInitial = false) {
+            if (chatIsFetching) return;
+            chatIsFetching = true;
+            
+            // Sécurité : On mémorise le groupe actif au moment où la requête part
+            const currentFetchGroupId = chatSelectedGroupId; 
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const box = document.getElementById('chat-messages-box');
+            const loader = document.getElementById('chat-loader');
+
+            if (beforeId && loader) loader.style.display = 'block';
+
+            try {
+                const bodyParams = { 
+                    p_session_token: sessionToken, 
+                    p_target_group_id: currentFetchGroupId,
+                    p_limit: 30
+                };
+                
+                if (beforeId) bodyParams.p_before_id = beforeId;
+                if (afterId) bodyParams.p_after_id = afterId;
+
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_messages`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyParams)
+                });
+
+                if (res.ok) {
+                    // Si l'utilisateur a changé de groupe pendant le temps de réponse du réseau, on annule l'affichage !
+                    if (currentFetchGroupId !== chatSelectedGroupId) {
+                        chatIsFetching = false;
+                        return; 
+                    }
+
+                    let messages = await res.json();
+                    if (messages && messages.length > 0) {
+                        messages.reverse();
+
+                        if (beforeId) {
+                            chatOldestId = messages[0].message_id;
+                            const oldScrollHeight = box.scrollHeight;
+                            appendMessagesToDOM(messages, true);
+                            box.scrollTop = box.scrollHeight - oldScrollHeight; 
+                        } else {
+                            // CORRECTION : S'applique au chargement, aux nouveaux messages, ET si le chat était vide
+                            if (!chatOldestId) chatOldestId = messages[0].message_id;
+                            chatLatestId = messages[messages.length - 1].message_id;
+                            
+                            const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+                            appendMessagesToDOM(messages, false);
+                            
+                            if (isInitial || isNearBottom || !afterId) {
+                                scrollToBottomChat();
+                            } else {
+                                document.getElementById('chat-new-msg-pill').style.display = 'block';
+                            }
+                        }
+                    } else if (beforeId) {
+                        chatHasMore = false;
+                    }
+                }
+            } catch (e) { console.error(e); }
+            
+            chatIsFetching = false;
+            if (loader) loader.style.display = 'none';
+        }
+
+        function appendMessagesToDOM(messages, prepend) {
+            const container = document.getElementById('chat-content');
+            let html = '';
+
+            messages.forEach(m => {
+                const dateHtml = `<span class="text-[0.65rem] text-retro-slate/60 mt-0.5">${formatChatTime(m.created_at)}</span>`;
+                
+                // Code couleur selon le grade : Bleu par défaut pour les membres classiques !
+                let colorClass = 'text-[#3498db]'; 
+                if (m.role === 'superadmin') colorClass = 'text-retro-coral';
+                else if (m.role === 'admin') colorClass = 'text-[#8e44ad]';
+                else if (m.role === 'chef_de_rang') colorClass = 'text-retro-mint-dark';
+
+                // Détection stricte de MA bulle 
+                const isMe = m.pseudo === currentUserAdminInfo.pseudo;
+                
+                const bubbleClass = isMe ? 'is-me' : 'is-other';
+                const metaClass = isMe ? 'is-me' : 'is-other';
+
+                html += `
+                    <div class="chat-msg-bubble ${bubbleClass}">
+                        <div class="chat-meta ${metaClass}">
+                            <strong class="font-fredoka font-bold text-sm ${colorClass}">
+                                ${escapeHtml(m.pseudo)}
+                            </strong>
+                            ${dateHtml}
+                        </div>
+                        <span class="text-sm font-outfit text-retro-slate leading-snug break-words">
+                            ${escapeHtml(m.message).replace(/\n/g, '<br>')}
+                        </span>
+                    </div>
+                `;
+            });
+
+            if (prepend) container.insertAdjacentHTML('afterbegin', html);
+            else container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function handleChatScroll() {
+            const box = document.getElementById('chat-messages-box');
+            if (!box || chatIsFetching) return;
+
+            if (box.scrollTop < 50 && chatHasMore && chatOldestId) {
+                fetchChatMessages(chatOldestId, null, false);
+            }
+
+            const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+            if (isNearBottom) {
+                document.getElementById('chat-new-msg-pill').style.display = 'none';
+            }
+        }
+
+        function scrollToBottomChat() {
+            const box = document.getElementById('chat-messages-box');
+            if (box) box.scrollTop = box.scrollHeight;
+            document.getElementById('chat-new-msg-pill').style.display = 'none';
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            input.value = ''; // On vide de suite pour le confort
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_group_message`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        p_session_token: sessionToken, 
+                        p_target_group_id: chatSelectedGroupId,
+                        p_message: msg
+                    })
+                });
+
+                if (res.ok) {
+                    // CORRECTION CONFLIT : Si l'actualisation auto des 5s est déjà en train de tourner, 
+                    // on attend 500ms puis on force le rafraîchissement pour voir notre message
+                    const checkAndFetch = () => {
+                        if (chatIsFetching) {
+                            setTimeout(checkAndFetch, 500);
+                        } else {
+                            fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
+                        }
+                    };
+                    checkAndFetch();
+                } else {
+                    showToast("Erreur", "Transmission échouée.");
+                }
+            } catch (e) {
+                showToast("Erreur", "Réseau indisponible.");
+            }
+        }
+
+        /* --- ONGLET GROUPE --- */
+        async function loadGroupConvoys(targetGroupId = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                // 1. Par défaut, on charge le groupe du joueur (ou Global s'il est hors-chaîne)
+                if (targetGroupId !== null) {
+                    selectedGroupId = parseInt(targetGroupId);
+                } else if (selectedGroupId === null) {
+                    selectedGroupId = currentUserAdminInfo.group_id > 0 ? currentUserAdminInfo.group_id : -1;
+                }
+                
+                computeDateRange();
+        
+                const paramsGlobal = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
+                const paramForConvoysAndLogs = selectedGroupId === -1 ? null : selectedGroupId;
+        
+                // 2. Convois et Logs (reçoivent "null" si on veut le Global)
+                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs })
+                });
+                if (!resConvoys.ok) return logout();
+                const convoysData = await resConvoys.json();
+        
+                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: paramForConvoysAndLogs })
+                });
+                const logsData = resLogs.ok ? await resLogs.json() : [];
+        
+                // 3. Performances (reçoivent "-1" pour le Global, sinon le SQL utilise le groupe du joueur par erreur)
+                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
+                });
+                let playerPerfsData = [];
+                if (resPerfs.ok) playerPerfsData = await resPerfs.json();
+        
+                // 4. TOUT LE MONDE récupère la liste des groupes (plus de verrou Admin)
+                let availableGroups = [];
+                const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                });
+                if (groupsRes.ok) availableGroups = await groupsRes.json();
+        
+                renderGroupUI(convoysData, logsData, playerPerfsData, selectedGroupId, availableGroups);
+            } catch (e) { console.error(e); }
         }
 
         function computeDateRange() {
             const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1); // Calcul de la veille
+            
             const formatDate = d => d.toISOString().split('T')[0];
-        
+            
             if (groupFilterMode === '7days') {
-                const start = new Date();
-                start.setDate(today.getDate() - 6);
-                groupStartDate = formatDate(start);
-                groupEndDate = formatDate(today);
+                const start = new Date(); start.setDate(today.getDate() - 6);
+                groupStartDate = formatDate(start); groupEndDate = formatDate(today);
             } else if (groupFilterMode === 'day') {
                 const inputDay = document.getElementById('filter-single-day');
-                const selected = inputDay && inputDay.value ? inputDay.value : formatDate(today);
-                groupStartDate = selected;
-                groupEndDate = selected;
+                // Si l'input n'est pas là, on prend "hier" par défaut au lieu de "aujourd'hui"
+                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(yesterday);
             } else if (groupFilterMode === 'week') {
                 const inputWeek = document.getElementById('filter-week-select');
                 let refDate = new Date();
                 if (inputWeek && inputWeek.value) {
                     const parts = inputWeek.value.split('-W');
-                    if (parts.length === 2) {
-                        refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
-                    }
+                    if (parts.length === 2) refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
                 } else {
-                    const day = today.getDay() || 7;
-                    refDate.setDate(today.getDate() - day + 1);
+                    const day = today.getDay() || 7; refDate.setDate(today.getDate() - day + 1);
                 }
-                const monday = new Date(refDate);
-                const sunday = new Date(refDate);
+                const monday = new Date(refDate); const sunday = new Date(refDate);
                 sunday.setDate(monday.getDate() + 6);
-                groupStartDate = formatDate(monday);
-                groupEndDate = formatDate(sunday);
+                groupStartDate = formatDate(monday); groupEndDate = formatDate(sunday);
             } else if (groupFilterMode === 'custom') {
                 const startInput = document.getElementById('filter-start-date');
                 const endInput = document.getElementById('filter-end-date');
@@ -720,37 +1013,33 @@
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
-
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
-            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            
+            // ACCÈS LIBRE : Tout le monde a le menu déroulant !
+            let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
-                groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
             }
+            let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            
             let dateInputsHtml = '';
             if (groupFilterMode === 'day') {
-                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
-            } else if (groupFilterMode === 'week') {
-                dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
-            } else if (groupFilterMode === 'custom') {
-                dateInputsHtml = `
-                    <span class="font-fredoka text-retro-slate font-bold">De</span> 
-                    <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
-                    <span class="font-fredoka text-retro-slate font-bold">à</span> 
-                    <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">
-                `;
+                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || yesterdayStr}" onchange="loadGroupConvoys()">`;
+            }
+            else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
+            else if (groupFilterMode === 'custom') {
+                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || yesterdayStr}">
+                                  <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
             }
 
             let html = `
                 <div class="flex items-center gap-3 mb-6">
-                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-users-viewfinder"></i>
-                    </div>
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
                     <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport Stratégique : ${groupSelectorHtml}</h3>
                 </div>
-
                 <div class="date-filter-box">
                     <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
                     <select id="filter-mode-select" onchange="groupFilterMode = this.value; loadGroupConvoys();">
@@ -762,26 +1051,27 @@
                     ${dateInputsHtml}
                     ${groupFilterMode === 'custom' ? `<button onclick="loadGroupConvoys()"><i class="fa-solid fa-check"></i> Activer</button>` : ''}
                 </div>
-                <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">
-                    Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.
-                </p>
+                <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
             `;
 
-            let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
+            // Filtre strict pour la vue Global : on exclut les inactifs/hors-chaîne
+            if (currentGroupId === -1) {
+                if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
+                if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
+                if (convoys) convoys = convoys.filter(c => c.group_id > 0);
+            }
 
-            // NOUVEAU CALCUL : On se base en priorité sur le Bilan Individuel
-            if (currentGroupId !== -1 && playerPerfs && playerPerfs.length > 0) {
-                playerPerfs.forEach(p => {
-                    sumStart += p.start_terrain;
-                    sumEnd += p.end_terrain;
-                    sumDiff += p.terrain_diff;
-                    sumRes += p.resources_generated;
+            let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
+            
+            if (playerPerfs && playerPerfs.length > 0) {
+                playerPerfs.forEach(p => { 
+                    sumStart += p.start_terrain; 
+                    sumEnd += p.end_terrain; 
+                    sumDiff += p.terrain_diff; 
+                    sumRes += p.resources_generated; 
                 });
             } else if (dailyLogs && dailyLogs.length > 0) {
-                dailyLogs.forEach(l => {
-                    sumDiff += l.terrain_diff;
-                    sumRes += l.resources_generated;
-                });
+                dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += l.resources_generated; });
                 const startValues = dailyLogs.map(l => l.start_terrain);
                 const endValues = dailyLogs.map(l => l.end_terrain);
                 sumStart = Math.min(...startValues.filter(v => v > 0)); 
@@ -800,101 +1090,54 @@
                 </div>
             `;
 
-            if (currentGroupId !== -1 && playerPerfs.length > 0) {
-                html += `
-                    <h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
-                    <div class="table-container"><table>
-                        <thead>
-                            <tr>
-                                <th>Joueur</th>
-                                <th>Terrain Initial</th>
-                                <th>Terrain Actuel</th>
-                                <th>Progression</th>
-                                <th>Ressources Générées</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-
+            // CORRECTION : On affiche le tableau même si currentGroupId est égal à -1
+            if (playerPerfs && playerPerfs.length > 0) {
+                html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
+                    <div class="table-container"><table><thead><tr><th>Joueur</th><th>Terrain Initial</th><th>Terrain Actuel</th><th>Progression</th><th>Ressources Générées</th></tr></thead><tbody>`;
                 playerPerfs.forEach(p => {
                     const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
                     const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
-
-                    html += `<tr>
-                        <td><strong>${escapeHtml(p.pseudo)}</strong></td>
-                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
-                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
-                        <td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
-                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
-                    </tr>`;
+                    html += `<tr><td><strong>${escapeHtml(p.pseudo)}</strong></td><td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td><td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td></tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
 
             html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">📦 Convois du Groupe</h3>`;
-            if (convoys.length === 0) {
-                html += `<p class="font-fredoka text-retro-slate/60 italic">Aucun convoi enregistré sur cette période.</p>`;
-            } else {
-                html += `<div class="table-container"><table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            ${currentGroupId === -1 ? '<th>Grp</th>' : ''}
-                            <th>Expéditeur</th>
-                            <th>Destinataire</th>
-                            <th>Montant</th>
-                            <th>Statut</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
+            if (convoys.length === 0) html += `<p class="font-fredoka text-retro-slate/60 italic">Aucun convoi enregistré sur cette période.</p>`;
+            else {
+                html += `<div class="table-container"><table><thead><tr><th>Date</th>${currentGroupId === -1 ? '<th>Grp</th>' : ''}<th>Expéditeur</th><th>Destinataire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
                 convoys.forEach(c => {
                     let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> En attente</span>';
                     if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Complété</span>';
                     else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>';
-
-                    html += `<tr>
-                        <td>${formatDateFR(c.balance_date)}</td>
-                        ${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
-                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td>
-                        <td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td>
-                        <td>${badge}</td>
-                    </tr>`;
+                    html += `<tr><td>${formatDateFR(c.balance_date)}</td>${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
+                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td><td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td>${badge}</td></tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
-
             contentDiv.innerHTML = html;
         }
 
         /* --- CARTE 2D --- */
-
         async function loadMapTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
-            const contentDiv = document.getElementById('content-area');
-
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_map_data`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken })
                 });
-
                 if (!res.ok) return logout();
                 mapPlayersData = await res.json();
-
                 const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0));
-                const sortedGroups = Array.from(groupsSet).sort((a, b) => a - b);
-
-                renderMapUI(sortedGroups);
-            } catch (e) {
-                logout();
-            }
+                renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
+            } catch (e) { logout(); }
         }
 
         function renderMapUI(groups) {
             const contentDiv = document.getElementById('content-area');
-
             let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Alliance entière</button>`;
             groups.forEach(g => {
                 const color = g === 0 ? '#94a3b8' : GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
@@ -906,559 +1149,300 @@
             contentDiv.innerHTML = `
                 <div class="flex flex-col items-center w-full">
                     <div class="flex items-center gap-3 mb-6 w-full max-w-3xl">
-                        <div class="w-12 h-12 bg-retro-avocado border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                            <i class="fa-solid fa-radar"></i>
-                        </div>
-                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Radar Actif</h3>
+                        <div class="w-12 h-12 bg-retro-avocado border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-map"></i></div>
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Cartographie</h3>
                     </div>
-
                     <div class="map-controls">
                         <input type="text" class="map-search" placeholder="🔍 Localiser un joueur..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
                         <div class="flex gap-2 flex-wrap justify-end">${filterButtons}</div>
                     </div>
-                    
                     <div class="w-full max-w-3xl relative tv-screen">
-                        <!-- Effet reflet écran -->
-                        <div class="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/5 to-transparent z-10"></div>
-                        
+                        <div class="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-retro-slate/10 z-10"></div>
                         <canvas id="alliance-map" width="700" height="600" class="w-full h-auto cursor-grab active:cursor-grabbing"></canvas>
-                        
                         <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
                             <button class="map-tool-btn" onclick="zoomMap(1.25)" title="Zoom Avant"><i class="fa-solid fa-magnifying-glass-plus text-base"></i></button>
                             <button class="map-tool-btn" onclick="zoomMap(0.8)" title="Zoom Arrière"><i class="fa-solid fa-magnifying-glass-minus text-base"></i></button>
                             <button class="map-tool-btn" onclick="resetMapTransform()" title="Recalibrer"><i class="fa-solid fa-compress text-base"></i></button>
                         </div>
-                        
-                        <div id="map-tooltip" class="absolute bg-retro-slate/90 backdrop-blur text-retro-cream p-3 rounded-xl border-2 border-retro-cream text-xs hidden z-30 shadow-retro pointer-events-none font-outfit"></div>
+                        <!-- NOUVEAU DESIGN INFOBULLE -->
+                        <div id="map-tooltip" class="absolute bg-[#f9f7f1] text-[#1d2d44] p-3 rounded-xl border-4 border-[#1d2d44] text-xs hidden z-30 shadow-retro pointer-events-none font-outfit font-bold"></div>
                     </div>
-                    
-                    <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider">
-                        <i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.
-                    </div>
+                    <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider"><i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.</div>
                 </div>
             `;
-
-            initMapCanvasEvents();
-            drawMap();
+            initMapCanvasEvents(); drawMap();
         }
 
-        function setMapGroupFilter(groupId) {
-            mapSelectedGroup = groupId;
-            const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0));
-            renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
-        }
-
-        function setMapSearch(query) {
-            mapSearchQuery = query.toLowerCase().trim();
-            drawMap();
-        }
-
-        function zoomMap(factor) {
-            zoomLevel = Math.max(0.8, Math.min(zoomLevel * factor, 5));
-            drawMap();
-        }
-
-        function resetMapTransform() {
-            zoomLevel = 1;
-            panX = 0;
-            panY = 0;
-            drawMap();
-        }
+        function setMapGroupFilter(groupId) { mapSelectedGroup = groupId; const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0)); renderMapUI(Array.from(groupsSet).sort((a, b) => a - b)); }
+        function setMapSearch(query) { mapSearchQuery = query.toLowerCase().trim(); drawMap(); }
+        function zoomMap(factor) { zoomLevel = Math.max(0.8, Math.min(zoomLevel * factor, 5)); drawMap(); }
+        function resetMapTransform() { zoomLevel = 1; panX = 0; panY = 0; drawMap(); }
 
         function initMapCanvasEvents() {
-            const canvas = document.getElementById('alliance-map');
-            const tooltip = document.getElementById('map-tooltip');
+            const canvas = document.getElementById('alliance-map'); const tooltip = document.getElementById('map-tooltip');
             if (!canvas) return;
-
-            canvas.onwheel = (e) => {
-                e.preventDefault();
-                const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-                zoomLevel = Math.max(0.8, Math.min(zoomLevel * zoomFactor, 5));
-                drawMap();
-            };
-
-            canvas.onmousedown = (e) => {
-                isDragging = true;
-                dragStartX = e.clientX - panX;
-                dragStartY = e.clientY - panY;
-            };
-
+            canvas.onwheel = (e) => { e.preventDefault(); const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85; zoomLevel = Math.max(0.8, Math.min(zoomLevel * zoomFactor, 5)); drawMap(); };
+            canvas.onmousedown = (e) => { isDragging = true; dragStartX = e.clientX - panX; dragStartY = e.clientY - panY; };
             window.onmousemove = (e) => {
-                if (isDragging) {
-                    panX = e.clientX - dragStartX;
-                    panY = e.clientY - dragStartY;
-                    drawMap();
-                    return;
-                }
-
+                if (isDragging) { panX = e.clientX - dragStartX; panY = e.clientY - dragStartY; drawMap(); return; }
                 if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-                    const mouseY = e.clientY - rect.top;
-
-                    const found = mapPlayersData.find(p => {
-                        if (p._cx === undefined) return false;
-                        const dx = p._cx - mouseX;
-                        const dy = p._cy - mouseY;
-                        return (dx * dx + dy * dy) <= 120;
-                    });
-
+                    const rect = canvas.getBoundingClientRect(); 
+                    // CORRECTION DU DÉCALAGE SOURIS :
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const mouseX = (e.clientX - rect.left) * scaleX; 
+                    const mouseY = (e.clientY - rect.top) * scaleY;
+                    
+                    const found = mapPlayersData.find(p => { if (p._cx === undefined) return false; const dx = p._cx - mouseX; const dy = p._cy - mouseY; return (dx * dx + dy * dy) <= 120; });
                     if (found && tooltip) {
                         const groupLabel = found.group_id === 0 ? 'Hors-chaîne' : `#${found.group_id}`;
-                        tooltip.style.display = 'block';
-                        tooltip.style.left = `${mouseX + 15}px`;
-                        tooltip.style.top = `${mouseY - 10}px`;
-                        tooltip.innerHTML = `
-                            <div class="border-b border-retro-cream/30 pb-1 mb-1">
-                                <strong class="font-fredoka text-sm text-retro-yellow">${escapeHtml(found.pseudo)}</strong>
-                            </div>
-                            Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})
-                        `;
-                    } else if (tooltip) {
-                        tooltip.style.display = 'none';
-                    }
+                        // Pour l'affichage CSS absolu, on re-divise par le scale pour placer l'infobulle sur l'écran
+                        tooltip.style.display = 'block'; 
+                        tooltip.style.left = `${(mouseX / scaleX) + 15}px`; 
+                        tooltip.style.top = `${(mouseY / scaleY) - 10}px`;
+                        // COULEURS DE L'INFOBULLE :
+                        tooltip.innerHTML = `<div class="border-b-2 border-[#1d2d44] pb-1 mb-1"><strong class="font-fredoka text-sm text-[#ff6f61]">${escapeHtml(found.pseudo)}</strong></div>Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})`;
+                    } else if (tooltip) tooltip.style.display = 'none';
                 }
             };
-
             window.onmouseup = () => { isDragging = false; };
             canvas.onmouseleave = () => { if (tooltip) tooltip.style.display = 'none'; };
         }
 
         function drawMap() {
-            const canvas = document.getElementById('alliance-map');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            let minX = -10, maxX = 10, minY = -10, maxY = 10;
-            if (mapPlayersData.length > 0) {
-                minX = Math.min(...mapPlayersData.map(p => p.x)) - 2;
-                maxX = Math.max(...mapPlayersData.map(p => p.x)) + 2;
-                minY = Math.min(...mapPlayersData.map(p => p.y)) - 2;
-                maxY = Math.max(...mapPlayersData.map(p => p.y)) + 2;
-            }
-
-            const padding = 60;
-            const mapWidth = canvas.width - (padding * 2);
+            const canvas = document.getElementById('alliance-map'); if (!canvas) return;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. On force la carte sur une échelle stricte de 0 à 100
+            let minX = 0, maxX = 100, minY = 0, maxY = 100;
+            const padding = 70; 
+            const mapWidth = canvas.width - (padding * 2); 
             const mapHeight = canvas.height - (padding * 2);
-
-            ctx.save();
-            ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
-            ctx.scale(zoomLevel, zoomLevel);
-            ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-            // Grille "Radar"
-            ctx.strokeStyle = 'rgba(58, 175, 169, 0.15)'; 
+            
+            ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoomLevel, zoomLevel); ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            
+            // Grille "Planisphère"
+            ctx.strokeStyle = 'rgba(29, 45, 68, 0.15)'; 
             ctx.lineWidth = 1 / zoomLevel;
-            for (let i = -canvas.width; i <= canvas.width * 2; i += 50) {
-                ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke();
+            for (let i = -canvas.width; i <= canvas.width * 2; i += 50) { ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke(); }
+            
+            // Cadre façon Carte au trésor
+            ctx.strokeStyle = '#1d2d44';
+            ctx.lineWidth = 3 / zoomLevel;
+            ctx.strokeRect(padding - 15, padding - 15, mapWidth + 30, mapHeight + 30);
+            
+            ctx.fillStyle = '#1d2d44';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `bold ${Math.max(10, 13 / zoomLevel)}px 'Fredoka'`;
+            
+            // 2. Coordonnées fixes : 0, 25, 50, 75, 100
+            for (let i = 0; i <= 4; i++) {
+                const val = i * 25; 
+                const plotX = padding + mapWidth * (i / 4);
+                const plotY = padding + mapHeight * (i / 4);
+                
+                // Textes
+                ctx.fillText(val, plotX, padding - 28);
+                ctx.fillText(val, plotX, padding + mapHeight + 28);
+                ctx.fillText(val, padding - 38, plotY);
+                ctx.fillText(val, padding + mapWidth + 38, plotY);
+                
+                // Encoches
+                ctx.beginPath(); ctx.moveTo(plotX, padding - 15); ctx.lineTo(plotX, padding - 5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(plotX, padding + mapHeight + 15); ctx.lineTo(plotX, padding + mapHeight + 5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(padding - 15, plotY); ctx.lineTo(padding - 5, plotY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(padding + mapWidth + 15, plotY); ctx.lineTo(padding + mapWidth + 5, plotY); ctx.stroke();
             }
 
             const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
-
+            
+            // Tableau pour stocker l'emplacement des textes déjà dessinés
+            const drawnRects = []; 
+            
             mapPlayersData.forEach(p => {
-                const normX = padding + ((p.x - minX) / (maxX - minX || 1)) * mapWidth;
-                const normY = padding + ((p.y - minY) / (maxY - minY || 1)) * mapHeight;
-
-                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX;
+                const normX = padding + ((p.x - minX) / (maxX - minX)) * mapWidth; 
+                const normY = padding + ((p.y - minY) / (maxY - minY)) * mapHeight;
+                
+                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX; 
                 const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
-                p._cx = screenX;
-                p._cy = screenY;
-
-                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup);
-                const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery);
+                p._cx = screenX; p._cy = screenY;
+                
+                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup); 
+                const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery); 
                 const isHighlight = isGroupMatch && isSearchMatch;
-
                 const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
-
-                ctx.beginPath();
-                ctx.arc(normX, normY, isHighlight ? 7 : 3, 0, Math.PI * 2);
-                ctx.fillStyle = isHighlight ? color : 'rgba(249, 247, 241, 0.1)';
+                
+                ctx.beginPath(); 
+                ctx.arc(normX, normY, isHighlight ? 7 : 4, 0, Math.PI * 2); 
+                
+                ctx.fillStyle = isHighlight ? color : 'rgba(29, 45, 68, 0.1)';
+                ctx.fill(); 
                 
                 if (isHighlight) {
-                    ctx.shadowColor = color;
-                    ctx.shadowBlur = 10 / zoomLevel;
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0; // reset
-
-                if (isHighlight) {
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 1.5 / zoomLevel;
+                    ctx.strokeStyle = '#1d2d44'; 
+                    ctx.lineWidth = 2.5 / zoomLevel; 
                     ctx.stroke();
-
-                    if (showLabels) {
-                        ctx.fillStyle = mapSearchQuery && isSearchMatch ? '#f4d03f' : '#f9f7f1';
-                        ctx.font = `bold ${Math.max(9, 11 / zoomLevel)}px 'Fredoka'`;
-                        ctx.fillText(p.pseudo, normX + 12, normY + 4);
+                    
+                    if (showLabels) { 
+                        ctx.font = `bold ${Math.max(10, 12 / zoomLevel)}px 'Fredoka'`; 
+                        const tw = ctx.measureText(p.pseudo).width;
+                        const th = 14 / zoomLevel;
+                        
+                        // 3. Anti-collision : on essaie 4 positions (Droite, Bas, Haut, Gauche)
+                        const positions = [
+                            {x: normX + 12, y: normY, align: 'left', base: 'middle'},
+                            {x: normX, y: normY + 14, align: 'center', base: 'top'},
+                            {x: normX, y: normY - 14, align: 'center', base: 'bottom'},
+                            {x: normX - 12, y: normY, align: 'right', base: 'middle'}
+                        ];
+                        
+                        for (let pos of positions) {
+                            let rx = pos.x; let ry = pos.y;
+                            if (pos.align === 'center') rx -= tw/2;
+                            if (pos.align === 'right') rx -= tw;
+                            if (pos.base === 'middle') ry -= th/2;
+                            if (pos.base === 'bottom') ry -= th;
+                            
+                            const rect = {x: rx - 2, y: ry - 2, w: tw + 4, h: th + 4};
+                            let overlap = false;
+                            
+                            // Vérifie si le rectangle du texte touche un autre texte déjà dessiné
+                            for (let dr of drawnRects) {
+                                if (!(rect.x > dr.x + dr.w || rect.x + rect.w < dr.x || rect.y > dr.y + dr.h || rect.y + rect.h < dr.y)) {
+                                    overlap = true; break;
+                                }
+                            }
+                            
+                            // Si c'est libre, on dessine et on l'enregistre !
+                            if (!overlap) {
+                                ctx.textAlign = pos.align;
+                                ctx.textBaseline = pos.base;
+                                ctx.fillStyle = '#1d2d44'; 
+                                ctx.strokeStyle = '#f2ead0';
+                                ctx.lineWidth = 3 / zoomLevel;
+                                ctx.strokeText(p.pseudo, pos.x, pos.y);
+                                ctx.fillText(p.pseudo, pos.x, pos.y);
+                                drawnRects.push(rect);
+                                break; 
+                            }
+                        }
                     }
                 }
             });
-
             ctx.restore();
         }
 
-        /* --- CONVOIS ET ADMIN --- */
-
+        /* --- CONVOIS & ADMIN --- */
         function renderActiveConvoys(convoys) {
             const contentDiv = document.getElementById('content-area');
-            const toSend = convoys.filter(c => c.is_sender);
-            const toReceive = convoys.filter(c => !c.is_sender);
-
-            let html = `
-                <div class="flex items-center gap-3 mb-6 mt-4">
-                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-box-open"></i>
-                    </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources à expédier</h3>
-                </div>`;
+            const toSend = convoys.filter(c => c.is_sender); const toReceive = convoys.filter(c => !c.is_sender);
+            let html = `<div class="flex items-center gap-3 mb-6 mt-4"><div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-box-open"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources à expédier</h3></div>`;
             html += renderTable(toSend, true);
-
-            html += `
-                <div class="flex items-center gap-3 mb-6 mt-12">
-                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-box"></i>
-                    </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources en approche</h3>
-                </div>`;
+            html += `<div class="flex items-center gap-3 mb-6 mt-12"><div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-box"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources en approche</h3></div>`;
             html += renderTable(toReceive, false);
-
             contentDiv.innerHTML = html;
         }
 
         function renderTable(list, isSender) {
             if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucun convoi dans cette catégorie.</p>`;
-
-            let html = `<div class="table-container"><table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Destinataire</th>
-                        <th>Montant</th>
-                        <th>Statut</th>
-                        ${isSender ? '<th>Action</th>' : ''}
-                    </tr>
-                </thead>
-                <tbody>`;
-
+            let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Destinataire</th><th>Montant</th><th>Statut</th>${isSender ? '<th>Action</th>' : ''}</tr></thead><tbody>`;
             list.forEach(c => {
-                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo;
-                const targetId = isSender ? c.to_player_id : c.from_player_id;
-                const isFailed = c.status === 'failed';
-
-                const statusBadge = isFailed 
-                    ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>`
-                    : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
-
+                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; const targetId = isSender ? c.to_player_id : c.from_player_id; const isFailed = c.status === 'failed';
+                const statusBadge = isFailed ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>` : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
                 let actionBtns = '';
                 if (isSender) {
                     const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
-                    actionBtns += `
-                        <a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" 
-                           target="_blank" 
-                           class="btn-action ${btnColor}">
-                            ${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}
-                        </a>
-                        <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})">
-                            <i class="fa-solid fa-check"></i> Acter
-                        </button>
-                    `;
+                    actionBtns += `<a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" target="_blank" class="btn-action ${btnColor}">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</a><button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})"><i class="fa-solid fa-check"></i> Acter</button>`;
                 }
-
-                html += `<tr class="${isFailed ? 'row-failed' : ''}">
-                    <td>${formatDateFR(c.balance_date)}</td>
-                    <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources</td>
-                    <td>${statusBadge}</td>
-                    ${isSender ? `<td>${actionBtns}</td>` : ''}
-                </tr>`;
+                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
             });
-
             return html + `</tbody></table></div>`;
         }
 
         async function markConvoyCompleted(convoyId) {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            if (!sessionToken) return logout();
-
+            const sessionToken = localStorage.getItem('alliance_session_token'); if (!sessionToken) return logout();
             if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
-
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) })
-                });
-
-                if (res.ok) {
-                    showToast("Confirmation", "Convoi validé avec succès !");
-                    renderTabContent();
-                }
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) }) });
+                if (res.ok) { showToast("Confirmation", "Convoi validé avec succès !"); renderTabContent(); }
                 else alert("❌ Erreur lors de la validation.");
-            } catch (e) {
-                alert("❌ Erreur réseau.");
-            }
+            } catch (e) { alert("❌ Erreur réseau."); }
         }
 
         function renderHistoryConvoys(historyList) {
             const contentDiv = document.getElementById('content-area');
-            
-            let header = `
-                <div class="flex items-center gap-3 mb-6 mt-4">
-                    <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-file-invoice"></i>
-                    </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives</h3>
-                </div>`;
-
-            if (historyList.length === 0) {
-                contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`;
-                return;
-            }
-
-            let html = header + `<div class="table-container"><table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Flux</th>
-                        <th>Partenaire</th>
-                        <th>Montant</th>
-                        <th>Statut</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
+            let header = `<div class="flex items-center gap-3 mb-6 mt-4"><div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl"><i class="fa-solid fa-file-invoice"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives</h3></div>`;
+            if (historyList.length === 0) { contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`; return; }
+            let html = header + `<div class="table-container"><table><thead><tr><th>Date</th><th>Flux</th><th>Partenaire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
             historyList.forEach(c => {
                 const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
-                const typeText = c.is_sender 
-                    ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Envoyé</span>' 
-                    : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Reçu</span>';
-
-                html += `<tr>
-                    <td>${formatDateFR(c.balance_date)}</td>
-                    <td>${typeText}</td>
-                    <td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td>
-                    <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td>
-                    <td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td>
-                </tr>`;
+                const typeText = c.is_sender ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Envoyé</span>' : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Reçu</span>';
+                html += `<tr><td>${formatDateFR(c.balance_date)}</td><td>${typeText}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td></tr>`;
             });
-
             contentDiv.innerHTML = html + `</tbody></table></div>`;
         }
 
         async function loadAdminPanel() {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            const contentDiv = document.getElementById('content-area');
-
+            const sessionToken = localStorage.getItem('alliance_session_token'); const contentDiv = document.getElementById('content-area');
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken })
-                });
-
-                if (!res.ok) {
-                    const err = await res.json();
-                    contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console d'administration : ${escapeHtml(err.message)}</p>`;
-                    return;
-                }
-
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: sessionToken }) });
+                if (!res.ok) { const err = await res.json(); contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console d'administration : ${escapeHtml(err.message)}</p>`; return; }
                 const data = await res.json();
-                
-                if (data && data.length > 0) {
-                    currentUserAdminInfo = {
-                        role: data[0].current_user_role,
-                        group_id: data[0].current_user_group_id
-                    };
-                }
-
+                if (data && data.length > 0) currentUserAdminInfo = { role: data[0].current_user_role, group_id: data[0].current_user_group_id };
                 renderAdminTable(data);
-            } catch (e) {
-                contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur réseau.</p>`;
-            }
+            } catch (e) { contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur réseau.</p>`; }
         }
 
         function renderAdminTable(members) {
-            const contentDiv = document.getElementById('content-area');
-            const myRole = currentUserAdminInfo.role; 
-            const myGroupId = currentUserAdminInfo.group_id;
-
-            const buildGroupOptions = (currentGroup) => {
-                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`;
-                for (let g = 1; g <= 10; g++) {
-                    opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`;
-                }
-                return opts;
-            };
-
+            const contentDiv = document.getElementById('content-area'); const myRole = currentUserAdminInfo.role; const myGroupId = currentUserAdminInfo.group_id;
+            const buildGroupOptions = (currentGroup) => { let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`; for (let g = 1; g <= 10; g++) { opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`; } return opts; };
             let html = `
-                <div class="flex items-center gap-3 mb-2 mt-4">
-                    <div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-gears"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3>
-                        <span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span>
-                    </div>
-                </div>
-                
-                <div class="table-container mt-6"><table>
-                    <thead>
-                        <tr>
-                            <th>Joueur</th>
-                            <th style="text-align:center;">Groupe</th>
-                            <th style="text-align:center;">Rôle Groupe</th>
-                            <th style="text-align:center;">Étage</th>
-                            <th style="text-align:center;">Droits Admin</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
+                <div class="flex items-center gap-3 mb-2 mt-4"><div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl"><i class="fa-solid fa-gears"></i></div><div class="flex flex-col"><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3><span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span></div></div>
+                <div class="table-container mt-6"><table><thead><tr><th>Joueur</th><th style="text-align:center;">Groupe</th><th style="text-align:center;">Rôle Groupe</th><th style="text-align:center;">Étage</th><th style="text-align:center;">Droits Admin</th></tr></thead><tbody>`;
             members.forEach(m => {
                 let badge = '<span class="badge badge-member">Membre</span>';
                 if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Super Admin</span>';
                 else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>';
                 else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Chef de rang</span>';
-
-                const gRole = m.group_role || 'chasseur';
-                const showFloor = gRole === 'passeur_inter';
-
+                const gRole = m.group_role || 'chasseur'; const showFloor = gRole === 'passeur_inter';
                 const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
-                const groupCell = canEditGroup ? `
-                    <select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">
-                        ${buildGroupOptions(m.group_id)}
-                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
-
-                const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || 
-                                       (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
-
-                const tacticsCell = canEditTactics ? `
-                    <select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})">
-                        <option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option>
-                        <option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option>
-                        <option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option>
-                        <option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option>
-                    </select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
-
-                const floorCell = canEditTactics ? `
-                    <input type="number" id="floor-input-${m.player_id}" 
-                           value="${m.floor_level !== null ? m.floor_level : ''}" 
-                           placeholder="Ex: 2" min="1" max="100"
-                           style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" 
-                           onchange="updatePlayerTactics(${m.player_id})" />
-                    <span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` 
-                    : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
-
-                let adminRoleAction = badge;
-                const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
-
+                const groupCell = canEditGroup ? `<select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">${buildGroupOptions(m.group_id)}</select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
+                const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
+                const tacticsCell = canEditTactics ? `<select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})"><option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option><option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option><option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option><option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option></select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
+                const floorCell = canEditTactics ? `<input type="number" id="floor-input-${m.player_id}" value="${m.floor_level !== null ? m.floor_level : ''}" placeholder="Ex: 2" min="1" max="100" style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" onchange="updatePlayerTactics(${m.player_id})" /><span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
+                let adminRoleAction = badge; const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
                 if (canEditAdminRole) {
-                    if (m.role === 'superadmin') {
-                        adminRoleAction = badge;
-                    } else {
-                        adminRoleAction = `
-                            <select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)">
-                                <option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option>
-                                <option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option>
-                                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option>
-                            </select>
-                        `;
-                    }
+                    if (m.role === 'superadmin') adminRoleAction = badge;
+                    else adminRoleAction = `<select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)"><option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option><option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option><option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option></select>`;
                 }
-
-                html += `<tr>
-                    <td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td>
-                    <td style="text-align:center;">${groupCell}</td>
-                    <td style="text-align:center;">${tacticsCell}</td>
-                    <td style="text-align:center;">${floorCell}</td>
-                    <td style="text-align:center;">${adminRoleAction}</td>
-                </tr>`;
+                html += `<tr><td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td><td style="text-align:center;">${groupCell}</td><td style="text-align:center;">${tacticsCell}</td><td style="text-align:center;">${floorCell}</td><td style="text-align:center;">${adminRoleAction}</td></tr>`;
             });
-
-            html += `</tbody></table></div>`;
-            contentDiv.innerHTML = html;
+            html += `</tbody></table></div>`; contentDiv.innerHTML = html;
         }
-        
+
         async function updatePlayerAdminRole(targetPlayerId, newRole) {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole })
-                });
-                if (res.ok) {
-                    showToast("Mise à jour", "Droits d'administration modifiés.");
-                    loadAdminPanel();
-                } else {
-                    const err = await res.json();
-                    alert("❌ Action refusée : " + (err.message || "Erreur de droit."));
-                    loadAdminPanel();
-                }
-            } catch (e) {
-                alert("❌ Erreur réseau.");
-            }
+            try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole }) });
+                if (res.ok) { showToast("Mise à jour", "Droits d'administration modifiés."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
+            } catch (e) { alert("❌ Erreur réseau."); }
         }
         
         async function updatePlayerTactics(playerId) {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            const roleSelect = document.getElementById(`role-select-${playerId}`);
-            const floorInput = document.getElementById(`floor-input-${playerId}`);
-            const floorDash = document.getElementById(`floor-dash-${playerId}`);
-        
-            const selectedRole = roleSelect.value;
-            const isInter = selectedRole === 'passeur_inter';
-        
-            floorInput.style.display = isInter ? 'inline-block' : 'none';
-            floorDash.style.display = isInter ? 'none' : 'inline';
-        
+            const roleSelect = document.getElementById(`role-select-${playerId}`); const floorInput = document.getElementById(`floor-input-${playerId}`); const floorDash = document.getElementById(`floor-dash-${playerId}`);
+            const selectedRole = roleSelect.value; const isInter = selectedRole === 'passeur_inter';
+            floorInput.style.display = isInter ? 'inline-block' : 'none'; floorDash.style.display = isInter ? 'none' : 'inline';
             const floorValue = isInter && floorInput.value !== '' ? parseInt(floorInput.value) : null;
-        
-            try {
-                await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group_role_and_floor`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(playerId), p_group_role: selectedRole, p_floor_level: floorValue })
-                });
-                showToast("Mise à jour", "Nouvelles directives tactiques appliquées.");
-            } catch (e) {
-                alert("❌ Erreur de sauvegarde.");
-            }
+            try { await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group_role_and_floor`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(playerId), p_group_role: selectedRole, p_floor_level: floorValue }) }); showToast("Mise à jour", "Nouvelles directives tactiques appliquées."); } catch (e) { alert("❌ Erreur."); }
         }
         
         async function updatePlayerGroup(targetPlayerId, newGroupId) {
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) })
-                });
-                if (res.ok) {
-                    showToast("Mise à jour", "Nouveau groupe assigné.");
-                    loadAdminPanel();
-                } else {
-                    const err = await res.json();
-                    alert("❌ Action refusée : " + (err.message || "Erreur lors du changement de groupe."));
-                    loadAdminPanel();
-                }
-            } catch (e) {
-                alert("❌ Erreur réseau.");
-            }
+            try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) }) });
+                if (res.ok) { showToast("Mise à jour", "Nouveau groupe assigné."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
+            } catch (e) { alert("❌ Erreur réseau."); }
         }
 
-        function escapeHtml(str) {
-            return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : '';
-        }
-
-        function logout() {
-            localStorage.removeItem('alliance_session_token');
-            document.getElementById('token-input').value = '';
-            document.getElementById('dashboard-section').style.display = 'none';
-            document.getElementById('auth-section').style.display = 'block';
-        }
+        function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
+        function logout() { localStorage.removeItem('alliance_session_token'); document.getElementById('token-input').value = ''; document.getElementById('dashboard-section').style.display = 'none'; document.getElementById('auth-section').style.display = 'block'; }
     </script>
 </body>
 </html>
