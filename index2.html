@@ -1008,12 +1008,13 @@
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
-            let groupSelectorHtml = currentGroupId === -1 ? '🌐 Tous les groupes' : `Groupe #${currentGroupId}`;
-            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            
+            // NOUVEAU : Tout le monde voit le menu déroulant
+            let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
-                groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
             }
+            let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
             let dateInputsHtml = '';
