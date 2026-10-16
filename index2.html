@@ -500,7 +500,7 @@
         let selectedGroupId = null;
         let chatSelectedGroupId = null;
 
-        let groupFilterMode = '7days'; 
+        let groupFilterMode = 'day'; 
         let groupStartDate = null;
         let groupEndDate = null;
 
@@ -970,13 +970,18 @@
 
         function computeDateRange() {
             const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1); // Calcul de la veille
+            
             const formatDate = d => d.toISOString().split('T')[0];
+            
             if (groupFilterMode === '7days') {
                 const start = new Date(); start.setDate(today.getDate() - 6);
                 groupStartDate = formatDate(start); groupEndDate = formatDate(today);
             } else if (groupFilterMode === 'day') {
                 const inputDay = document.getElementById('filter-single-day');
-                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+                // Si l'input n'est pas là, on prend "hier" par défaut au lieu de "aujourd'hui"
+                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(yesterday);
             } else if (groupFilterMode === 'week') {
                 const inputWeek = document.getElementById('filter-week-select');
                 let refDate = new Date();
@@ -1017,11 +1022,16 @@
             let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            
             let dateInputsHtml = '';
-            if (groupFilterMode === 'day') dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
+            if (groupFilterMode === 'day') {
+                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || yesterdayStr}" onchange="loadGroupConvoys()">`;
+            }
             else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
             else if (groupFilterMode === 'custom') {
-                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
+                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || yesterdayStr}">
                                   <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
             }
 
