@@ -923,23 +923,25 @@
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
-                // NOUVEAU : Si aucun groupe n'est sélectionné, on force celui du joueur
+                // 1. Définition du groupe par défaut à l'ouverture
                 if (targetGroupId !== null) {
                     selectedGroupId = parseInt(targetGroupId);
                 } else if (selectedGroupId === null) {
-                    selectedGroupId = currentUserAdminInfo.group_id || -1; 
+                    // On prend le groupe du joueur. S'il est hors-chaîne (0), on affiche le Global (-1)
+                    selectedGroupId = currentUserAdminInfo.group_id > 0 ? currentUserAdminInfo.group_id : -1;
                 }
-
+                
                 computeDateRange();
         
+                // 2. CORRECTION CRUCIALE : On ne passe JAMAIS "-1" à Supabase, on utilise "null" pour le Global
                 const bodyParams = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
-                if (selectedGroupId !== null && !isNaN(selectedGroupId)) {
+                if (selectedGroupId !== -1) {
                     bodyParams.p_target_group_id = selectedGroupId;
                 }
         
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId === -1 ? null : selectedGroupId })
                 });
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
@@ -957,7 +959,7 @@
                 });
                 if (resPerfs.ok) playerPerfsData = await resPerfs.json();
         
-                // NOUVEAU : On a retiré la condition "if admin", tout le monde récupère la liste !
+                // 3. TOUT LE MONDE peut récupérer la liste des groupes
                 let availableGroups = [];
                 const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
@@ -1009,7 +1011,7 @@
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
             
-            // NOUVEAU : Tout le monde voit le menu déroulant
+            // NOUVEAU : Affichage libre du menu déroulant pour tous les joueurs
             let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
             if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
@@ -1017,6 +1019,7 @@
             let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
+            
             let dateInputsHtml = '';
             if (groupFilterMode === 'day') dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
             else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
