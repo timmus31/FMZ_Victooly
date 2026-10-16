@@ -923,43 +923,39 @@
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
-                // 1. Définition du groupe par défaut à l'ouverture
+                // 1. Groupe par défaut = le groupe du joueur (ou Global s'il est hors-chaîne)
                 if (targetGroupId !== null) {
                     selectedGroupId = parseInt(targetGroupId);
                 } else if (selectedGroupId === null) {
-                    // On prend le groupe du joueur. S'il est hors-chaîne (0), on affiche le Global (-1)
                     selectedGroupId = currentUserAdminInfo.group_id > 0 ? currentUserAdminInfo.group_id : -1;
                 }
                 
                 computeDateRange();
         
-                // 2. CORRECTION CRUCIALE : On ne passe JAMAIS "-1" à Supabase, on utilise "null" pour le Global
-                const bodyParams = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
-                if (selectedGroupId !== -1) {
-                    bodyParams.p_target_group_id = selectedGroupId;
-                }
+                // 2. Variables pour requêtes : les Convois veulent "null" pour le global, les Perfs veulent "-1"
+                const paramForConvoysAndLogs = selectedGroupId === -1 ? null : selectedGroupId;
         
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId === -1 ? null : selectedGroupId })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs })
                 });
                 if (!resConvoys.ok) return logout();
                 const convoysData = await resConvoys.json();
         
                 const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null })
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                let playerPerfsData = [];
+                // ATTENTION : On envoie bien selectedGroupId (qui contient -1) pour les performances !
                 const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bodyParams)
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: selectedGroupId, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null })
                 });
+                let playerPerfsData = [];
                 if (resPerfs.ok) playerPerfsData = await resPerfs.json();
         
-                // 3. TOUT LE MONDE peut récupérer la liste des groupes
                 let availableGroups = [];
                 const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
@@ -1011,7 +1007,7 @@
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             const contentDiv = document.getElementById('content-area');
             
-            // NOUVEAU : Affichage libre du menu déroulant pour tous les joueurs
+            // Tout le monde a le droit au menu déroulant !
             let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
             if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
@@ -1019,7 +1015,6 @@
             let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
-            
             let dateInputsHtml = '';
             if (groupFilterMode === 'day') dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
             else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
@@ -1047,6 +1042,7 @@
                 <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
             `;
 
+            // Filtre strict pour le mode Global (on exclut les hors-chaînes et inactifs)
             if (currentGroupId === -1) {
                 if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
                 if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
@@ -1055,7 +1051,7 @@
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
             
-            // CORRECTION ICI : On utilise toujours les playerPerfs, même pour l'alliance entière !
+            // Calcul des totaux basés uniquement sur playerPerfs
             if (playerPerfs && playerPerfs.length > 0) {
                 playerPerfs.forEach(p => { 
                     sumStart += p.start_terrain; 
@@ -1063,12 +1059,6 @@
                     sumDiff += p.terrain_diff; 
                     sumRes += p.resources_generated; 
                 });
-            } else if (dailyLogs && dailyLogs.length > 0) {
-                dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += l.resources_generated; });
-                const startValues = dailyLogs.map(l => l.start_terrain);
-                const endValues = dailyLogs.map(l => l.end_terrain);
-                sumStart = Math.min(...startValues.filter(v => v > 0)); 
-                sumEnd = Math.max(...endValues);
             }
 
             const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
@@ -1082,6 +1072,20 @@
                     <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
                 </div>
             `;
+
+            // Affichage du tableau individuel pour TOUS LES GROUPES y compris le Global
+            if (playerPerfs && playerPerfs.length > 0) {
+                html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
+                    <div class="table-container"><table><thead><tr><th>Joueur</th><th>Terrain Initial</th><th>Terrain Actuel</th><th>Progression</th><th>Ressources Générées</th></tr></thead><tbody>`;
+                playerPerfs.forEach(p => {
+                    const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
+                    const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
+                    html += `<tr><td><strong>${escapeHtml(p.pseudo)}</strong></td><td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td><td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
 
             // AFFICHAGE DU BILAN MEME POUR LA VUE GLOBALE
             if (playerPerfs && playerPerfs.length > 0) {
