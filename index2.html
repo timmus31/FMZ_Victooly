@@ -923,10 +923,15 @@
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
-                if (targetGroupId !== null) selectedGroupId = parseInt(targetGroupId);
+                // NOUVEAU : Si aucun groupe n'est sélectionné, on force celui du joueur
+                if (targetGroupId !== null) {
+                    selectedGroupId = parseInt(targetGroupId);
+                } else if (selectedGroupId === null) {
+                    selectedGroupId = currentUserAdminInfo.group_id || -1; 
+                }
+
                 computeDateRange();
         
-                // ON ENVOIE TOUJOURS LE GROUPE (Y COMPRIS -1)
                 const bodyParams = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
                 if (selectedGroupId !== null && !isNaN(selectedGroupId)) {
                     bodyParams.p_target_group_id = selectedGroupId;
@@ -952,16 +957,14 @@
                 });
                 if (resPerfs.ok) playerPerfsData = await resPerfs.json();
         
+                // NOUVEAU : On a retiré la condition "if admin", tout le monde récupère la liste !
                 let availableGroups = [];
-                if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
-                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
-                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
-                    });
-                    if (groupsRes.ok) availableGroups = await groupsRes.json();
-                }
+                const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                });
+                if (groupsRes.ok) availableGroups = await groupsRes.json();
         
-                const currentGroupId = selectedGroupId !== null ? selectedGroupId : (convoysData.length > 0 ? convoysData[0].group_id : -1);
-                renderGroupUI(convoysData, logsData, playerPerfsData, currentGroupId, availableGroups);
+                renderGroupUI(convoysData, logsData, playerPerfsData, selectedGroupId, availableGroups);
             } catch (e) { console.error(e); }
         }
 
