@@ -1511,7 +1511,7 @@
                         html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
                             <div class="text-xs text-retro-slate/60 font-bold mb-2"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
-                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
                         </div>`;
                     });
                 }
@@ -1557,7 +1557,7 @@
                             </div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
                             ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
-                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
                             </div>` : ''}
                         </div>`;
@@ -1594,7 +1594,7 @@
                                     <button class="btn-action bg-retro-coral text-white border-2 border-retro-slate" onclick="changePropStatus(${p.id}, 'rejected')"><i class="fa-solid fa-xmark"></i> Refuser</button>
                                 ` : ''}
                                 ${canEdit ? `
-                                    <button class="btn-action bg-white text-retro-slate" onclick="('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="btn-action bg-white text-retro-slate" onclick="editProjectItem('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
                                     <button class="btn-action bg-white text-retro-coral" onclick="deleteProjectItem('propositions', ${p.id})"><i class="fa-solid fa-trash"></i></button>
                                 ` : ''}
                             </div>
