@@ -1396,7 +1396,7 @@
             window.open(`https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${convoyId}&auto_amount=${amount}`, '_blank');
         }
 
-        async function markConvoyCompleted(convoyId, maxAmount) {
+        function markConvoyCompleted(convoyId, maxAmount) {
             const sessionToken = localStorage.getItem('alliance_session_token'); 
             if (!sessionToken) return logout();
 
@@ -1407,26 +1407,37 @@
                 return showToast("Erreur", "Montant invalide.");
             }
 
-            if (!confirm(`Confirmer l'envoi de ${amountSent.toLocaleString('fr-FR')} ressources en jeu ?`)) return;
-            
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
-                    method: 'POST', 
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_convoy_id: parseInt(convoyId), 
-                        p_amount_sent: amountSent 
-                    }) 
-                });
-                
-                if (res.ok) { 
-                    showToast("Confirmation", "Convoi validé avec succès !"); 
-                    renderTabContent(); 
-                } else {
-                    alert("❌ Erreur lors de la validation.");
+            const html = `
+                <p class="mb-4 text-sm font-outfit text-retro-slate">Vous êtes sur le point de valider l'envoi de <strong class="text-retro-mint text-lg">${amountSent.toLocaleString('fr-FR')}</strong> ressources.</p>
+                <p class="text-xs text-retro-slate/80 italic border-l-4 border-retro-yellow pl-2">Avez-vous bien expédié cette quantité exacte en jeu ? Si le montant est inférieur au total, un nouveau convoi sera créé pour le reste.</p>
+            `;
+
+            openRetroModal(
+                'Confirmer l\'expédition', 
+                html, 
+                '<i class="fa-solid fa-check"></i> Acter l\'envoi', 
+                'bg-retro-mint text-white', 
+                async () => {
+                    try {
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
+                            method: 'POST', 
+                            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ 
+                                p_session_token: sessionToken, 
+                                p_convoy_id: parseInt(convoyId), 
+                                p_amount_sent: amountSent 
+                            }) 
+                        });
+                        
+                        if (res.ok) { 
+                            showToast("Confirmation", "Convoi validé avec succès !"); 
+                            renderTabContent(); 
+                        } else {
+                            showToast("Erreur", "Erreur lors de la validation.");
+                        }
+                    } catch (e) { showToast("Erreur", "Erreur réseau."); }
                 }
-            } catch (e) { alert("❌ Erreur réseau."); }
+            );
         }
 
         function renderHistoryConvoys(historyList) {
