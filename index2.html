@@ -646,13 +646,14 @@
         }
 
         async function switchTab(tab) {
-            if (activeTab === 'project') { loadProjectTab(); return; }
+            // CORRECTION : On a retiré le blocage qui était ici par erreur
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
+            document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             
             if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
@@ -669,6 +670,7 @@
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
             if (activeTab === 'chat') { loadChatTab(); return; }
+            if (activeTab === 'project') { loadProjectTab(); return; } // CORRECTION : Le routage est ici maintenant !
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
@@ -1513,8 +1515,13 @@
                     html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6 flex flex-col gap-3">
                         <div class="flex gap-3 items-center">
                             <label class="font-fredoka font-bold text-retro-slate text-sm">Priorité :</label>
-                            <input type="number" id="new-backlog-prio" value="3" min="1" class="w-20 bg-retro-cream border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none m-0" style="margin-bottom:0;">
-                            <span class="text-xs text-retro-slate/60 italic">(1 = Urgent, 2 = Important, 3+ = Bonus)</span>
+                            <select id="new-backlog-prio" class="bg-retro-cream border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none m-0" style="margin-bottom:0; width:auto; cursor:pointer;">
+                                <option value="1">1 - Urgent</option>
+                                <option value="2">2 - Important</option>
+                                <option value="3" selected>3 - À faire</option>
+                                <option value="4">4 - Pour plus tard</option>
+                                <option value="5">5 - Bonus</option>
+                            </select>
                         </div>
                         <textarea id="new-backlog-text" rows="2" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Description de la tâche..."></textarea>
                         <div><button class="btn-manual-ok" onclick="submitProjectItem('backlog', 'add')"><i class="fa-solid fa-plus"></i> Ajouter au Backlog</button></div>
@@ -1523,11 +1530,22 @@
                 html += `<div class="flex flex-col gap-4">`;
                 if (!projectData.backlog || projectData.backlog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Le backlog est vide, tout est parfait !</p>`;
                 else {
+                    const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                    const prioColors = { 
+                        1: "bg-retro-coral text-white", 
+                        2: "bg-retro-yellow text-retro-slate", 
+                        3: "bg-retro-mint text-white", 
+                        4: "bg-retro-slate text-white", 
+                        5: "bg-white text-retro-slate" 
+                    };
+
                     projectData.backlog.forEach(b => {
-                        let prioColor = b.priority === 1 ? 'bg-retro-coral text-white' : (b.priority === 2 ? 'bg-retro-yellow text-retro-slate' : 'bg-retro-mint text-white');
+                        let label = prioLabels[b.priority] || `Priorité ${b.priority}`;
+                        let prioColor = prioColors[b.priority] || 'bg-retro-slate text-white';
+                        
                         html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
                             <div class="flex items-center gap-2 mb-2">
-                                <span class="badge ${prioColor} border-2 border-retro-slate">Priorité ${b.priority}</span>
+                                <span class="badge ${prioColor} border-2 border-retro-slate">${label}</span>
                                 <span class="text-xs text-retro-slate/60 font-bold">${formatDateFR(b.created_at)}</span>
                             </div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
@@ -1628,7 +1646,7 @@
 
             let priority = extraParam;
             if (type === 'backlog') {
-                const newPrio = prompt("Priorité (1=Urgent, 2=Important, 3=Bonus) :", extraParam);
+                const newPrio = prompt("Priorité (1=Urgent, 2=Important, 3=À faire, 4=Pour plus tard, 5=Bonus) :", extraParam);
                 if (newPrio !== null) priority = parseInt(newPrio) || 3;
             }
 
