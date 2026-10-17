@@ -1362,25 +1362,70 @@
             if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucun convoi dans cette catégorie.</p>`;
             let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Destinataire</th><th>Montant</th><th>Statut</th>${isSender ? '<th>Action</th>' : ''}</tr></thead><tbody>`;
             list.forEach(c => {
-                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; const targetId = isSender ? c.to_player_id : c.from_player_id; const isFailed = c.status === 'failed';
+                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; 
+                const targetId = isSender ? c.to_player_id : c.from_player_id; 
+                const isFailed = c.status === 'failed';
                 const statusBadge = isFailed ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>` : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
+                
+                let amountDisplay = `<strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources`;
                 let actionBtns = '';
+                
                 if (isSender) {
+                    // Le champ input remplace le texte brut
+                    amountDisplay = `<div class="flex items-center gap-2">
+                        <input type="number" id="convoy-amount-${c.id}" value="${c.amount}" max="${c.amount}" min="1" class="w-24 bg-retro-cream border-2 border-retro-slate rounded-xl p-1 text-center font-bold text-retro-mint outline-none" style="margin:0;">
+                        <span class="text-xs font-bold text-retro-slate/50">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
+                    </div>`;
+
                     const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
-                    actionBtns += `<a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" target="_blank" class="btn-action ${btnColor}">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</a><button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})"><i class="fa-solid fa-check"></i> Acter</button>`;
+                    actionBtns += `<button class="btn-action ${btnColor}" onclick="dispatchConvoy(${targetId}, ${c.id}, ${c.amount})">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</button>
+                    <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id}, ${c.amount})"><i class="fa-solid fa-check"></i> Acter</button>`;
                 }
-                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
+                
+                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${amountDisplay}</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
             });
             return html + `</tbody></table></div>`;
         }
 
-        async function markConvoyCompleted(convoyId) {
-            const sessionToken = localStorage.getItem('alliance_session_token'); if (!sessionToken) return logout();
-            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
+        // Nouvelle fonction pour lire l'input et ouvrir le bon lien Fourmizzz
+        function dispatchConvoy(targetId, convoyId, maxAmount) {
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amount = input ? parseInt(input.value) : maxAmount;
+            if (amount > maxAmount) amount = maxAmount;
+            if (amount < 1) amount = 1;
+            window.open(`https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${convoyId}&auto_amount=${amount}`, '_blank');
+        }
+
+        async function markConvoyCompleted(convoyId, maxAmount) {
+            const sessionToken = localStorage.getItem('alliance_session_token'); 
+            if (!sessionToken) return logout();
+
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amountSent = input ? parseInt(input.value) : maxAmount;
+
+            if (!amountSent || amountSent <= 0 || amountSent > maxAmount) {
+                return showToast("Erreur", "Montant invalide.");
+            }
+
+            if (!confirm(`Confirmer l'envoi de ${amountSent.toLocaleString('fr-FR')} ressources en jeu ?`)) return;
+            
             try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) }) });
-                if (res.ok) { showToast("Confirmation", "Convoi validé avec succès !"); renderTabContent(); }
-                else alert("❌ Erreur lors de la validation.");
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
+                    method: 'POST', 
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        p_session_token: sessionToken, 
+                        p_convoy_id: parseInt(convoyId), 
+                        p_amount_sent: amountSent 
+                    }) 
+                });
+                
+                if (res.ok) { 
+                    showToast("Confirmation", "Convoi validé avec succès !"); 
+                    renderTabContent(); 
+                } else {
+                    alert("❌ Erreur lors de la validation.");
+                }
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
