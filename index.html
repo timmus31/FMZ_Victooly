@@ -1372,9 +1372,9 @@
                 
                 if (isSender) {
                     // Le champ input remplace le texte brut
-                    amountDisplay = `<div class="flex items-center gap-2">
-                        <input type="number" id="convoy-amount-${c.id}" value="${c.amount}" max="${c.amount}" min="1" class="w-24 bg-retro-cream border-2 border-retro-slate rounded-xl p-1 text-center font-bold text-retro-mint outline-none" style="margin:0;">
-                        <span class="text-xs font-bold text-retro-slate/50">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
+                    amountDisplay = `<div class="flex items-center gap-1 sm:gap-2">
+                        <input type="number" inputmode="numeric" id="convoy-amount-${c.id}" value="${c.amount}" max="${c.amount}" min="1" class="w-20 sm:w-24 bg-retro-cream border-2 border-retro-slate rounded-xl text-center font-bold text-retro-mint outline-none" style="margin:0; padding: 0.25rem 0.25rem;">
+                        <span class="text-xs font-bold text-retro-slate/50 whitespace-nowrap">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
                     </div>`;
 
                     const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
