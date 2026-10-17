@@ -483,6 +483,7 @@
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
                 <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
+                <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
                 <button class="btn-logout flex items-center gap-2" onclick="logout()"><i class="fa-solid fa-power-off text-retro-coral"></i> Quitter</button>
             </div>
@@ -499,6 +500,9 @@
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
         let chatSelectedGroupId = null;
+        
+        let projectSubTab = 'changelog';
+        let projectData = { changelog: [], backlog: [], propositions: [] };
 
         let groupFilterMode = 'day'; 
         let groupStartDate = null;
@@ -642,6 +646,7 @@
         }
 
         async function switchTab(tab) {
+            if (activeTab === 'project') { loadProjectTab(); return; }
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
@@ -1439,6 +1444,236 @@
             try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) }) });
                 if (res.ok) { showToast("Mise à jour", "Nouveau groupe assigné."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
             } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        /* ==========================================
+           ONGLET PROJET (Changelog, Backlog, Idées)
+           ========================================== */
+        
+        async function loadProjectTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_project_data`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!res.ok) throw new Error("Erreur SQL");
+                projectData = await res.json();
+                renderProjectUI();
+            } catch (e) {
+                document.getElementById('content-area').innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur de chargement des données projet.</p>`;
+            }
+        }
+
+        function switchProjectSubTab(sub) {
+            projectSubTab = sub;
+            renderProjectUI();
+        }
+
+        function renderProjectUI() {
+            const contentDiv = document.getElementById('content-area');
+            const isSuperAdmin = currentUserAdminInfo.role === 'superadmin';
+            const myPseudo = currentUserAdminInfo.pseudo;
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Suivi du Projet</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${projectSubTab === 'changelog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('changelog')"><i class="fa-solid fa-book-journal-whills"></i> Journal (Changelog)</button>
+                    <button class="btn-action ${projectSubTab === 'backlog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('backlog')"><i class="fa-solid fa-list-check"></i> À faire (Backlog)</button>
+                    <button class="btn-action ${projectSubTab === 'propositions' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('propositions')"><i class="fa-solid fa-lightbulb"></i> Boîte à idées</button>
+                </div>
+            `;
+
+            if (projectSubTab === 'changelog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                        <textarea id="new-changelog-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Décrivez la nouvelle mise à jour..."></textarea>
+                        <button class="btn-manual-ok" onclick="submitProjectItem('changelog', 'add')"><i class="fa-solid fa-plus"></i> Publier</button>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.changelog || projectData.changelog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucun historique.</p>`;
+                else {
+                    projectData.changelog.forEach(c => {
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="text-xs text-retro-slate/60 font-bold mb-2"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
+                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            } 
+            else if (projectSubTab === 'backlog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6 flex flex-col gap-3">
+                        <div class="flex gap-3 items-center">
+                            <label class="font-fredoka font-bold text-retro-slate text-sm">Priorité :</label>
+                            <input type="number" id="new-backlog-prio" value="3" min="1" class="w-20 bg-retro-cream border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none m-0" style="margin-bottom:0;">
+                            <span class="text-xs text-retro-slate/60 italic">(1 = Urgent, 2 = Important, 3+ = Bonus)</span>
+                        </div>
+                        <textarea id="new-backlog-text" rows="2" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Description de la tâche..."></textarea>
+                        <div><button class="btn-manual-ok" onclick="submitProjectItem('backlog', 'add')"><i class="fa-solid fa-plus"></i> Ajouter au Backlog</button></div>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.backlog || projectData.backlog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Le backlog est vide, tout est parfait !</p>`;
+                else {
+                    projectData.backlog.forEach(b => {
+                        let prioColor = b.priority === 1 ? 'bg-retro-coral text-white' : (b.priority === 2 ? 'bg-retro-yellow text-retro-slate' : 'bg-retro-mint text-white');
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="badge ${prioColor} border-2 border-retro-slate">Priorité ${b.priority}</span>
+                                <span class="text-xs text-retro-slate/60 font-bold">${formatDateFR(b.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
+                            ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+                            </div>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+            else if (projectSubTab === 'propositions') {
+                html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                    <textarea id="new-prop-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Vous avez une idée pour améliorer Victooly ? Décrivez-la ici..."></textarea>
+                    <button class="btn-manual-ok" onclick="submitProjectItem('propositions', 'add')"><i class="fa-solid fa-paper-plane"></i> Soumettre l'idée</button>
+                </div>`;
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.propositions || projectData.propositions.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucune proposition pour le moment.</p>`;
+                else {
+                    projectData.propositions.forEach(p => {
+                        const isMine = p.pseudo === myPseudo;
+                        const canEdit = isMine || isSuperAdmin;
+                        
+                        let statusBadge = '<span class="badge bg-white text-retro-slate border-2 border-retro-slate"><i class="fa-solid fa-hourglass-half text-retro-yellow"></i> En attente</span>';
+                        if (p.status === 'accepted') statusBadge = '<span class="badge bg-retro-mint text-white border-2 border-retro-slate"><i class="fa-solid fa-check"></i> Acceptée</span>';
+                        else if (p.status === 'rejected') statusBadge = '<span class="badge bg-retro-coral text-white border-2 border-retro-slate"><i class="fa-solid fa-xmark"></i> Refusée</span>';
+
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                ${statusBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold">par <span class="text-retro-mint-dark">${escapeHtml(p.pseudo)}</span> le ${formatDateFR(p.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(p.content)}</div>
+                            
+                            <div class="mt-3 flex gap-2 justify-end">
+                                ${isSuperAdmin && p.status === 'pending' ? `
+                                    <button class="btn-action bg-retro-mint text-white border-2 border-retro-slate" onclick="acceptProposition(${p.id})"><i class="fa-solid fa-check"></i> Accepter</button>
+                                    <button class="btn-action bg-retro-coral text-white border-2 border-retro-slate" onclick="changePropStatus(${p.id}, 'rejected')"><i class="fa-solid fa-xmark"></i> Refuser</button>
+                                ` : ''}
+                                ${canEdit ? `
+                                    <button class="btn-action bg-white text-retro-slate" onclick="editProjectItem('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="btn-action bg-white text-retro-coral" onclick="deleteProjectItem('propositions', ${p.id})"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+
+            contentDiv.innerHTML = html;
+        }
+
+        async function submitProjectItem(type, action, id = null, forcedContent = null, forcedPrio = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let content = forcedContent;
+            let priority = forcedPrio || 3;
+
+            if (action === 'add' && !forcedContent) {
+                if (type === 'changelog') content = document.getElementById('new-changelog-text').value.trim();
+                else if (type === 'backlog') {
+                    content = document.getElementById('new-backlog-text').value.trim();
+                    priority = parseInt(document.getElementById('new-backlog-prio').value) || 3;
+                }
+                else if (type === 'propositions') content = document.getElementById('new-prop-text').value.trim();
+                
+                if (!content) return showToast("Erreur", "Le champ de texte est vide.");
+            }
+
+            let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+            let body = { p_session_token: sessionToken, p_action: action, p_id: id, p_content: content };
+            if (type === 'backlog') body.p_priority = priority;
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    showToast("Succès", "Données sauvegardées avec succès.");
+                    loadProjectTab();
+                } else alert("❌ Action refusée.");
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        async function editProjectItem(type, id, extraParam = null) {
+            let currentText = "";
+            let item = null;
+            if (type === 'changelog') item = projectData.changelog.find(x => x.id === id);
+            else if (type === 'backlog') item = projectData.backlog.find(x => x.id === id);
+            else if (type === 'propositions') item = projectData.propositions.find(x => x.id === id);
+            
+            if (item) currentText = item.content;
+
+            const newText = prompt("Modifier le texte :", currentText);
+            if (newText === null || newText.trim() === "") return;
+
+            let priority = extraParam;
+            if (type === 'backlog') {
+                const newPrio = prompt("Priorité (1=Urgent, 2=Important, 3=Bonus) :", extraParam);
+                if (newPrio !== null) priority = parseInt(newPrio) || 3;
+            }
+
+            await submitProjectItem(type, 'update', id, newText.trim(), priority);
+        }
+
+        async function deleteProjectItem(type, id) {
+            if (!confirm("Voulez-vous vraiment supprimer cet élément ?")) return;
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_action: 'delete', p_id: id })
+                });
+                if (res.ok) { showToast("Succès", "Élément supprimé."); loadProjectTab(); }
+            } catch (e) { alert("❌ Erreur."); }
+        }
+
+        async function changePropStatus(id, newStatus) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/manage_proposition`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_action: 'status', p_id: id, p_status: newStatus })
+                });
+                if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
+            } catch (e) { alert("❌ Erreur."); }
+        }
+
+        async function acceptProposition(id) {
+            const prop = projectData.propositions.find(x => x.id === id);
+            if (!prop) return;
+
+            const prioInput = prompt("À quelle priorité ajouter cette idée au Backlog ? (1=Urgent, 2=Important, 3=Bonus)");
+            if (prioInput === null) return; 
+            const priority = parseInt(prioInput) || 3;
+
+            const backlogText = `\uD83D\uDCA1 Idée de ${prop.pseudo} :\n${prop.content}`;
+            
+            // 1. Ajouter au backlog
+            await submitProjectItem('backlog', 'add', null, backlogText, priority);
+            
+            // 2. Changer le statut
+            await changePropStatus(id, 'accepted');
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
