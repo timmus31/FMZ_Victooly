@@ -1373,7 +1373,7 @@
                 if (isSender) {
                     // Le champ input remplace le texte brut (Fiabilisé pour Mobile + Nettoyage)
                     amountDisplay = `<div class="flex items-center gap-1 sm:gap-2">
-                        <input type="text" inputmode="numeric" id="convoy-amount-${c.id}" value="${c.amount}" class="w-20 sm:w-24 bg-retro-cream border-2 border-retro-slate rounded-xl text-center font-bold text-retro-mint outline-none" style="margin:0; padding: 0.25rem;" oninput="cleanConvoyInput(this, ${c.amount})">
+                        <input type="text" inputmode="numeric" id="convoy-amount-${c.id}" value="${c.amount}" class="w-20 sm:w-24 shrink-0 bg-retro-cream border-2 border-retro-slate rounded-xl text-center font-bold text-retro-mint outline-none" style="margin:0; padding: 0.25rem; min-width: 75px;" oninput="cleanConvoyInput(this, ${c.amount})">
                         <span class="text-xs font-bold text-retro-slate/50 whitespace-nowrap">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
                     </div>`;
 
