@@ -1617,8 +1617,16 @@
             }
 
             let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
-            let body = { p_session_token: sessionToken, p_action: action, p_id: id, p_content: content };
-            if (type === 'backlog') body.p_priority = priority;
+            
+            // CORRECTION ANTI-400 : On construit le JSON dynamiquement. 
+            // On inclut "p_id" UNIQUEMENT si on en a besoin (pour update ou delete).
+            let body = { p_session_token: sessionToken, p_action: action, p_content: content };
+            if (id !== null) {
+                body.p_id = id;
+            }
+            if (type === 'backlog') {
+                body.p_priority = priority;
+            }
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
@@ -1628,7 +1636,11 @@
                 if (res.ok) {
                     showToast("Succès", "Données sauvegardées avec succès.");
                     loadProjectTab();
-                } else alert("❌ Action refusée.");
+                } else {
+                    // Pour savoir exactement ce qui fâche Supabase si ça se reproduit !
+                    const err = await res.json();
+                    alert("❌ Action refusée : " + err.message);
+                }
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
