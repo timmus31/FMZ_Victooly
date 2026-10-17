@@ -433,6 +433,13 @@
         </div>
     </div>
 
+    <!-- Fenêtre Modale Rétro -->
+    <div id="retro-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-retro-slate/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro max-w-lg w-full mx-4 transform scale-95 transition-transform duration-300" id="retro-modal-content">
+            <!-- Le contenu sera injecté ici par Javascript -->
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-retro-cream/90 backdrop-blur-md border-b-4 border-retro-slate px-4 lg:px-8 py-3 w-full">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -483,6 +490,7 @@
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
                 <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
+                <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
                 <button class="btn-logout flex items-center gap-2" onclick="logout()"><i class="fa-solid fa-power-off text-retro-coral"></i> Quitter</button>
             </div>
@@ -499,6 +507,9 @@
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
         let chatSelectedGroupId = null;
+        
+        let projectSubTab = 'changelog';
+        let projectData = { changelog: [], backlog: [], propositions: [] };
 
         let groupFilterMode = 'day'; 
         let groupStartDate = null;
@@ -642,12 +653,14 @@
         }
 
         async function switchTab(tab) {
+            // CORRECTION : On a retiré le blocage qui était ici par erreur
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
+            document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
             
             if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
@@ -664,6 +677,7 @@
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
             if (activeTab === 'chat') { loadChatTab(); return; }
+            if (activeTab === 'project') { loadProjectTab(); return; } // CORRECTION : Le routage est ici maintenant !
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
@@ -1348,26 +1362,82 @@
             if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucun convoi dans cette catégorie.</p>`;
             let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Destinataire</th><th>Montant</th><th>Statut</th>${isSender ? '<th>Action</th>' : ''}</tr></thead><tbody>`;
             list.forEach(c => {
-                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; const targetId = isSender ? c.to_player_id : c.from_player_id; const isFailed = c.status === 'failed';
+                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; 
+                const targetId = isSender ? c.to_player_id : c.from_player_id; 
+                const isFailed = c.status === 'failed';
                 const statusBadge = isFailed ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>` : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
+                
+                let amountDisplay = `<strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources`;
                 let actionBtns = '';
+                
                 if (isSender) {
+                    // Le champ input remplace le texte brut
+                    amountDisplay = `<div class="flex items-center gap-2">
+                        <input type="number" id="convoy-amount-${c.id}" value="${c.amount}" max="${c.amount}" min="1" class="w-24 bg-retro-cream border-2 border-retro-slate rounded-xl p-1 text-center font-bold text-retro-mint outline-none" style="margin:0;">
+                        <span class="text-xs font-bold text-retro-slate/50">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
+                    </div>`;
+
                     const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
-                    actionBtns += `<a href="https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${c.id}&auto_amount=${c.amount}" target="_blank" class="btn-action ${btnColor}">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</a><button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id})"><i class="fa-solid fa-check"></i> Acter</button>`;
+                    actionBtns += `<button class="btn-action ${btnColor}" onclick="dispatchConvoy(${targetId}, ${c.id}, ${c.amount})">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</button>
+                    <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id}, ${c.amount})"><i class="fa-solid fa-check"></i> Acter</button>`;
                 }
-                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td><strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
+                
+                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${amountDisplay}</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
             });
             return html + `</tbody></table></div>`;
         }
 
-        async function markConvoyCompleted(convoyId) {
-            const sessionToken = localStorage.getItem('alliance_session_token'); if (!sessionToken) return logout();
-            if (!confirm("Confirmer que le convoi a bien été envoyé en jeu ?")) return;
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_manual`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId) }) });
-                if (res.ok) { showToast("Confirmation", "Convoi validé avec succès !"); renderTabContent(); }
-                else alert("❌ Erreur lors de la validation.");
-            } catch (e) { alert("❌ Erreur réseau."); }
+        // Nouvelle fonction pour lire l'input et ouvrir le bon lien Fourmizzz
+        function dispatchConvoy(targetId, convoyId, maxAmount) {
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amount = input ? parseInt(input.value) : maxAmount;
+            if (amount > maxAmount) amount = maxAmount;
+            if (amount < 1) amount = 1;
+            window.open(`https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${convoyId}&auto_amount=${amount}`, '_blank');
+        }
+
+        function markConvoyCompleted(convoyId, maxAmount) {
+            const sessionToken = localStorage.getItem('alliance_session_token'); 
+            if (!sessionToken) return logout();
+
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amountSent = input ? parseInt(input.value) : maxAmount;
+
+            if (!amountSent || amountSent <= 0 || amountSent > maxAmount) {
+                return showToast("Erreur", "Montant invalide.");
+            }
+
+            const html = `
+                <p class="mb-4 text-sm font-outfit text-retro-slate">Vous êtes sur le point de valider l'envoi de <strong class="text-retro-mint text-lg">${amountSent.toLocaleString('fr-FR')}</strong> ressources.</p>
+                <p class="text-xs text-retro-slate/80 italic border-l-4 border-retro-yellow pl-2">Avez-vous bien expédié cette quantité exacte en jeu ? Si le montant est inférieur au total, un nouveau convoi sera créé pour le reste.</p>
+            `;
+
+            openRetroModal(
+                'Confirmer l\'expédition', 
+                html, 
+                '<i class="fa-solid fa-check"></i> Acter l\'envoi', 
+                'bg-retro-mint text-white', 
+                async () => {
+                    try {
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
+                            method: 'POST', 
+                            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ 
+                                p_session_token: sessionToken, 
+                                p_convoy_id: parseInt(convoyId), 
+                                p_amount_sent: amountSent 
+                            }) 
+                        });
+                        
+                        if (res.ok) { 
+                            showToast("Confirmation", "Convoi validé avec succès !"); 
+                            renderTabContent(); 
+                        } else {
+                            showToast("Erreur", "Erreur lors de la validation.");
+                        }
+                    } catch (e) { showToast("Erreur", "Erreur réseau."); }
+                }
+            );
         }
 
         function renderHistoryConvoys(historyList) {
@@ -1439,6 +1509,348 @@
             try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) }) });
                 if (res.ok) { showToast("Mise à jour", "Nouveau groupe assigné."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
             } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        /* ==========================================
+           ONGLET PROJET (Changelog, Backlog, Idées)
+           ========================================== */
+        
+        async function loadProjectTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_project_data`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!res.ok) throw new Error("Erreur SQL");
+                projectData = await res.json();
+                renderProjectUI();
+            } catch (e) {
+                document.getElementById('content-area').innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur de chargement des données projet.</p>`;
+            }
+        }
+
+        function switchProjectSubTab(sub) {
+            projectSubTab = sub;
+            renderProjectUI();
+        }
+
+        function renderProjectUI() {
+            const contentDiv = document.getElementById('content-area');
+            const isSuperAdmin = currentUserAdminInfo.role === 'superadmin';
+            const myPseudo = currentUserAdminInfo.pseudo;
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Suivi du Projet</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${projectSubTab === 'changelog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('changelog')"><i class="fa-solid fa-book-journal-whills"></i> Journal (Changelog)</button>
+                    <button class="btn-action ${projectSubTab === 'backlog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('backlog')"><i class="fa-solid fa-list-check"></i> À faire (Backlog)</button>
+                    <button class="btn-action ${projectSubTab === 'propositions' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('propositions')"><i class="fa-solid fa-lightbulb"></i> Boîte à idées</button>
+                </div>
+            `;
+
+            if (projectSubTab === 'changelog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                        <textarea id="new-changelog-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Décrivez la nouvelle mise à jour..."></textarea>
+                        <button class="btn-manual-ok" onclick="submitProjectItem('changelog', 'add')"><i class="fa-solid fa-plus"></i> Publier</button>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.changelog || projectData.changelog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucun historique.</p>`;
+                else {
+                    projectData.changelog.forEach(c => {
+                        // NOUVEAU : On affiche le badge de priorité si c'est un Dev clôturé
+                        let prioBadge = '';
+                        if (c.priority) {
+                            const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                            const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
+                            let label = prioLabels[c.priority] || `Priorité ${c.priority}`;
+                            let prioColor = prioColors[c.priority] || 'bg-retro-slate text-white';
+                            prioBadge = `<span class="badge ${prioColor} border-2 border-retro-slate mr-2 mb-1">${label}</span>`;
+                        }
+
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center flex-wrap gap-1 mb-2">
+                                ${prioBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
+                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            } 
+            else if (projectSubTab === 'backlog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6 flex flex-col gap-3">
+                        <div class="flex gap-3 items-center">
+                            <label class="font-fredoka font-bold text-retro-slate text-sm">Priorité :</label>
+                            <select id="new-backlog-prio" class="bg-retro-cream border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none m-0" style="margin-bottom:0; width:auto; cursor:pointer;">
+                                <option value="1">1 - Urgent</option>
+                                <option value="2">2 - Important</option>
+                                <option value="3" selected>3 - À faire</option>
+                                <option value="4">4 - Pour plus tard</option>
+                                <option value="5">5 - Bonus</option>
+                            </select>
+                        </div>
+                        <textarea id="new-backlog-text" rows="2" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Description de la tâche..."></textarea>
+                        <div><button class="btn-manual-ok" onclick="submitProjectItem('backlog', 'add')"><i class="fa-solid fa-plus"></i> Ajouter au Backlog</button></div>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.backlog || projectData.backlog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Le backlog est vide, tout est parfait !</p>`;
+                else {
+                    const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                    const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
+
+                    projectData.backlog.forEach(b => {
+                        let label = prioLabels[b.priority] || `Priorité ${b.priority}`;
+                        let prioColor = prioColors[b.priority] || 'bg-retro-slate text-white';
+                        
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="badge ${prioColor} border-2 border-retro-slate">${label}</span>
+                                <span class="text-xs text-retro-slate/60 font-bold">${formatDateFR(b.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
+                            ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="completeBacklogItem(${b.id})" title="Clôturer et publier"><i class="fa-solid fa-check-double"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-yellow" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+                            </div>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+            else if (projectSubTab === 'propositions') {
+                html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                    <textarea id="new-prop-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Vous avez une idée pour améliorer Victooly ? Décrivez-la ici..."></textarea>
+                    <button class="btn-manual-ok" onclick="submitProjectItem('propositions', 'add')"><i class="fa-solid fa-paper-plane"></i> Soumettre l'idée</button>
+                </div>`;
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.propositions || projectData.propositions.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucune proposition pour le moment.</p>`;
+                else {
+                    projectData.propositions.forEach(p => {
+                        const isMine = p.pseudo === myPseudo;
+                        const canEdit = isMine || isSuperAdmin;
+                        
+                        let statusBadge = '<span class="badge bg-white text-retro-slate border-2 border-retro-slate"><i class="fa-solid fa-hourglass-half text-retro-yellow"></i> En attente</span>';
+                        if (p.status === 'accepted') statusBadge = '<span class="badge bg-retro-mint text-white border-2 border-retro-slate"><i class="fa-solid fa-check"></i> Acceptée</span>';
+                        else if (p.status === 'rejected') statusBadge = '<span class="badge bg-retro-coral text-white border-2 border-retro-slate"><i class="fa-solid fa-xmark"></i> Refusée</span>';
+
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                ${statusBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold">par <span class="text-retro-mint-dark">${escapeHtml(p.pseudo)}</span> le ${formatDateFR(p.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(p.content)}</div>
+                            
+                            <div class="mt-3 flex gap-2 justify-end">
+                                ${isSuperAdmin && p.status === 'pending' ? `
+                                    <button class="btn-action bg-retro-mint text-white border-2 border-retro-slate" onclick="acceptProposition(${p.id})"><i class="fa-solid fa-check"></i> Accepter</button>
+                                    <button class="btn-action bg-retro-coral text-white border-2 border-retro-slate" onclick="changePropStatus(${p.id}, 'rejected')"><i class="fa-solid fa-xmark"></i> Refuser</button>
+                                ` : ''}
+                                ${canEdit ? `
+                                    <button class="btn-action bg-white text-retro-slate" onclick="editProjectItem('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="btn-action bg-white text-retro-coral" onclick="deleteProjectItem('propositions', ${p.id})"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+
+            contentDiv.innerHTML = html;
+        }
+
+        function completeBacklogItem(id) {
+            openRetroModal(
+                'Clôturer le développement', 
+                '<p class="font-bold">Avez-vous terminé cette tâche ?</p><p class="text-sm mt-2 opacity-80">Elle sera automatiquement retirée du Backlog et ajoutée au Changelog (Journal des mises à jour) en conservant sa priorité initiale.</p>', 
+                '<i class="fa-solid fa-check-double"></i> Clôturer & Publier', 
+                'bg-retro-mint text-white', 
+                async () => {
+                    await submitProjectItem('backlog', 'complete', id);
+                }
+            );
+        }
+
+        async function submitProjectItem(type, action, id = null, forcedContent = null, forcedPrio = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let content = forcedContent;
+            let priority = forcedPrio || 3;
+
+            if (action === 'add' && !forcedContent) {
+                if (type === 'changelog') content = document.getElementById('new-changelog-text').value.trim();
+                else if (type === 'backlog') {
+                    content = document.getElementById('new-backlog-text').value.trim();
+                    priority = parseInt(document.getElementById('new-backlog-prio').value) || 3;
+                }
+                else if (type === 'propositions') content = document.getElementById('new-prop-text').value.trim();
+                
+                if (!content) return showToast("Erreur", "Le champ de texte est vide.");
+            }
+
+            let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+            
+            // CORRECTION ANTI-400 : On construit le JSON dynamiquement. 
+            // On inclut "p_id" UNIQUEMENT si on en a besoin (pour update ou delete).
+            let body = { p_session_token: sessionToken, p_action: action, p_content: content };
+            if (id !== null) {
+                body.p_id = id;
+            }
+            if (type === 'backlog') {
+                body.p_priority = priority;
+            }
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    showToast("Succès", "Données sauvegardées avec succès.");
+                    loadProjectTab();
+                } else {
+                    // Pour savoir exactement ce qui fâche Supabase si ça se reproduit !
+                    const err = await res.json();
+                    alert("❌ Action refusée : " + err.message);
+                }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        /* --- GESTION DES MODALES --- */
+        function openRetroModal(title, contentHtml, confirmText, confirmClass, onConfirm) {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+
+            contentDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4 border-b-2 border-retro-slate pb-2">
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0">${title}</h3>
+                    <button onclick="closeRetroModal()" class="text-retro-slate hover:text-retro-coral text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="mb-6 font-outfit text-retro-slate">
+                    ${contentHtml}
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button class="btn-action bg-white text-retro-slate" onclick="closeRetroModal()">Annuler</button>
+                    <button class="btn-action ${confirmClass}" id="modal-confirm-btn">${confirmText}</button>
+                </div>
+            `;
+
+            document.getElementById('modal-confirm-btn').onclick = () => {
+                onConfirm();
+                closeRetroModal();
+            };
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentDiv.classList.remove('scale-95');
+        }
+
+        function closeRetroModal() {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            contentDiv.classList.add('scale-95');
+        }
+
+        /* --- ACTIONS PROJET AVEC MODALES --- */
+        function editProjectItem(type, id, extraParam = null) {
+            let item = null;
+            if (type === 'changelog') item = projectData.changelog.find(x => x.id === id);
+            else if (type === 'backlog') item = projectData.backlog.find(x => x.id === id);
+            else if (type === 'propositions') item = projectData.propositions.find(x => x.id === id);
+            
+            if (!item) return;
+
+            let extraHtml = '';
+            if (type === 'backlog') {
+                const prio = extraParam || 3;
+                extraHtml = `
+                    <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1 mt-4">Priorité :</label>
+                    <select id="modal-edit-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                        <option value="1" ${prio===1?'selected':''}>1 - Urgent</option>
+                        <option value="2" ${prio===2?'selected':''}>2 - Important</option>
+                        <option value="3" ${prio===3?'selected':''}>3 - À faire</option>
+                        <option value="4" ${prio===4?'selected':''}>4 - Pour plus tard</option>
+                        <option value="5" ${prio===5?'selected':''}>5 - Bonus</option>
+                    </select>
+                `;
+            }
+
+            const html = `
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Texte :</label>
+                <textarea id="modal-edit-text" rows="5" class="w-full bg-white border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y">${escapeHtml(item.content)}</textarea>
+                ${extraHtml}
+            `;
+
+            openRetroModal('Modifier l\'entrée', html, '<i class="fa-solid fa-floppy-disk"></i> Enregistrer', 'bg-retro-mint text-white', async () => {
+                const newText = document.getElementById('modal-edit-text').value.trim();
+                if (!newText) return showToast("Erreur", "Le texte ne peut pas être vide.");
+                
+                let priority = extraParam;
+                if (type === 'backlog') priority = parseInt(document.getElementById('modal-edit-prio').value) || 3;
+                
+                await submitProjectItem(type, 'update', id, newText, priority);
+            });
+        }
+
+        function deleteProjectItem(type, id) {
+            openRetroModal('Confirmation de suppression', '<p class="font-bold">Voulez-vous vraiment supprimer cet élément ?</p><p class="text-sm opacity-80">Cette action est irréversible.</p>', '<i class="fa-solid fa-trash"></i> Supprimer', 'bg-retro-coral text-white', async () => {
+                const sessionToken = localStorage.getItem('alliance_session_token');
+                let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ p_session_token: sessionToken, p_action: 'delete', p_id: id })
+                    });
+                    if (res.ok) { showToast("Succès", "Élément supprimé."); loadProjectTab(); }
+                } catch (e) { alert("❌ Erreur."); }
+            });
+        }
+
+        function acceptProposition(id) {
+            const prop = projectData.propositions.find(x => x.id === id);
+            if (!prop) return;
+
+            const html = `
+                <p class="mb-4 text-sm">Vous allez transférer l'idée de <strong>${escapeHtml(prop.pseudo)}</strong> vers le Backlog. Choisissez sa priorité d'intégration :</p>
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Priorité :</label>
+                <select id="modal-accept-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                    <option value="1">1 - Urgent</option>
+                    <option value="2">2 - Important</option>
+                    <option value="3" selected>3 - À faire</option>
+                    <option value="4">4 - Pour plus tard</option>
+                    <option value="5">5 - Bonus</option>
+                </select>
+            `;
+
+            openRetroModal('Accepter la proposition', html, '<i class="fa-solid fa-check"></i> Valider & Transférer', 'bg-retro-mint text-white', async () => {
+                const priority = parseInt(document.getElementById('modal-accept-prio').value) || 3;
+                const backlogText = `💡 Idée de ${prop.pseudo} :\n${prop.content}`;
+                
+                await submitProjectItem('backlog', 'add', null, backlogText, priority);
+                await changePropStatus(id, 'accepted');
+            });
+        }
+
+        async function changePropStatus(id, newStatus) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/manage_proposition`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_action: 'status', p_id: id, p_status: newStatus })
+                });
+                if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
+            } catch (e) { alert("❌ Erreur."); }
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
