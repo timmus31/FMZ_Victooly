@@ -1508,8 +1508,21 @@
                 if (!projectData.changelog || projectData.changelog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucun historique.</p>`;
                 else {
                     projectData.changelog.forEach(c => {
+                        // NOUVEAU : On affiche le badge de priorité si c'est un Dev clôturé
+                        let prioBadge = '';
+                        if (c.priority) {
+                            const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                            const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
+                            let label = prioLabels[c.priority] || `Priorité ${c.priority}`;
+                            let prioColor = prioColors[c.priority] || 'bg-retro-slate text-white';
+                            prioBadge = `<span class="badge ${prioColor} border-2 border-retro-slate mr-2 mb-1">${label}</span>`;
+                        }
+
                         html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
-                            <div class="text-xs text-retro-slate/60 font-bold mb-2"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></div>
+                            <div class="flex items-center flex-wrap gap-1 mb-2">
+                                ${prioBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></span>
+                            </div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
                             ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
                         </div>`;
@@ -1538,13 +1551,7 @@
                 if (!projectData.backlog || projectData.backlog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Le backlog est vide, tout est parfait !</p>`;
                 else {
                     const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
-                    const prioColors = { 
-                        1: "bg-retro-coral text-white", 
-                        2: "bg-retro-yellow text-retro-slate", 
-                        3: "bg-retro-mint text-white", 
-                        4: "bg-retro-slate text-white", 
-                        5: "bg-white text-retro-slate" 
-                    };
+                    const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
 
                     projectData.backlog.forEach(b => {
                         let label = prioLabels[b.priority] || `Priorité ${b.priority}`;
@@ -1557,7 +1564,8 @@
                             </div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
                             ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
-                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="completeBacklogItem(${b.id})" title="Clôturer et publier"><i class="fa-solid fa-check-double"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-yellow" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
                             </div>` : ''}
                         </div>`;
@@ -1605,6 +1613,18 @@
             }
 
             contentDiv.innerHTML = html;
+        }
+
+        function completeBacklogItem(id) {
+            openRetroModal(
+                'Clôturer le développement', 
+                '<p class="font-bold">Avez-vous terminé cette tâche ?</p><p class="text-sm mt-2 opacity-80">Elle sera automatiquement retirée du Backlog et ajoutée au Changelog (Journal des mises à jour) en conservant sa priorité initiale.</p>', 
+                '<i class="fa-solid fa-check-double"></i> Clôturer & Publier', 
+                'bg-retro-mint text-white', 
+                async () => {
+                    await submitProjectItem('backlog', 'complete', id);
+                }
+            );
         }
 
         async function submitProjectItem(type, action, id = null, forcedContent = null, forcedPrio = null) {
