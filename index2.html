@@ -433,6 +433,13 @@
         </div>
     </div>
 
+    <!-- Fenêtre Modale Rétro -->
+    <div id="retro-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-retro-slate/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro max-w-lg w-full mx-4 transform scale-95 transition-transform duration-300" id="retro-modal-content">
+            <!-- Le contenu sera injecté ici par Javascript -->
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-retro-cream/90 backdrop-blur-md border-b-4 border-retro-slate px-4 lg:px-8 py-3 w-full">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -1504,7 +1511,7 @@
                         html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
                             <div class="text-xs text-retro-slate/60 font-bold mb-2"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
-                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
                         </div>`;
                     });
                 }
@@ -1550,7 +1557,7 @@
                             </div>
                             <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
                             ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
-                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
                             </div>` : ''}
                         </div>`;
@@ -1587,7 +1594,7 @@
                                     <button class="btn-action bg-retro-coral text-white border-2 border-retro-slate" onclick="changePropStatus(${p.id}, 'rejected')"><i class="fa-solid fa-xmark"></i> Refuser</button>
                                 ` : ''}
                                 ${canEdit ? `
-                                    <button class="btn-action bg-white text-retro-slate" onclick="editProjectItem('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="btn-action bg-white text-retro-slate" onclick="('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
                                     <button class="btn-action bg-white text-retro-coral" onclick="deleteProjectItem('propositions', ${p.id})"><i class="fa-solid fa-trash"></i></button>
                                 ` : ''}
                             </div>
@@ -1644,38 +1651,119 @@
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
-        async function editProjectItem(type, id, extraParam = null) {
-            let currentText = "";
+        /* --- GESTION DES MODALES --- */
+        function openRetroModal(title, contentHtml, confirmText, confirmClass, onConfirm) {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+
+            contentDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4 border-b-2 border-retro-slate pb-2">
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0">${title}</h3>
+                    <button onclick="closeRetroModal()" class="text-retro-slate hover:text-retro-coral text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="mb-6 font-outfit text-retro-slate">
+                    ${contentHtml}
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button class="btn-action bg-white text-retro-slate" onclick="closeRetroModal()">Annuler</button>
+                    <button class="btn-action ${confirmClass}" id="modal-confirm-btn">${confirmText}</button>
+                </div>
+            `;
+
+            document.getElementById('modal-confirm-btn').onclick = () => {
+                onConfirm();
+                closeRetroModal();
+            };
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentDiv.classList.remove('scale-95');
+        }
+
+        function closeRetroModal() {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            contentDiv.classList.add('scale-95');
+        }
+
+        /* --- ACTIONS PROJET AVEC MODALES --- */
+        function editProjectItem(type, id, extraParam = null) {
             let item = null;
             if (type === 'changelog') item = projectData.changelog.find(x => x.id === id);
             else if (type === 'backlog') item = projectData.backlog.find(x => x.id === id);
             else if (type === 'propositions') item = projectData.propositions.find(x => x.id === id);
             
-            if (item) currentText = item.content;
+            if (!item) return;
 
-            const newText = prompt("Modifier le texte :", currentText);
-            if (newText === null || newText.trim() === "") return;
-
-            let priority = extraParam;
+            let extraHtml = '';
             if (type === 'backlog') {
-                const newPrio = prompt("Priorité (1=Urgent, 2=Important, 3=À faire, 4=Pour plus tard, 5=Bonus) :", extraParam);
-                if (newPrio !== null) priority = parseInt(newPrio) || 3;
+                const prio = extraParam || 3;
+                extraHtml = `
+                    <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1 mt-4">Priorité :</label>
+                    <select id="modal-edit-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                        <option value="1" ${prio===1?'selected':''}>1 - Urgent</option>
+                        <option value="2" ${prio===2?'selected':''}>2 - Important</option>
+                        <option value="3" ${prio===3?'selected':''}>3 - À faire</option>
+                        <option value="4" ${prio===4?'selected':''}>4 - Pour plus tard</option>
+                        <option value="5" ${prio===5?'selected':''}>5 - Bonus</option>
+                    </select>
+                `;
             }
 
-            await submitProjectItem(type, 'update', id, newText.trim(), priority);
+            const html = `
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Texte :</label>
+                <textarea id="modal-edit-text" rows="5" class="w-full bg-white border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y">${escapeHtml(item.content)}</textarea>
+                ${extraHtml}
+            `;
+
+            openRetroModal('Modifier l\'entrée', html, '<i class="fa-solid fa-floppy-disk"></i> Enregistrer', 'bg-retro-mint text-white', async () => {
+                const newText = document.getElementById('modal-edit-text').value.trim();
+                if (!newText) return showToast("Erreur", "Le texte ne peut pas être vide.");
+                
+                let priority = extraParam;
+                if (type === 'backlog') priority = parseInt(document.getElementById('modal-edit-prio').value) || 3;
+                
+                await submitProjectItem(type, 'update', id, newText, priority);
+            });
         }
 
-        async function deleteProjectItem(type, id) {
-            if (!confirm("Voulez-vous vraiment supprimer cet élément ?")) return;
-            const sessionToken = localStorage.getItem('alliance_session_token');
-            let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
-                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ p_session_token: sessionToken, p_action: 'delete', p_id: id })
-                });
-                if (res.ok) { showToast("Succès", "Élément supprimé."); loadProjectTab(); }
-            } catch (e) { alert("❌ Erreur."); }
+        function deleteProjectItem(type, id) {
+            openRetroModal('Confirmation de suppression', '<p class="font-bold">Voulez-vous vraiment supprimer cet élément ?</p><p class="text-sm opacity-80">Cette action est irréversible.</p>', '<i class="fa-solid fa-trash"></i> Supprimer', 'bg-retro-coral text-white', async () => {
+                const sessionToken = localStorage.getItem('alliance_session_token');
+                let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ p_session_token: sessionToken, p_action: 'delete', p_id: id })
+                    });
+                    if (res.ok) { showToast("Succès", "Élément supprimé."); loadProjectTab(); }
+                } catch (e) { alert("❌ Erreur."); }
+            });
+        }
+
+        function acceptProposition(id) {
+            const prop = projectData.propositions.find(x => x.id === id);
+            if (!prop) return;
+
+            const html = `
+                <p class="mb-4 text-sm">Vous allez transférer l'idée de <strong>${escapeHtml(prop.pseudo)}</strong> vers le Backlog. Choisissez sa priorité d'intégration :</p>
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Priorité :</label>
+                <select id="modal-accept-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                    <option value="1">1 - Urgent</option>
+                    <option value="2">2 - Important</option>
+                    <option value="3" selected>3 - À faire</option>
+                    <option value="4">4 - Pour plus tard</option>
+                    <option value="5">5 - Bonus</option>
+                </select>
+            `;
+
+            openRetroModal('Accepter la proposition', html, '<i class="fa-solid fa-check"></i> Valider & Transférer', 'bg-retro-mint text-white', async () => {
+                const priority = parseInt(document.getElementById('modal-accept-prio').value) || 3;
+                const backlogText = `💡 Idée de ${prop.pseudo} :\n${prop.content}`;
+                
+                await submitProjectItem('backlog', 'add', null, backlogText, priority);
+                await changePropStatus(id, 'accepted');
+            });
         }
 
         async function changePropStatus(id, newStatus) {
@@ -1687,23 +1775,6 @@
                 });
                 if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
             } catch (e) { alert("❌ Erreur."); }
-        }
-
-        async function acceptProposition(id) {
-            const prop = projectData.propositions.find(x => x.id === id);
-            if (!prop) return;
-
-            const prioInput = prompt("À quelle priorité ajouter cette idée au Backlog ? (1=Urgent, 2=Important, 3=Bonus)");
-            if (prioInput === null) return; 
-            const priority = parseInt(prioInput) || 3;
-
-            const backlogText = `\uD83D\uDCA1 Idée de ${prop.pseudo} :\n${prop.content}`;
-            
-            // 1. Ajouter au backlog
-            await submitProjectItem('backlog', 'add', null, backlogText, priority);
-            
-            // 2. Changer le statut
-            await changePropStatus(id, 'accepted');
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
