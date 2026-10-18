@@ -1478,30 +1478,69 @@
         }
 
         function renderAdminTable(members) {
-            const contentDiv = document.getElementById('content-area'); const myRole = currentUserAdminInfo.role; const myGroupId = currentUserAdminInfo.group_id;
+            const contentDiv = document.getElementById('content-area'); 
+            const myRole = currentUserAdminInfo.role; 
+            const myGroupId = currentUserAdminInfo.group_id;
+            
             const buildGroupOptions = (currentGroup) => { let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`; for (let g = 1; g <= 10; g++) { opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`; } return opts; };
+            
             let html = `
-                <div class="flex items-center gap-3 mb-2 mt-4"><div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl"><i class="fa-solid fa-gears"></i></div><div class="flex flex-col"><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3><span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span></div></div>
-                <div class="table-container mt-6"><table><thead><tr><th>Joueur</th><th style="text-align:center;">Groupe</th><th style="text-align:center;">Rôle Groupe</th><th style="text-align:center;">Étage</th><th style="text-align:center;">Droits Admin</th></tr></thead><tbody>`;
+                <div class="flex items-center gap-3 mb-2 mt-4">
+                    <div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl"><i class="fa-solid fa-gears"></i></div>
+                    <div class="flex flex-col"><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3><span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span></div>
+                </div>
+                <div class="table-container mt-6">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Joueur</th>
+                                <th style="text-align:center;">Groupe</th>
+                                <th style="text-align:center;">Rôle Groupe</th>
+                                <th style="text-align:center;">Étage</th>
+                                <th style="text-align:center;">Ratio (%)</th>
+                                <th style="text-align:center;">Droits Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                        
             members.forEach(m => {
                 let badge = '<span class="badge badge-member">Membre</span>';
                 if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Super Admin</span>';
                 else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>';
                 else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Chef de rang</span>';
-                const gRole = m.group_role || 'chasseur'; const showFloor = gRole === 'passeur_inter';
+                
+                const gRole = m.group_role || 'chasseur'; 
+                const showFloor = gRole === 'passeur_inter';
+                
                 const canEditGroup = (myRole === 'superadmin' || myRole === 'admin');
                 const groupCell = canEditGroup ? `<select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">${buildGroupOptions(m.group_id)}</select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
+                
                 const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
                 const tacticsCell = canEditTactics ? `<select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})"><option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option><option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option><option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option><option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option></select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
-                const floorCell = canEditTactics ? `<input type="number" id="floor-input-${m.player_id}" value="${m.floor_level !== null ? m.floor_level : ''}" placeholder="Ex: 2" min="1" max="100" style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" onchange="updatePlayerTactics(${m.player_id})" /><span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
-                let adminRoleAction = badge; const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
+                const floorCell = canEditTactics ? `<input type="number" id="floor-input-${m.player_id}" value="${m.floor_level !== null ? m.floor_level : ''}" placeholder="Ex: 2" min="1" max="100" style="width: 60px; text-align:center; margin:0; padding:0.4rem;" onchange="updatePlayerTactics(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-outfit outline-none" /><span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
+                
+                // NOUVEAU : Cellule Ratio
+                const currentRatio = m.ratio !== undefined && m.ratio !== null ? m.ratio : 100;
+                const ratioCell = canEditGroup ? `<input type="number" id="ratio-input-${m.player_id}" value="${currentRatio}" min="0" max="100" style="width: 70px; text-align:center; margin:0; padding:0.4rem;" onchange="updatePlayerRatio(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-bold text-retro-mint-dark outline-none" />` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${currentRatio}%</span>`;
+
+                let adminRoleAction = badge; 
+                const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
                 if (canEditAdminRole) {
                     if (m.role === 'superadmin') adminRoleAction = badge;
                     else adminRoleAction = `<select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)"><option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option><option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option><option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option></select>`;
                 }
-                html += `<tr><td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td><td style="text-align:center;">${groupCell}</td><td style="text-align:center;">${tacticsCell}</td><td style="text-align:center;">${floorCell}</td><td style="text-align:center;">${adminRoleAction}</td></tr>`;
+                
+                html += `<tr>
+                    <td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td>
+                    <td style="text-align:center;">${groupCell}</td>
+                    <td style="text-align:center;">${tacticsCell}</td>
+                    <td style="text-align:center;">${floorCell}</td>
+                    <td style="text-align:center;">${ratioCell}</td>
+                    <td style="text-align:center;">${adminRoleAction}</td>
+                </tr>`;
             });
-            html += `</tbody></table></div>`; contentDiv.innerHTML = html;
+            html += `</tbody></table></div>`; 
+            contentDiv.innerHTML = html;
         }
 
         async function updatePlayerAdminRole(targetPlayerId, newRole) {
