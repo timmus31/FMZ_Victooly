@@ -1563,6 +1563,35 @@
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
+        async function updatePlayerRatio(playerId) {
+            const input = document.getElementById(`ratio-input-${playerId}`);
+            let newRatio = parseInt(input.value);
+
+            // Auto-correction de l'input si l'utilisateur tape n'importe quoi
+            if (isNaN(newRatio) || newRatio < 0) newRatio = 0;
+            if (newRatio > 100) newRatio = 100;
+            input.value = newRatio;
+
+            try { 
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_ratio`, { 
+                    method: 'POST', 
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        p_session_token: localStorage.getItem('alliance_session_token'), 
+                        p_target_player_id: parseInt(playerId), 
+                        p_ratio: newRatio 
+                    }) 
+                });
+                
+                if (res.ok) { 
+                    showToast("Mise à jour", `Ratio réglé à ${newRatio}%.`); 
+                } else { 
+                    alert("❌ Action refusée."); 
+                    loadAdminPanel(); 
+                }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
         /* ==========================================
            ONGLET PROJET (Changelog, Backlog, Idées)
            ========================================== */
