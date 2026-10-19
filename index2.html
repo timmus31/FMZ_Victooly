@@ -825,7 +825,6 @@
                         <tbody>
             `;
 
-            // On garde un compteur index visuel purement pour la médaille
             let visualRank = 1;
             sortedGroups.forEach(g => {
                 let medal = visualRank === 1 ? '🥇' : visualRank === 2 ? '🥈' : visualRank === 3 ? '🥉' : '';
@@ -868,6 +867,8 @@
         }
 
         function drawAlliancesChart(data) {
+            if (!data || data.length === 0) return;
+
             const ctx = document.getElementById('alliancesChart').getContext('2d');
             const datasetsMap = {};
             const labelsSet = new Set();
