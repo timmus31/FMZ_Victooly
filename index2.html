@@ -673,6 +673,24 @@
         }
 
         /* --- VUE PERFO --- */
+        let perfoFilterMode = '7days';
+        let perfoStartDate = '';
+        let perfoEndDate = '';
+        let perfoChartInstance = null;
+        
+        // Variables pour le tri
+        let perfoSortCol = 'diff';
+        let perfoSortAsc = false;
+        let currentPerfoDataCache = null;
+
+        function togglePerfoSort(col) {
+            if (perfoSortCol === col) perfoSortAsc = !perfoSortAsc;
+            else { perfoSortCol = col; perfoSortAsc = (col === 'id'); }
+            if (currentPerfoDataCache) {
+                renderPerfoUI(currentPerfoDataCache.playersData, currentPerfoDataCache.alliancesData);
+            }
+        }
+
         async function loadPerfoData() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
@@ -685,6 +703,18 @@
                 } else if (perfoFilterMode === 'day') {
                     const inputDay = document.getElementById('perfo-filter-day');
                     perfoStartDate = perfoEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+                } else if (perfoFilterMode === 'week') {
+                    const inputWeek = document.getElementById('perfo-filter-week');
+                    let refDate = new Date();
+                    if (inputWeek && inputWeek.value) {
+                        const parts = inputWeek.value.split('-W');
+                        if (parts.length === 2) refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
+                    } else {
+                        const day = today.getDay() || 7; refDate.setDate(today.getDate() - day + 1);
+                    }
+                    const monday = new Date(refDate); const sunday = new Date(refDate);
+                    sunday.setDate(monday.getDate() + 6);
+                    perfoStartDate = formatDate(monday); perfoEndDate = formatDate(sunday);
                 } else if (perfoFilterMode === 'custom') {
                     const startInput = document.getElementById('perfo-filter-start');
                     const endInput = document.getElementById('perfo-filter-end');
@@ -692,14 +722,12 @@
                     perfoEndDate = endInput && endInput.value ? endInput.value : formatDate(today);
                 }
 
-                // Performances Alliance (group_id = -1)
                 const rpcBodyGroups = { p_session_token: sessionToken, p_start_date: perfoStartDate, p_end_date: perfoEndDate, p_target_group_id: -1 };
                 const resGroups = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyGroups)
                 });
                 const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
 
-                // Top 10 Alliances
                 const rpcBodyAlliances = { p_start_date: perfoStartDate + 'T00:00:00Z', p_end_date: perfoEndDate + 'T23:59:59Z' };
                 const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyAlliances)
@@ -714,6 +742,7 @@
         }
 
         function renderPerfoUI(playersData, alliancesData) {
+            currentPerfoDataCache = { playersData, alliancesData };
             const contentDiv = document.getElementById('content-area');
             const todayStr = new Date().toISOString().split('T')[0];
             
@@ -734,7 +763,28 @@
                 totalRes += Number(p.resources_generated);
             });
             
-            const sortedGroups = Object.values(groupStats).sort((a, b) => b.diff - a.diff);
+            // Calcul de la progression par joueur
+            Object.values(groupStats).forEach(g => {
+                g.prog_per_player = Math.round(g.diff / g.players);
+            });
+
+            // Tri dynamique
+            const sortedGroups = Object.values(groupStats).sort((a, b) => {
+                let valA = a[perfoSortCol]; let valB = b[perfoSortCol];
+                if (valA < valB) return perfoSortAsc ? -1 : 1;
+                if (valA > valB) return perfoSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const getSortIcon = (col) => {
+                if (perfoSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                return perfoSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+            };
+
+            let dateInputsHtml = '';
+            if (perfoFilterMode === 'day') dateInputsHtml = `<input type="date" id="perfo-filter-day" value="${perfoStartDate || todayStr}" onchange="loadPerfoData()">`;
+            else if (perfoFilterMode === 'week') dateInputsHtml = `<input type="week" id="perfo-filter-week" onchange="loadPerfoData()">`;
+            else if (perfoFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka font-bold ml-2">De</span> <input type="date" id="perfo-filter-start" value="${perfoStartDate || todayStr}"> <span class="font-fredoka font-bold">à</span> <input type="date" id="perfo-filter-end" value="${perfoEndDate || todayStr}"> <button onclick="loadPerfoData()"><i class="fa-solid fa-check"></i> Activer</button>`;
 
             let html = `
                 <div class="flex items-center gap-3 mb-6">
@@ -747,10 +797,10 @@
                     <select id="perfo-filter-select" onchange="perfoFilterMode = this.value; loadPerfoData();">
                         <option value="7days" ${perfoFilterMode === '7days' ? 'selected' : ''}>7 derniers jours</option>
                         <option value="day" ${perfoFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
+                        <option value="week" ${perfoFilterMode === 'week' ? 'selected' : ''}>Semaine (Lun - Dim)</option>
                         <option value="custom" ${perfoFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
                     </select>
-                    ${perfoFilterMode === 'day' ? `<input type="date" id="perfo-filter-day" value="${perfoStartDate || todayStr}" onchange="loadPerfoData()">` : ''}
-                    ${perfoFilterMode === 'custom' ? `<span class="font-fredoka font-bold ml-2">De</span> <input type="date" id="perfo-filter-start" value="${perfoStartDate || todayStr}"> <span class="font-fredoka font-bold">à</span> <input type="date" id="perfo-filter-end" value="${perfoEndDate || todayStr}"> <button onclick="loadPerfoData()"><i class="fa-solid fa-check"></i> Activer</button>` : ''}
+                    ${dateInputsHtml}
                 </div>
 
                 <div class="stats-summary mb-8">
@@ -763,46 +813,61 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Rang</th>
-                                <th>Groupe</th>
-                                <th>Effectif</th>
-                                <th>Terrain Initial</th>
-                                <th>Terrain Actuel</th>
-                                <th>Progression</th>
-                                <th>Ressources</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfoSort('id')">Groupe ${getSortIcon('id')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('players')">Effectif ${getSortIcon('players')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('start')">Terrain Initial ${getSortIcon('start')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('end')">Terrain Actuel ${getSortIcon('end')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('diff')">Progression ${getSortIcon('diff')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('prog_per_player')">Prog par joueur ${getSortIcon('prog_per_player')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('res')">Ressources ${getSortIcon('res')}</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
 
-            sortedGroups.forEach((g, index) => {
-                let medal = index === 0 ? '🥇 1er' : index === 1 ? '🥈 2e' : index === 2 ? '🥉 3e' : `#${index + 1}`;
+            // On garde un compteur index visuel purement pour la médaille
+            let visualRank = 1;
+            sortedGroups.forEach(g => {
+                let medal = visualRank === 1 ? '🥇' : visualRank === 2 ? '🥈' : visualRank === 3 ? '🥉' : '';
+                const pDiffText = g.diff >= 0 ? `+${g.diff.toLocaleString('fr-FR')}` : g.diff.toLocaleString('fr-FR');
+                const pPlayerText = g.prog_per_player >= 0 ? `+${g.prog_per_player.toLocaleString('fr-FR')}` : g.prog_per_player.toLocaleString('fr-FR');
+                
                 html += `<tr>
-                    <td class="text-center font-bold text-lg">${medal}</td>
-                    <td class="font-bold text-retro-slate">Groupe ${g.id}</td>
-                    <td class="text-center">${g.players} joueurs</td>
+                    <td class="font-bold text-retro-slate">${medal} Groupe ${g.id}</td>
+                    <td class="text-center">${g.players} <i class="fa-solid fa-user text-xs opacity-50"></i></td>
                     <td class="text-center">${g.start.toLocaleString('fr-FR')} cm²</td>
                     <td class="text-center font-bold">${g.end.toLocaleString('fr-FR')} cm²</td>
-                    <td class="text-center font-bold ${g.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${g.diff >= 0 ? '+' : ''}${g.diff.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold ${g.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${pDiffText} cm²</td>
+                    <td class="text-center font-bold ${g.prog_per_player >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${pPlayerText} cm²</td>
                     <td class="text-center font-bold text-retro-yellow">${g.res.toLocaleString('fr-FR')}</td>
                 </tr>`;
+                visualRank++;
             });
 
             html += `</tbody></table></div>
                 
                 <h3 class="font-shrikhand text-xl text-retro-slate mb-4 mt-8">🌍 Évolution du Top 10 Alliances (Terrain)</h3>
-                <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
-                    <canvas id="alliancesChart" width="100%" height="45"></canvas>
+                <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8" id="chart-container">
                 </div>
             `;
 
             contentDiv.innerHTML = html;
-            drawAlliancesChart(alliancesData);
+
+            // Gestion du graphique si vide (script de metrics trop récent)
+            if (!alliancesData || alliancesData.length <= 10) {
+                document.getElementById('chart-container').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa-solid fa-chart-line text-4xl text-retro-slate/30 mb-3"></i>
+                        <p class="font-fredoka text-retro-slate/60 font-bold">La base de données historique vient d'être activée.</p>
+                        <p class="font-outfit text-retro-slate/50 text-sm">Le graphique s'affichera ici dès que nous aurons au moins 2 relevés (d'ici 1 à 2 heures).</p>
+                    </div>`;
+            } else {
+                document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
+                drawAlliancesChart(alliancesData);
+            }
         }
 
         function drawAlliancesChart(data) {
-            if (!data || data.length === 0) return;
-
             const ctx = document.getElementById('alliancesChart').getContext('2d');
             const datasetsMap = {};
             const labelsSet = new Set();
