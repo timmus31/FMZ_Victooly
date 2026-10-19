@@ -963,13 +963,17 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                // 3. Performances (reçoivent "-1" pour le Global, sinon le SQL utilise le groupe du joueur par erreur)
-                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                // 3. Performances (V2)
+                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
                 });
                 let playerPerfsData = [];
-                if (resPerfs.ok) playerPerfsData = await resPerfs.json();
+                if (resPerfs.ok) {
+                    playerPerfsData = await resPerfs.json();
+                } else {
+                    console.error("❌ ERREUR PERFORMANCES :", await resPerfs.text());
+                }
         
                 // 4. TOUT LE MONDE récupère la liste des groupes (plus de verrou Admin)
                 let availableGroups = [];
