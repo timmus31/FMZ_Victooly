@@ -721,11 +721,20 @@
                 });
                 const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
 
+                // Top 10 Alliances
                 const rpcBodyAlliances = { p_start_date: perfoStartDate + 'T00:00:00Z', p_end_date: perfoEndDate + 'T23:59:59Z' };
                 const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyAlliances)
                 });
+                
+                // NOUVEAU : On intercepte l'erreur exacte de Supabase !
+                if (!resAlliances.ok) {
+                    const errText = await resAlliances.text();
+                    console.error("❌ ERREUR SUPABASE (Top 10) :", errText);
+                }
+
                 const topAlliances = resAlliances.ok ? await resAlliances.json() : [];
+                console.log("📊 [DEBUG] Données brutes du Top 10 :", topAlliances);
 
                 // LE LOG EST DÉPLACÉ ICI, APRÈS LA CRÉATION DE LA VARIABLE !
                 console.log("📊 [DEBUG] Données brutes du Top 10 :", topAlliances);
