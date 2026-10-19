@@ -1054,6 +1054,23 @@
             }
         }
 
+        // --- Variables globales pour le tri de l'Admin ---
+        let adminSortCol = 'group_id'; // Tri par défaut : par groupe
+        let adminSortAsc = true;       // Tri par défaut : Ascendant (Groupe 0, 1, 2...)
+        let currentAdminDataCache = null;
+
+        function toggleAdminSort(col) {
+            if (adminSortCol === col) {
+                adminSortAsc = !adminSortAsc;
+            } else {
+                adminSortCol = col;
+                adminSortAsc = true; // Par défaut de A à Z ou du plus petit au plus grand
+            }
+            if (currentAdminDataCache) {
+                renderAdminTable(currentAdminDataCache);
+            }
+        }
+
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             // Sauvegarde pour permettre le tri dynamique sans refaire de requête SQL
             currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
@@ -1561,9 +1578,48 @@
         }
 
         function renderAdminTable(members) {
+            // Sauvegarde en cache pour le tri
+            currentAdminDataCache = members;
             const contentDiv = document.getElementById('content-area'); 
             const myRole = currentUserAdminInfo.role; 
             const myGroupId = currentUserAdminInfo.group_id;
+            
+            // 1. Application du tri dynamique
+            let sortedMembers = [...members]; // On fait une copie pour ne pas altérer la liste originale
+            sortedMembers.sort((a, b) => {
+                let valA = a[adminSortCol];
+                let valB = b[adminSortCol];
+
+                // Cas particulier pour les Droits Admin : on trie par hiérarchie, pas par ordre alphabétique
+                if (adminSortCol === 'role') {
+                    const weights = { 'superadmin': 1, 'admin': 2, 'chef_de_rang': 3, 'member': 4 };
+                    valA = weights[a.role] || 5;
+                    valB = weights[b.role] || 5;
+                } 
+                // Cas particulier : Mettre les "Hors-chaîne" (0) à la fin si on trie par groupe
+                else if (adminSortCol === 'group_id') {
+                    valA = a.group_id === 0 ? 999 : a.group_id;
+                    valB = b.group_id === 0 ? 999 : b.group_id;
+                }
+
+                // Sécurité pour les valeurs vides (comme floor_level qui peut être null)
+                if (valA === null || valA === undefined) valA = adminSortAsc ? 99999 : -99999;
+                if (valB === null || valB === undefined) valB = adminSortAsc ? 99999 : -99999;
+
+                // Tri alphabétique pour les textes
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return adminSortAsc ? -1 : 1;
+                if (valA > valB) return adminSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            // 2. Générateur de petites icônes
+            const getSortIcon = (col) => {
+                if (adminSortCol !== col) return '<i class="fa-solid fa-sort text-retro-slate/30 ml-1"></i>';
+                return adminSortAsc ? '<i class="fa-solid fa-sort-up text-retro-coral ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-coral ml-1"></i>';
+            };
             
             // Construction adaptative des options de groupe selon les droits
             const buildGroupOptions = (currentGroup) => { 
@@ -1585,17 +1641,17 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Joueur</th>
-                                <th style="text-align:center;">Groupe</th>
-                                <th style="text-align:center;">Rôle Groupe</th>
-                                <th style="text-align:center;">Étage</th>
-                                <th style="text-align:center;">Ratio (%)</th>
-                                <th style="text-align:center;">Droits Admin</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="toggleAdminSort('member_pseudo')">Joueur ${getSortIcon('member_pseudo')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('group_id')">Groupe ${getSortIcon('group_id')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('group_role')">Rôle Groupe ${getSortIcon('group_role')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('floor_level')">Étage ${getSortIcon('floor_level')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('ratio')">Ratio (%) ${getSortIcon('ratio')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('role')">Droits Admin ${getSortIcon('role')}</th>
                             </tr>
                         </thead>
                         <tbody>`;
                         
-            members.forEach(m => {
+            sortedMembers.forEach(m => {
                 let badge = '<span class="badge badge-member">Membre</span>';
                 if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Super Admin</span>';
                 else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>';
@@ -1604,16 +1660,13 @@
                 const gRole = m.group_role || 'chasseur'; 
                 const showFloor = gRole === 'passeur_inter';
                 
-                // Le chef de rang peut recruter depuis le hors-chaîne (0)
                 const canEditGroup = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && (m.group_id === 0 || m.group_id === myGroupId));
                 const groupCell = canEditGroup ? `<select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">${buildGroupOptions(m.group_id)}</select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
                 
-                // Le chef de rang peut modifier les tactiques (et le ratio) de SES membres
                 const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
                 const tacticsCell = canEditTactics ? `<select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})"><option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option><option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option><option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option><option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option></select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
                 const floorCell = canEditTactics ? `<input type="number" id="floor-input-${m.player_id}" value="${m.floor_level !== null ? m.floor_level : ''}" placeholder="Ex: 2" min="1" max="100" style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" onchange="updatePlayerTactics(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-outfit outline-none" /><span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
                 
-                // Le ratio utilise maintenant canEditTactics au lieu de canEditGroup
                 const currentRatio = m.ratio !== undefined && m.ratio !== null ? m.ratio : 100;
                 const ratioCell = canEditTactics ? `<input type="number" id="ratio-input-${m.player_id}" value="${currentRatio}" min="0" max="100" style="width: 70px; text-align:center; margin:0; padding:0.4rem;" onchange="updatePlayerRatio(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-bold text-retro-mint-dark outline-none" />` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${currentRatio}%</span>`;
 
