@@ -721,6 +721,8 @@
                 });
                 const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
 
+                console.log("📊 [DEBUG] Données brutes du Top 10 :", topAlliances);
+
                 const rpcBodyAlliances = { p_start_date: perfoStartDate + 'T00:00:00Z', p_end_date: perfoEndDate + 'T23:59:59Z' };
                 const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyAlliances)
@@ -855,7 +857,9 @@
 
             contentDiv.innerHTML = html;
 
-            if (!alliancesData || alliancesData.length <= 10) {
+            console.log("📊 [DEBUG] Lignes à dessiner :", alliancesData ? alliancesData.length : 0);
+
+            if (!alliancesData || alliancesData.length <= 0) {
                 document.getElementById('chart-container').innerHTML = `
                     <div class="text-center py-8">
                         <i class="fa-solid fa-chart-line text-4xl text-retro-slate/30 mb-3"></i>
