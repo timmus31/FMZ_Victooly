@@ -998,8 +998,8 @@
                 groupStartDate = formatDate(start); groupEndDate = formatDate(today);
             } else if (groupFilterMode === 'day') {
                 const inputDay = document.getElementById('filter-single-day');
-                // Si l'input n'est pas là, on prend "hier" par défaut au lieu de "aujourd'hui"
-                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(yesterday);
+                // ICI : on prend "today" par défaut au lieu de "yesterday"
+                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
             } else if (groupFilterMode === 'week') {
                 const inputWeek = document.getElementById('filter-week-select');
                 let refDate = new Date();
@@ -1090,11 +1090,13 @@
             
             let dateInputsHtml = '';
             if (groupFilterMode === 'day') {
-                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || yesterdayStr}" onchange="loadGroupConvoys()">`;
+                // ICI : todayStr au lieu de yesterdayStr
+                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
             }
             else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
             else if (groupFilterMode === 'custom') {
-                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || yesterdayStr}">
+                // Et on peut faire pareil ici pour la période personnalisée
+                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
                                   <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
             }
 
