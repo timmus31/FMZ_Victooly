@@ -1054,6 +1054,23 @@
             }
         }
 
+        // --- Variables globales pour le tri de l'Admin ---
+        let adminSortCol = 'group_id'; // Tri par défaut : par groupe
+        let adminSortAsc = true;       // Tri par défaut : Ascendant (Groupe 0, 1, 2...)
+        let currentAdminDataCache = null;
+
+        function toggleAdminSort(col) {
+            if (adminSortCol === col) {
+                adminSortAsc = !adminSortAsc;
+            } else {
+                adminSortCol = col;
+                adminSortAsc = true; // Par défaut de A à Z ou du plus petit au plus grand
+            }
+            if (currentAdminDataCache) {
+                renderAdminTable(currentAdminDataCache);
+            }
+        }
+
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             // Sauvegarde pour permettre le tri dynamique sans refaire de requête SQL
             currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
