@@ -740,10 +740,11 @@
             const todayStr = new Date().toISOString().split('T')[0];
             
             const groupStats = {};
-            let totalDiff = 0, totalRes = 0;
+            let totalDiff = 0, totalRes = 0, totalStart = 0, totalEnd = 0, totalPlayers = 0;
             
             playersData.forEach(p => {
-                if(p.group_id <= 0) return;
+                if(p.group_id <= 0) return; // Exclut les hors-chaîne (0) et les partis (-1)
+                
                 if(!groupStats[p.group_id]) groupStats[p.group_id] = { id: p.group_id, start: 0, end: 0, diff: 0, res: 0, players: 0 };
                 
                 groupStats[p.group_id].start += p.start_terrain;
@@ -752,14 +753,20 @@
                 groupStats[p.group_id].res += Number(p.resources_generated);
                 groupStats[p.group_id].players += 1;
                 
+                totalStart += p.start_terrain;
+                totalEnd += p.end_terrain;
                 totalDiff += p.terrain_diff;
                 totalRes += Number(p.resources_generated);
+                totalPlayers += 1;
             });
             
             // Calcul de la progression par joueur
             Object.values(groupStats).forEach(g => {
                 g.prog_per_player = Math.round(g.diff / g.players);
             });
+
+            // Moyenne de terrain globale par joueur actif
+            const avgPerPlayer = totalPlayers > 0 ? Math.round(totalEnd / totalPlayers) : 0;
 
             // Tri dynamique
             const sortedGroups = Object.values(groupStats).sort((a, b) => {
@@ -796,8 +803,11 @@
                     ${dateInputsHtml}
                 </div>
 
-                <div class="stats-summary mb-8">
-                    <div class="stat-card"><div class="val" style="color:${totalDiff >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${totalDiff >= 0 ? '+' : ''}${totalDiff.toLocaleString('fr-FR')} cm²</div><div class="lbl">Progression Alliance</div></div>
+                <div class="stats-summary mb-8 flex-wrap">
+                    <div class="stat-card"><div class="val">${totalStart.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Initial</div></div>
+                    <div class="stat-card"><div class="val">${totalEnd.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Actuel</div></div>
+                    <div class="stat-card"><div class="val" style="color:${totalDiff >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${totalDiff >= 0 ? '+' : ''}${totalDiff.toLocaleString('fr-FR')}</div><div class="lbl">Progression</div></div>
+                    <div class="stat-card"><div class="val" style="color:#8ba888; text-shadow: 1px 1px 0 #1d2d44;">${avgPerPlayer.toLocaleString('fr-FR')}</div><div class="lbl">Moy. par Joueur</div></div>
                     <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${totalRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
                 </div>
 
@@ -845,7 +855,6 @@
 
             contentDiv.innerHTML = html;
 
-            // Gestion du graphique si vide (script de metrics trop récent)
             if (!alliancesData || alliancesData.length <= 10) {
                 document.getElementById('chart-container').innerHTML = `
                     <div class="text-center py-8">
