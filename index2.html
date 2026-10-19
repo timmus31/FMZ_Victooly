@@ -1029,7 +1029,35 @@
             return ISOweekStart;
         }
 
+        // --- Variables globales pour le tri du Bilan Individuel ---
+        let perfSortCol = 'end_terrain'; // Tri par défaut : Terrain Actuel
+        let perfSortAsc = false;         // Tri par défaut : Descendant (du + grand au + petit)
+        let currentGroupDataCache = null;
+
+        function togglePerfSort(col) {
+            if (perfSortCol === col) {
+                perfSortAsc = !perfSortAsc;
+            } else {
+                perfSortCol = col;
+                // Si on clique sur le Joueur, on trie de A à Z (Ascendant), sinon Descendant
+                perfSortAsc = (col === 'pseudo'); 
+            }
+            // On rafraîchit l'interface avec les données en cache
+            if (currentGroupDataCache) {
+                renderGroupUI(
+                    currentGroupDataCache.convoys, 
+                    currentGroupDataCache.dailyLogs, 
+                    currentGroupDataCache.playerPerfs, 
+                    currentGroupDataCache.currentGroupId, 
+                    currentGroupDataCache.availableGroups
+                );
+            }
+        }
+
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
+            // Sauvegarde pour permettre le tri dynamique sans refaire de requête SQL
+            currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
+            
             const contentDiv = document.getElementById('content-area');
             
             // ACCÈS LIBRE : Tout le monde a le menu déroulant !
@@ -1086,10 +1114,10 @@
                     sumStart += p.start_terrain; 
                     sumEnd += p.end_terrain; 
                     sumDiff += p.terrain_diff; 
-                    sumRes += p.resources_generated; 
+                    sumRes += Number(p.resources_generated); 
                 });
             } else if (dailyLogs && dailyLogs.length > 0) {
-                dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += l.resources_generated; });
+                dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += Number(l.resources_generated); });
                 const startValues = dailyLogs.map(l => l.start_terrain);
                 const endValues = dailyLogs.map(l => l.end_terrain);
                 sumStart = Math.min(...startValues.filter(v => v > 0)); 
@@ -1108,16 +1136,46 @@
                 </div>
             `;
 
-            // CORRECTION : On affiche le tableau même si currentGroupId est égal à -1
+            // Bilan Individuel avec Tri Dynamique
             if (playerPerfs && playerPerfs.length > 0) {
+                
+                // 1. Application du tri
+                playerPerfs.sort((a, b) => {
+                    let valA = a[perfSortCol];
+                    let valB = b[perfSortCol];
+                    
+                    // Supabase renvoie les BIGINT sous forme de texte, on sécurise la conversion
+                    if (perfSortCol === 'resources_generated') {
+                        valA = Number(valA); valB = Number(valB);
+                    } else {
+                        if (typeof valA === 'string') valA = valA.toLowerCase();
+                        if (typeof valB === 'string') valB = valB.toLowerCase();
+                    }
+                    
+                    if (valA < valB) return perfSortAsc ? -1 : 1;
+                    if (valA > valB) return perfSortAsc ? 1 : -1;
+                    return 0;
+                });
+
+                // 2. Générateur de petites icônes pour les colonnes
+                const getSortIcon = (col) => {
+                    if (perfSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                    return perfSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+                };
+
                 html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
-                    <div class="table-container"><table><thead><tr><th>Joueur</th><th>Terrain Initial</th><th>Terrain Actuel</th><th>Progression</th><th>Ressources Générées</th></tr></thead><tbody>`;
+                    <div class="table-container"><table><thead><tr>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('pseudo')">Joueur ${getSortIcon('pseudo')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('start_terrain')">Terrain Initial ${getSortIcon('start_terrain')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('end_terrain')">Terrain Actuel ${getSortIcon('end_terrain')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('terrain_diff')">Progression ${getSortIcon('terrain_diff')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('resources_generated')">Ressources ${getSortIcon('resources_generated')}</th>
+                    </tr></thead><tbody>`;
                 
                 playerPerfs.forEach(p => {
                     const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
                     const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
                     
-                    // Formatage du rôle et de l'étage
                     let roleDisplay = '';
                     if (p.group_role) {
                         let roleName = p.group_role;
@@ -1130,7 +1188,6 @@
                         roleDisplay = `<br><span class="font-fredoka text-[0.65rem] text-retro-slate/60 font-bold uppercase tracking-widest">${icon} ${roleName}</span>`;
                     }
 
-                    // Lien d'attaque sur le pseudo
                     const pseudoLink = `<a href="https://s5.fourmizzz.fr/ennemie.php?Attaquer=${p.player_id}&lieu=1" target="_blank" class="text-retro-slate hover:text-retro-coral transition-colors" title="Attaquer ${escapeHtml(p.pseudo)}"><i class="fa-solid fa-crosshairs text-xs opacity-50 mr-1 hover:opacity-100"></i><strong>${escapeHtml(p.pseudo)}</strong></a>`;
 
                     html += `<tr>
@@ -1138,7 +1195,7 @@
                         <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
                         <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
                         <td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
-                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${Number(p.resources_generated).toLocaleString('fr-FR')}</strong></td>
                     </tr>`;
                 });
                 html += `</tbody></table></div>`;
