@@ -8,6 +8,7 @@
     <!-- Scripts & Config -->
     <script src="config.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -145,6 +146,7 @@
         .tab-btn.map-active { background-color: #8ba888; color: white; }
         .tab-btn.admin-active { background-color: #f4d03f; color: #1d2d44; }
         .tab-btn.chat-active { background-color: #8e44ad; color: white; }
+        .tab-btn.perfo-active { background-color: #ff6f61; color: white; }
 
         .btn-logout {
             margin-left: auto;
@@ -258,7 +260,7 @@
             overflow: hidden;
             box-shadow: 6px 6px 0px 0px #1d2d44;
             position: relative;
-            background-color: #f2ead0; /* Couleur Ivoire / Vieux papier */
+            background-color: #f2ead0;
             background-image: radial-gradient(rgba(29, 45, 68, 0.15) 1px, transparent 1px);
             background-size: 15px 15px;
         }
@@ -305,7 +307,7 @@
 
         #retro-toast { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
-        /* Styles spécifiques au CHAT */
+        /* Styles CHAT */
         .chat-container {
             display: flex;
             flex-direction: column;
@@ -384,41 +386,12 @@
             position: relative;
             animation: popIn 0.2s ease-out;
         }
-        .chat-msg-bubble::after {
-            content: "";
-            display: table;
-            clear: both;
-        }
-        
-        .chat-msg-bubble.is-other {
-            border-bottom-left-radius: 0;
-            align-self: flex-start;
-        }
-        
-        .chat-msg-bubble.is-me {
-            background-color: #f9f7f1; 
-            border-bottom-right-radius: 0;
-            border-bottom-left-radius: 1rem; 
-            align-self: flex-end;
-        }
-
-        .chat-meta {
-            display: flex;
-            flex-direction: column;
-            line-height: 1.1;
-        }
-        .chat-meta.is-other {
-            float: left; 
-            margin-right: 0.5rem;
-            margin-bottom: 0.2rem;
-            align-items: flex-start;
-        }
-        .chat-meta.is-me {
-            float: right; 
-            margin-left: 0.5rem;
-            margin-bottom: 0.2rem;
-            align-items: flex-end;
-        }
+        .chat-msg-bubble::after { content: ""; display: table; clear: both; }
+        .chat-msg-bubble.is-other { border-bottom-left-radius: 0; align-self: flex-start; }
+        .chat-msg-bubble.is-me { background-color: #f9f7f1; border-bottom-right-radius: 0; border-bottom-left-radius: 1rem; align-self: flex-end; }
+        .chat-meta { display: flex; flex-direction: column; line-height: 1.1; }
+        .chat-meta.is-other { float: left; margin-right: 0.5rem; margin-bottom: 0.2rem; align-items: flex-start; }
+        .chat-meta.is-me { float: right; margin-left: 0.5rem; margin-bottom: 0.2rem; align-items: flex-end; }
         @keyframes popIn { 0% { transform: scale(0.95); opacity:0;} 100% { transform: scale(1); opacity:1;} }
     </style>
 </head>
@@ -488,6 +461,7 @@
                 <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')"><i class="fa-solid fa-bolt text-retro-yellow mr-1"></i> En cours</button>
                 <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')"><i class="fa-solid fa-scroll mr-1"></i> Historique</button>
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
+                <button id="tab-perfo-btn" class="tab-btn" onclick="switchTab('perfo')"><i class="fa-solid fa-chart-line mr-1"></i> Perfo</button>
                 <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
                 <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
@@ -515,6 +489,12 @@
         let groupStartDate = null;
         let groupEndDate = null;
 
+        // Variables PERFO
+        let perfoFilterMode = '7days';
+        let perfoStartDate = '';
+        let perfoEndDate = '';
+        let perfoChartInstance = null;
+
         let mapPlayersData = [];
         let mapSelectedGroup = -1;
         let mapSearchQuery = '';
@@ -523,7 +503,6 @@
         let isDragging = false;
         let dragStartX = 0; let dragStartY = 0;
 
-        // Variables CHAT
         let chatInterval = null;
         let chatOldestId = null;
         let chatLatestId = null;
@@ -544,7 +523,6 @@
             return dateStr;
         }
 
-        // Formatage de la date (Heure si jour J, Date+Heure sinon)
         function formatChatTime(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
@@ -552,11 +530,11 @@
             const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
             if (d.toDateString() === now.toDateString()) {
-                return timeStr; // Aujourd'hui : juste 14:30
+                return timeStr;
             } else {
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
-                return `${day}/${month} -${timeStr}`; // Plus ancien : 14/10 - 14:30
+                return `${day}/${month} -${timeStr}`;
             }
         }
 
@@ -639,7 +617,7 @@
                         role: userRole,
                         isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
                         isSuperAdmin: userRole === 'superadmin',
-                        pseudo: data[0].pseudo || currentUserAdminInfo.pseudo, // RÉCUPÉRATION DU PSEUDO CORRIGÉE
+                        pseudo: data[0].pseudo || currentUserAdminInfo.pseudo,
                         group_id: data[0].group_id
                     };
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
@@ -653,11 +631,11 @@
         }
 
         async function switchTab(tab) {
-            // CORRECTION : On a retiré le blocage qui était ici par erreur
             activeTab = tab;
             document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
             document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
+            document.getElementById('tab-perfo-btn').className = `tab-btn ${tab === 'perfo' ? 'perfo-active' : ''}`;
             document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
             document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
@@ -675,9 +653,10 @@
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
             if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
+            if (activeTab === 'perfo') { loadPerfoData(); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
             if (activeTab === 'chat') { loadChatTab(); return; }
-            if (activeTab === 'project') { loadProjectTab(); return; } // CORRECTION : Le routage est ici maintenant !
+            if (activeTab === 'project') { loadProjectTab(); return; }
 
             const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
@@ -693,7 +672,190 @@
             } catch (err) { logout(); }
         }
 
-        /* --- ONGLET CHAT (Coms) --- */
+        /* --- VUE PERFO --- */
+        async function loadPerfoData() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const today = new Date();
+                const formatDate = d => d.toISOString().split('T')[0];
+                
+                if (perfoFilterMode === '7days') {
+                    const start = new Date(); start.setDate(today.getDate() - 6);
+                    perfoStartDate = formatDate(start); perfoEndDate = formatDate(today);
+                } else if (perfoFilterMode === 'day') {
+                    const inputDay = document.getElementById('perfo-filter-day');
+                    perfoStartDate = perfoEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+                } else if (perfoFilterMode === 'custom') {
+                    const startInput = document.getElementById('perfo-filter-start');
+                    const endInput = document.getElementById('perfo-filter-end');
+                    perfoStartDate = startInput && startInput.value ? startInput.value : formatDate(today);
+                    perfoEndDate = endInput && endInput.value ? endInput.value : formatDate(today);
+                }
+
+                // Performances Alliance (group_id = -1)
+                const rpcBodyGroups = { p_session_token: sessionToken, p_start_date: perfoStartDate, p_end_date: perfoEndDate, p_target_group_id: -1 };
+                const resGroups = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyGroups)
+                });
+                const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
+
+                // Top 10 Alliances
+                const rpcBodyAlliances = { p_start_date: perfoStartDate + 'T00:00:00Z', p_end_date: perfoEndDate + 'T23:59:59Z' };
+                const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyAlliances)
+                });
+                const topAlliances = resAlliances.ok ? await resAlliances.json() : [];
+
+                renderPerfoUI(allPlayersPerf, topAlliances);
+            } catch (err) {
+                console.error("Erreur Perfo:", err);
+                document.getElementById('content-area').innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur de chargement.</p>`;
+            }
+        }
+
+        function renderPerfoUI(playersData, alliancesData) {
+            const contentDiv = document.getElementById('content-area');
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            const groupStats = {};
+            let totalDiff = 0, totalRes = 0;
+            
+            playersData.forEach(p => {
+                if(p.group_id <= 0) return;
+                if(!groupStats[p.group_id]) groupStats[p.group_id] = { id: p.group_id, start: 0, end: 0, diff: 0, res: 0, players: 0 };
+                
+                groupStats[p.group_id].start += p.start_terrain;
+                groupStats[p.group_id].end += p.end_terrain;
+                groupStats[p.group_id].diff += p.terrain_diff;
+                groupStats[p.group_id].res += Number(p.resources_generated);
+                groupStats[p.group_id].players += 1;
+                
+                totalDiff += p.terrain_diff;
+                totalRes += Number(p.resources_generated);
+            });
+            
+            const sortedGroups = Object.values(groupStats).sort((a, b) => b.diff - a.diff);
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-chart-pie"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport de Performances</h3>
+                </div>
+                
+                <div class="date-filter-box mb-6">
+                    <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
+                    <select id="perfo-filter-select" onchange="perfoFilterMode = this.value; loadPerfoData();">
+                        <option value="7days" ${perfoFilterMode === '7days' ? 'selected' : ''}>7 derniers jours</option>
+                        <option value="day" ${perfoFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
+                        <option value="custom" ${perfoFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
+                    </select>
+                    ${perfoFilterMode === 'day' ? `<input type="date" id="perfo-filter-day" value="${perfoStartDate || todayStr}" onchange="loadPerfoData()">` : ''}
+                    ${perfoFilterMode === 'custom' ? `<span class="font-fredoka font-bold ml-2">De</span> <input type="date" id="perfo-filter-start" value="${perfoStartDate || todayStr}"> <span class="font-fredoka font-bold">à</span> <input type="date" id="perfo-filter-end" value="${perfoEndDate || todayStr}"> <button onclick="loadPerfoData()"><i class="fa-solid fa-check"></i> Activer</button>` : ''}
+                </div>
+
+                <div class="stats-summary mb-8">
+                    <div class="stat-card"><div class="val" style="color:${totalDiff >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${totalDiff >= 0 ? '+' : ''}${totalDiff.toLocaleString('fr-FR')} cm²</div><div class="lbl">Progression Alliance</div></div>
+                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${totalRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
+                </div>
+
+                <h3 class="font-shrikhand text-xl text-retro-slate mb-4">🏆 Podium des Groupes</h3>
+                <div class="table-container mb-8">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rang</th>
+                                <th>Groupe</th>
+                                <th>Effectif</th>
+                                <th>Terrain Initial</th>
+                                <th>Terrain Actuel</th>
+                                <th>Progression</th>
+                                <th>Ressources</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            sortedGroups.forEach((g, index) => {
+                let medal = index === 0 ? '🥇 1er' : index === 1 ? '🥈 2e' : index === 2 ? '🥉 3e' : `#${index + 1}`;
+                html += `<tr>
+                    <td class="text-center font-bold text-lg">${medal}</td>
+                    <td class="font-bold text-retro-slate">Groupe ${g.id}</td>
+                    <td class="text-center">${g.players} joueurs</td>
+                    <td class="text-center">${g.start.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold">${g.end.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold ${g.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${g.diff >= 0 ? '+' : ''}${g.diff.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold text-retro-yellow">${g.res.toLocaleString('fr-FR')}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>
+                
+                <h3 class="font-shrikhand text-xl text-retro-slate mb-4 mt-8">🌍 Évolution du Top 10 Alliances (Terrain)</h3>
+                <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
+                    <canvas id="alliancesChart" width="100%" height="45"></canvas>
+                </div>
+            `;
+
+            contentDiv.innerHTML = html;
+            drawAlliancesChart(alliancesData);
+        }
+
+        function drawAlliancesChart(data) {
+            if (!data || data.length === 0) return;
+
+            const ctx = document.getElementById('alliancesChart').getContext('2d');
+            const datasetsMap = {};
+            const labelsSet = new Set();
+            const colors = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', '#8ab17d', '#b5838d', '#ffb703', '#fb8500', '#8ecae6'];
+
+            data.forEach(row => {
+                const dateLabel = new Date(row.snapshot_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' });
+                labelsSet.add(dateLabel);
+
+                if (!datasetsMap[row.alliance_tag]) {
+                    datasetsMap[row.alliance_tag] = { data: [], tag: row.alliance_tag };
+                }
+                datasetsMap[row.alliance_tag].data.push({ x: dateLabel, y: Number(row.total_field) });
+            });
+
+            const labels = Array.from(labelsSet).sort(); 
+
+            const datasets = Object.values(datasetsMap).map((d, i) => {
+                const alignedData = labels.map(l => {
+                    const point = d.data.find(pt => pt.x === l);
+                    return point ? point.y : null; 
+                });
+
+                return {
+                    label: d.tag,
+                    data: alignedData,
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length],
+                    tension: 0.3, 
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    spanGaps: true
+                };
+            });
+
+            if (perfoChartInstance) perfoChartInstance.destroy();
+
+            perfoChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { tooltip: { enabled: true }, legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' } } } },
+                    scales: { 
+                        y: { beginAtZero: false, ticks: { font: { family: 'Outfit' } } },
+                        x: { ticks: { font: { family: 'Outfit' } } }
+                    }
+                }
+            });
+        }
+
+        /* --- ONGLET CHAT --- */
         async function loadChatTab(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             chatOldestId = null;
@@ -773,7 +935,6 @@
             if (chatIsFetching) return;
             chatIsFetching = true;
             
-            // Sécurité : On mémorise le groupe actif au moment où la requête part
             const currentFetchGroupId = chatSelectedGroupId; 
             const sessionToken = localStorage.getItem('alliance_session_token');
             const box = document.getElementById('chat-messages-box');
@@ -798,7 +959,6 @@
                 });
 
                 if (res.ok) {
-                    // Si l'utilisateur a changé de groupe pendant le temps de réponse du réseau, on annule l'affichage !
                     if (currentFetchGroupId !== chatSelectedGroupId) {
                         chatIsFetching = false;
                         return; 
@@ -814,7 +974,6 @@
                             appendMessagesToDOM(messages, true);
                             box.scrollTop = box.scrollHeight - oldScrollHeight; 
                         } else {
-                            // CORRECTION : S'applique au chargement, aux nouveaux messages, ET si le chat était vide
                             if (!chatOldestId) chatOldestId = messages[0].message_id;
                             chatLatestId = messages[messages.length - 1].message_id;
                             
@@ -844,13 +1003,11 @@
             messages.forEach(m => {
                 const dateHtml = `<span class="text-[0.65rem] text-retro-slate/60 mt-0.5">${formatChatTime(m.created_at)}</span>`;
                 
-                // Code couleur selon le grade : Bleu par défaut pour les membres classiques !
                 let colorClass = 'text-[#3498db]'; 
                 if (m.role === 'superadmin') colorClass = 'text-retro-coral';
                 else if (m.role === 'admin') colorClass = 'text-[#8e44ad]';
                 else if (m.role === 'chef_de_rang') colorClass = 'text-retro-mint-dark';
 
-                // Détection stricte de MA bulle 
                 const isMe = m.pseudo === currentUserAdminInfo.pseudo;
                 
                 const bubbleClass = isMe ? 'is-me' : 'is-other';
@@ -901,28 +1058,19 @@
             if (!msg) return;
 
             const sessionToken = localStorage.getItem('alliance_session_token');
-            input.value = ''; // On vide de suite pour le confort
+            input.value = '';
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_group_message`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        p_session_token: sessionToken, 
-                        p_target_group_id: chatSelectedGroupId,
-                        p_message: msg
-                    })
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: chatSelectedGroupId, p_message: msg })
                 });
 
                 if (res.ok) {
-                    // CORRECTION CONFLIT : Si l'actualisation auto des 5s est déjà en train de tourner, 
-                    // on attend 500ms puis on force le rafraîchissement pour voir notre message
                     const checkAndFetch = () => {
-                        if (chatIsFetching) {
-                            setTimeout(checkAndFetch, 500);
-                        } else {
-                            fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
-                        }
+                        if (chatIsFetching) setTimeout(checkAndFetch, 500);
+                        else fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
                     };
                     checkAndFetch();
                 } else {
@@ -937,7 +1085,6 @@
         async function loadGroupConvoys(targetGroupId = null) {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
-                // 1. Par défaut, on charge le groupe du joueur (ou Global s'il est hors-chaîne)
                 if (targetGroupId !== null) {
                     selectedGroupId = parseInt(targetGroupId);
                 } else if (selectedGroupId === null) {
@@ -949,7 +1096,6 @@
                 const paramsGlobal = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
                 const paramForConvoysAndLogs = selectedGroupId === -1 ? null : selectedGroupId;
         
-                // 2. Convois et Logs (reçoivent "null" si on veut le Global)
                 const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs })
@@ -963,7 +1109,6 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                // 3. Performances (V2)
                 const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
@@ -971,11 +1116,8 @@
                 let playerPerfsData = [];
                 if (resPerfs.ok) {
                     playerPerfsData = await resPerfs.json();
-                } else {
-                    console.error("❌ ERREUR PERFORMANCES :", await resPerfs.text());
                 }
         
-                // 4. TOUT LE MONDE récupère la liste des groupes (plus de verrou Admin)
                 let availableGroups = [];
                 const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
@@ -989,7 +1131,7 @@
         function computeDateRange() {
             const today = new Date();
             const yesterday = new Date();
-            yesterday.setDate(today.getDate() - 1); // Calcul de la veille
+            yesterday.setDate(today.getDate() - 1);
             
             const formatDate = d => d.toISOString().split('T')[0];
             
@@ -998,7 +1140,6 @@
                 groupStartDate = formatDate(start); groupEndDate = formatDate(today);
             } else if (groupFilterMode === 'day') {
                 const inputDay = document.getElementById('filter-single-day');
-                // ICI : on prend "today" par défaut au lieu de "yesterday"
                 groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
             } else if (groupFilterMode === 'week') {
                 const inputWeek = document.getElementById('filter-week-select');
@@ -1029,55 +1170,32 @@
             return ISOweekStart;
         }
 
-        // --- Variables globales pour le tri du Bilan Individuel ---
-        let perfSortCol = 'end_terrain'; // Tri par défaut : Terrain Actuel
-        let perfSortAsc = false;         // Tri par défaut : Descendant (du + grand au + petit)
+        let perfSortCol = 'end_terrain';
+        let perfSortAsc = false;
         let currentGroupDataCache = null;
 
         function togglePerfSort(col) {
-            if (perfSortCol === col) {
-                perfSortAsc = !perfSortAsc;
-            } else {
-                perfSortCol = col;
-                // Si on clique sur le Joueur, on trie de A à Z (Ascendant), sinon Descendant
-                perfSortAsc = (col === 'pseudo'); 
-            }
-            // On rafraîchit l'interface avec les données en cache
+            if (perfSortCol === col) perfSortAsc = !perfSortAsc;
+            else { perfSortCol = col; perfSortAsc = (col === 'pseudo'); }
             if (currentGroupDataCache) {
-                renderGroupUI(
-                    currentGroupDataCache.convoys, 
-                    currentGroupDataCache.dailyLogs, 
-                    currentGroupDataCache.playerPerfs, 
-                    currentGroupDataCache.currentGroupId, 
-                    currentGroupDataCache.availableGroups
-                );
+                renderGroupUI(currentGroupDataCache.convoys, currentGroupDataCache.dailyLogs, currentGroupDataCache.playerPerfs, currentGroupDataCache.currentGroupId, currentGroupDataCache.availableGroups);
             }
         }
 
-        // --- Variables globales pour le tri de l'Admin ---
-        let adminSortCol = 'group_id'; // Tri par défaut : par groupe
-        let adminSortAsc = true;       // Tri par défaut : Ascendant (Groupe 0, 1, 2...)
+        let adminSortCol = 'group_id';
+        let adminSortAsc = true;
         let currentAdminDataCache = null;
 
         function toggleAdminSort(col) {
-            if (adminSortCol === col) {
-                adminSortAsc = !adminSortAsc;
-            } else {
-                adminSortCol = col;
-                adminSortAsc = true; // Par défaut de A à Z ou du plus petit au plus grand
-            }
-            if (currentAdminDataCache) {
-                renderAdminTable(currentAdminDataCache);
-            }
+            if (adminSortCol === col) adminSortAsc = !adminSortAsc;
+            else { adminSortCol = col; adminSortAsc = true; }
+            if (currentAdminDataCache) renderAdminTable(currentAdminDataCache);
         }
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
-            // Sauvegarde pour permettre le tri dynamique sans refaire de requête SQL
             currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
-            
             const contentDiv = document.getElementById('content-area');
             
-            // ACCÈS LIBRE : Tout le monde a le menu déroulant !
             let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
             if (availableGroups && availableGroups.length > 0) {
                 options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
@@ -1085,20 +1203,11 @@
             let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
 
             const todayStr = new Date().toISOString().split('T')[0];
-            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
             
             let dateInputsHtml = '';
-            if (groupFilterMode === 'day') {
-                // ICI : todayStr au lieu de yesterdayStr
-                dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
-            }
+            if (groupFilterMode === 'day') dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
             else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
-            else if (groupFilterMode === 'custom') {
-                // Et on peut faire pareil ici pour la période personnalisée
-                dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}">
-                                  <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
-            }
+            else if (groupFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}"> <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
 
             let html = `
                 <div class="flex items-center gap-3 mb-6">
@@ -1119,7 +1228,6 @@
                 <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
             `;
 
-            // Filtre strict pour la vue Global : on exclut les inactifs/hors-chaîne
             if (currentGroupId === -1) {
                 if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
                 if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
@@ -1155,28 +1263,18 @@
                 </div>
             `;
 
-            // Bilan Individuel avec Tri Dynamique
             if (playerPerfs && playerPerfs.length > 0) {
-                
-                // 1. Application du tri
                 playerPerfs.sort((a, b) => {
                     let valA = a[perfSortCol];
                     let valB = b[perfSortCol];
-                    
-                    // Supabase renvoie les BIGINT sous forme de texte, on sécurise la conversion
-                    if (perfSortCol === 'resources_generated') {
-                        valA = Number(valA); valB = Number(valB);
-                    } else {
-                        if (typeof valA === 'string') valA = valA.toLowerCase();
-                        if (typeof valB === 'string') valB = valB.toLowerCase();
-                    }
+                    if (perfSortCol === 'resources_generated') { valA = Number(valA); valB = Number(valB); } 
+                    else { if (typeof valA === 'string') valA = valA.toLowerCase(); if (typeof valB === 'string') valB = valB.toLowerCase(); }
                     
                     if (valA < valB) return perfSortAsc ? -1 : 1;
                     if (valA > valB) return perfSortAsc ? 1 : -1;
                     return 0;
                 });
 
-                // 2. Générateur de petites icônes pour les colonnes
                 const getSortIcon = (col) => {
                     if (perfSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
                     return perfSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
@@ -1197,13 +1295,11 @@
                     
                     let roleDisplay = '';
                     if (p.group_role) {
-                        let roleName = p.group_role;
-                        let icon = '🛡️';
+                        let roleName = p.group_role; let icon = '🛡️';
                         if (p.group_role === 'chasseur') { roleName = 'Chasseur'; icon = '🏹'; }
                         else if (p.group_role === 'passeur_bas') { roleName = 'Passeur bas'; icon = '📉'; }
                         else if (p.group_role === 'passeur_inter') { roleName = `Passeur inter. (Étage ${p.floor_level || '?'})`; icon = '🔄'; }
                         else if (p.group_role === 'grenier') { roleName = 'Grenier'; icon = '🌾'; }
-                        
                         roleDisplay = `<br><span class="font-fredoka text-[0.65rem] text-retro-slate/60 font-bold uppercase tracking-widest">${icon} ${roleName}</span>`;
                     }
 
@@ -1280,7 +1376,6 @@
                             <button class="map-tool-btn" onclick="zoomMap(0.8)" title="Zoom Arrière"><i class="fa-solid fa-magnifying-glass-minus text-base"></i></button>
                             <button class="map-tool-btn" onclick="resetMapTransform()" title="Recalibrer"><i class="fa-solid fa-compress text-base"></i></button>
                         </div>
-                        <!-- NOUVEAU DESIGN INFOBULLE -->
                         <div id="map-tooltip" class="absolute bg-[#f9f7f1] text-[#1d2d44] p-3 rounded-xl border-4 border-[#1d2d44] text-xs hidden z-30 shadow-retro pointer-events-none font-outfit font-bold"></div>
                     </div>
                     <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider"><i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.</div>
@@ -1303,7 +1398,6 @@
                 if (isDragging) { panX = e.clientX - dragStartX; panY = e.clientY - dragStartY; drawMap(); return; }
                 if (canvas) {
                     const rect = canvas.getBoundingClientRect(); 
-                    // CORRECTION DU DÉCALAGE SOURIS :
                     const scaleX = canvas.width / rect.width;
                     const scaleY = canvas.height / rect.height;
                     const mouseX = (e.clientX - rect.left) * scaleX; 
@@ -1312,11 +1406,9 @@
                     const found = mapPlayersData.find(p => { if (p._cx === undefined) return false; const dx = p._cx - mouseX; const dy = p._cy - mouseY; return (dx * dx + dy * dy) <= 120; });
                     if (found && tooltip) {
                         const groupLabel = found.group_id === 0 ? 'Hors-chaîne' : `#${found.group_id}`;
-                        // Pour l'affichage CSS absolu, on re-divise par le scale pour placer l'infobulle sur l'écran
                         tooltip.style.display = 'block'; 
                         tooltip.style.left = `${(mouseX / scaleX) + 15}px`; 
                         tooltip.style.top = `${(mouseY / scaleY) - 10}px`;
-                        // COULEURS DE L'INFOBULLE :
                         tooltip.innerHTML = `<div class="border-b-2 border-[#1d2d44] pb-1 mb-1"><strong class="font-fredoka text-sm text-[#ff6f61]">${escapeHtml(found.pseudo)}</strong></div>Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})`;
                     } else if (tooltip) tooltip.style.display = 'none';
                 }
@@ -1329,7 +1421,6 @@
             const canvas = document.getElementById('alliance-map'); if (!canvas) return;
             const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 1. On force la carte sur une échelle stricte de 0 à 100
             let minX = 0, maxX = 100, minY = 0, maxY = 100;
             const padding = 70; 
             const mapWidth = canvas.width - (padding * 2); 
@@ -1337,12 +1428,10 @@
             
             ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoomLevel, zoomLevel); ctx.translate(-canvas.width / 2, -canvas.height / 2);
             
-            // Grille "Planisphère"
             ctx.strokeStyle = 'rgba(29, 45, 68, 0.15)'; 
             ctx.lineWidth = 1 / zoomLevel;
             for (let i = -canvas.width; i <= canvas.width * 2; i += 50) { ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke(); }
             
-            // Cadre façon Carte au trésor
             ctx.strokeStyle = '#1d2d44';
             ctx.lineWidth = 3 / zoomLevel;
             ctx.strokeRect(padding - 15, padding - 15, mapWidth + 30, mapHeight + 30);
@@ -1352,19 +1441,16 @@
             ctx.textBaseline = 'middle';
             ctx.font = `bold ${Math.max(10, 13 / zoomLevel)}px 'Fredoka'`;
             
-            // 2. Coordonnées fixes : 0, 25, 50, 75, 100
             for (let i = 0; i <= 4; i++) {
                 const val = i * 25; 
                 const plotX = padding + mapWidth * (i / 4);
                 const plotY = padding + mapHeight * (i / 4);
                 
-                // Textes
                 ctx.fillText(val, plotX, padding - 28);
                 ctx.fillText(val, plotX, padding + mapHeight + 28);
                 ctx.fillText(val, padding - 38, plotY);
                 ctx.fillText(val, padding + mapWidth + 38, plotY);
                 
-                // Encoches
                 ctx.beginPath(); ctx.moveTo(plotX, padding - 15); ctx.lineTo(plotX, padding - 5); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(plotX, padding + mapHeight + 15); ctx.lineTo(plotX, padding + mapHeight + 5); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(padding - 15, plotY); ctx.lineTo(padding - 5, plotY); ctx.stroke();
@@ -1372,8 +1458,6 @@
             }
 
             const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
-            
-            // Tableau pour stocker l'emplacement des textes déjà dessinés
             const drawnRects = []; 
             
             mapPlayersData.forEach(p => {
@@ -1405,7 +1489,6 @@
                         const tw = ctx.measureText(p.pseudo).width;
                         const th = 14 / zoomLevel;
                         
-                        // 3. Anti-collision : on essaie 4 positions (Droite, Bas, Haut, Gauche)
                         const positions = [
                             {x: normX + 12, y: normY, align: 'left', base: 'middle'},
                             {x: normX, y: normY + 14, align: 'center', base: 'top'},
@@ -1423,24 +1506,18 @@
                             const rect = {x: rx - 2, y: ry - 2, w: tw + 4, h: th + 4};
                             let overlap = false;
                             
-                            // Vérifie si le rectangle du texte touche un autre texte déjà dessiné
                             for (let dr of drawnRects) {
                                 if (!(rect.x > dr.x + dr.w || rect.x + rect.w < dr.x || rect.y > dr.y + dr.h || rect.y + rect.h < dr.y)) {
                                     overlap = true; break;
                                 }
                             }
                             
-                            // Si c'est libre, on dessine et on l'enregistre !
                             if (!overlap) {
-                                ctx.textAlign = pos.align;
-                                ctx.textBaseline = pos.base;
-                                ctx.fillStyle = '#1d2d44'; 
-                                ctx.strokeStyle = '#f2ead0';
+                                ctx.textAlign = pos.align; ctx.textBaseline = pos.base;
+                                ctx.fillStyle = '#1d2d44'; ctx.strokeStyle = '#f2ead0';
                                 ctx.lineWidth = 3 / zoomLevel;
-                                ctx.strokeText(p.pseudo, pos.x, pos.y);
-                                ctx.fillText(p.pseudo, pos.x, pos.y);
-                                drawnRects.push(rect);
-                                break; 
+                                ctx.strokeText(p.pseudo, pos.x, pos.y); ctx.fillText(p.pseudo, pos.x, pos.y);
+                                drawnRects.push(rect); break; 
                             }
                         }
                     }
@@ -1473,7 +1550,6 @@
                 let actionBtns = '';
                 
                 if (isSender) {
-                    // Le champ input remplace le texte brut (Fiabilisé pour Mobile + Nettoyage)
                     amountDisplay = `<div class="flex items-center gap-1 sm:gap-2">
                         <input type="text" inputmode="numeric" id="convoy-amount-${c.id}" value="${c.amount}" class="w-20 sm:w-24 shrink-0 bg-retro-cream border-2 border-retro-slate rounded-xl text-center font-bold text-retro-mint outline-none" style="margin:0; padding: 0.25rem; min-width: 75px;" oninput="cleanConvoyInput(this, ${c.amount})">
                         <span class="text-xs font-bold text-retro-slate/50 whitespace-nowrap">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
@@ -1489,7 +1565,6 @@
             return html + `</tbody></table></div>`;
         }
 
-        // Nouvelle fonction pour lire l'input et ouvrir le bon lien Fourmizzz
         function dispatchConvoy(targetId, convoyId, maxAmount) {
             const input = document.getElementById(`convoy-amount-${convoyId}`);
             let amount = input ? parseInt(input.value) : maxAmount;
@@ -1499,15 +1574,10 @@
         }
 
         function cleanConvoyInput(input, maxAmount) {
-            // 1. On supprime TOUT ce qui n'est pas un chiffre (espaces, lettres, virgules...)
             input.value = input.value.replace(/\D/g, '');
-            
-            // 2. Si le champ n'est pas vide, on vérifie qu'il ne dépasse pas le max
             if (input.value !== '') {
                 let val = parseInt(input.value, 10);
-                if (val > maxAmount) {
-                    input.value = maxAmount;
-                }
+                if (val > maxAmount) input.value = maxAmount;
             }
         }
 
@@ -1518,41 +1588,24 @@
             const input = document.getElementById(`convoy-amount-${convoyId}`);
             let amountSent = input ? parseInt(input.value) : maxAmount;
 
-            if (!amountSent || amountSent <= 0 || amountSent > maxAmount) {
-                return showToast("Erreur", "Montant invalide.");
-            }
+            if (!amountSent || amountSent <= 0 || amountSent > maxAmount) return showToast("Erreur", "Montant invalide.");
 
             const html = `
                 <p class="mb-4 text-sm font-outfit text-retro-slate">Vous êtes sur le point de valider l'envoi de <strong class="text-retro-mint text-lg">${amountSent.toLocaleString('fr-FR')}</strong> ressources.</p>
                 <p class="text-xs text-retro-slate/80 italic border-l-4 border-retro-yellow pl-2">Avez-vous bien expédié cette quantité exacte en jeu ? Si le montant est inférieur au total, un nouveau convoi sera créé pour le reste.</p>
             `;
 
-            openRetroModal(
-                'Confirmer l\'expédition', 
-                html, 
-                '<i class="fa-solid fa-check"></i> Acter l\'envoi', 
-                'bg-retro-mint text-white', 
-                async () => {
-                    try {
-                        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
-                            method: 'POST', 
-                            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify({ 
-                                p_session_token: sessionToken, 
-                                p_convoy_id: parseInt(convoyId), 
-                                p_amount_sent: amountSent 
-                            }) 
-                        });
-                        
-                        if (res.ok) { 
-                            showToast("Confirmation", "Convoi validé avec succès !"); 
-                            renderTabContent(); 
-                        } else {
-                            showToast("Erreur", "Erreur lors de la validation.");
-                        }
-                    } catch (e) { showToast("Erreur", "Erreur réseau."); }
-                }
-            );
+            openRetroModal('Confirmer l\'expédition', html, '<i class="fa-solid fa-check"></i> Acter l\'envoi', 'bg-retro-mint text-white', async () => {
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
+                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId), p_amount_sent: amountSent }) 
+                    });
+                    
+                    if (res.ok) { showToast("Confirmation", "Convoi validé avec succès !"); renderTabContent(); } 
+                    else showToast("Erreur", "Erreur lors de la validation.");
+                } catch (e) { showToast("Erreur", "Erreur réseau."); }
+            });
         }
 
         function renderHistoryConvoys(historyList) {
@@ -1580,35 +1633,26 @@
         }
 
         function renderAdminTable(members) {
-            // Sauvegarde en cache pour le tri
             currentAdminDataCache = members;
             const contentDiv = document.getElementById('content-area'); 
             const myRole = currentUserAdminInfo.role; 
             const myGroupId = currentUserAdminInfo.group_id;
             
-            // 1. Application du tri dynamique
-            let sortedMembers = [...members]; // On fait une copie pour ne pas altérer la liste originale
+            let sortedMembers = [...members];
             sortedMembers.sort((a, b) => {
                 let valA = a[adminSortCol];
                 let valB = b[adminSortCol];
 
-                // Cas particulier pour les Droits Admin : on trie par hiérarchie, pas par ordre alphabétique
                 if (adminSortCol === 'role') {
                     const weights = { 'superadmin': 1, 'admin': 2, 'chef_de_rang': 3, 'member': 4 };
-                    valA = weights[a.role] || 5;
-                    valB = weights[b.role] || 5;
-                } 
-                // Cas particulier : Mettre les "Hors-chaîne" (0) à la fin si on trie par groupe
-                else if (adminSortCol === 'group_id') {
-                    valA = a.group_id === 0 ? 999 : a.group_id;
-                    valB = b.group_id === 0 ? 999 : b.group_id;
+                    valA = weights[a.role] || 5; valB = weights[b.role] || 5;
+                } else if (adminSortCol === 'group_id') {
+                    valA = a.group_id === 0 ? 999 : a.group_id; valB = b.group_id === 0 ? 999 : b.group_id;
                 }
 
-                // Sécurité pour les valeurs vides (comme floor_level qui peut être null)
                 if (valA === null || valA === undefined) valA = adminSortAsc ? 99999 : -99999;
                 if (valB === null || valB === undefined) valB = adminSortAsc ? 99999 : -99999;
 
-                // Tri alphabétique pour les textes
                 if (typeof valA === 'string') valA = valA.toLowerCase();
                 if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -1617,13 +1661,11 @@
                 return 0;
             });
 
-            // 2. Générateur de petites icônes
             const getSortIcon = (col) => {
                 if (adminSortCol !== col) return '<i class="fa-solid fa-sort text-retro-slate/30 ml-1"></i>';
                 return adminSortAsc ? '<i class="fa-solid fa-sort-up text-retro-coral ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-coral ml-1"></i>';
             };
             
-            // Construction adaptative des options de groupe selon les droits
             const buildGroupOptions = (currentGroup) => { 
                 let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`; 
                 if (myRole === 'superadmin' || myRole === 'admin') {
@@ -1716,7 +1758,6 @@
             const input = document.getElementById(`ratio-input-${playerId}`);
             let newRatio = parseInt(input.value);
 
-            // Auto-correction de l'input si l'utilisateur tape n'importe quoi
             if (isNaN(newRatio) || newRatio < 0) newRatio = 0;
             if (newRatio > 100) newRatio = 100;
             input.value = newRatio;
@@ -1741,10 +1782,7 @@
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
-        /* ==========================================
-           ONGLET PROJET (Changelog, Backlog, Idées)
-           ========================================== */
-        
+        /* --- ONGLET PROJET --- */
         async function loadProjectTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             try {
@@ -1794,7 +1832,6 @@
                 if (!projectData.changelog || projectData.changelog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucun historique.</p>`;
                 else {
                     projectData.changelog.forEach(c => {
-                        // NOUVEAU : On affiche le badge de priorité si c'est un Dev clôturé
                         let prioBadge = '';
                         if (c.priority) {
                             const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
@@ -1902,15 +1939,9 @@
         }
 
         function completeBacklogItem(id) {
-            openRetroModal(
-                'Clôturer le développement', 
-                '<p class="font-bold">Avez-vous terminé cette tâche ?</p><p class="text-sm mt-2 opacity-80">Elle sera automatiquement retirée du Backlog et ajoutée au Changelog (Journal des mises à jour) en conservant sa priorité initiale.</p>', 
-                '<i class="fa-solid fa-check-double"></i> Clôturer & Publier', 
-                'bg-retro-mint text-white', 
-                async () => {
-                    await submitProjectItem('backlog', 'complete', id);
-                }
-            );
+            openRetroModal('Clôturer le développement', '<p class="font-bold">Avez-vous terminé cette tâche ?</p><p class="text-sm mt-2 opacity-80">Elle sera automatiquement retirée du Backlog et ajoutée au Changelog (Journal des mises à jour) en conservant sa priorité initiale.</p>', '<i class="fa-solid fa-check-double"></i> Clôturer & Publier', 'bg-retro-mint text-white', async () => {
+                await submitProjectItem('backlog', 'complete', id);
+            });
         }
 
         async function submitProjectItem(type, action, id = null, forcedContent = null, forcedPrio = null) {
@@ -1931,15 +1962,9 @@
 
             let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
             
-            // CORRECTION ANTI-400 : On construit le JSON dynamiquement. 
-            // On inclut "p_id" UNIQUEMENT si on en a besoin (pour update ou delete).
             let body = { p_session_token: sessionToken, p_action: action, p_content: content };
-            if (id !== null) {
-                body.p_id = id;
-            }
-            if (type === 'backlog') {
-                body.p_priority = priority;
-            }
+            if (id !== null) body.p_id = id;
+            if (type === 'backlog') body.p_priority = priority;
 
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
@@ -1950,14 +1975,12 @@
                     showToast("Succès", "Données sauvegardées avec succès.");
                     loadProjectTab();
                 } else {
-                    // Pour savoir exactement ce qui fâche Supabase si ça se reproduit !
                     const err = await res.json();
                     alert("❌ Action refusée : " + err.message);
                 }
             } catch (e) { alert("❌ Erreur réseau."); }
         }
 
-        /* --- GESTION DES MODALES --- */
         function openRetroModal(title, contentHtml, confirmText, confirmClass, onConfirm) {
             const modal = document.getElementById('retro-modal');
             const contentDiv = document.getElementById('retro-modal-content');
@@ -1976,10 +1999,7 @@
                 </div>
             `;
 
-            document.getElementById('modal-confirm-btn').onclick = () => {
-                onConfirm();
-                closeRetroModal();
-            };
+            document.getElementById('modal-confirm-btn').onclick = () => { onConfirm(); closeRetroModal(); };
 
             modal.classList.remove('opacity-0', 'pointer-events-none');
             contentDiv.classList.remove('scale-95');
@@ -1992,7 +2012,6 @@
             contentDiv.classList.add('scale-95');
         }
 
-        /* --- ACTIONS PROJET AVEC MODALES --- */
         function editProjectItem(type, id, extraParam = null) {
             let item = null;
             if (type === 'changelog') item = projectData.changelog.find(x => x.id === id);
