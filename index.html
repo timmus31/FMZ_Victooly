@@ -963,13 +963,17 @@
                 });
                 const logsData = resLogs.ok ? await resLogs.json() : [];
         
-                // 3. Performances (reçoivent "-1" pour le Global, sinon le SQL utilise le groupe du joueur par erreur)
-                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances`, {
+                // 3. Performances (V2)
+                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
                 });
                 let playerPerfsData = [];
-                if (resPerfs.ok) playerPerfsData = await resPerfs.json();
+                if (resPerfs.ok) {
+                    playerPerfsData = await resPerfs.json();
+                } else {
+                    console.error("❌ ERREUR PERFORMANCES :", await resPerfs.text());
+                }
         
                 // 4. TOUT LE MONDE récupère la liste des groupes (plus de verrou Admin)
                 let availableGroups = [];
@@ -1108,12 +1112,34 @@
             if (playerPerfs && playerPerfs.length > 0) {
                 html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
                     <div class="table-container"><table><thead><tr><th>Joueur</th><th>Terrain Initial</th><th>Terrain Actuel</th><th>Progression</th><th>Ressources Générées</th></tr></thead><tbody>`;
+                
                 playerPerfs.forEach(p => {
                     const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
                     const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
-                    html += `<tr><td><strong>${escapeHtml(p.pseudo)}</strong></td><td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
-                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td><td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
-                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td></tr>`;
+                    
+                    // Formatage du rôle et de l'étage
+                    let roleDisplay = '';
+                    if (p.group_role) {
+                        let roleName = p.group_role;
+                        let icon = '🛡️';
+                        if (p.group_role === 'chasseur') { roleName = 'Chasseur'; icon = '🏹'; }
+                        else if (p.group_role === 'passeur_bas') { roleName = 'Passeur bas'; icon = '📉'; }
+                        else if (p.group_role === 'passeur_inter') { roleName = `Passeur inter. (Étage ${p.floor_level || '?'})`; icon = '🔄'; }
+                        else if (p.group_role === 'grenier') { roleName = 'Grenier'; icon = '🌾'; }
+                        
+                        roleDisplay = `<br><span class="font-fredoka text-[0.65rem] text-retro-slate/60 font-bold uppercase tracking-widest">${icon} ${roleName}</span>`;
+                    }
+
+                    // Lien d'attaque sur le pseudo
+                    const pseudoLink = `<a href="https://s5.fourmizzz.fr/ennemie.php?Attaquer=${p.player_id}&lieu=1" target="_blank" class="text-retro-slate hover:text-retro-coral transition-colors" title="Attaquer ${escapeHtml(p.pseudo)}"><i class="fa-solid fa-crosshairs text-xs opacity-50 mr-1 hover:opacity-100"></i><strong>${escapeHtml(p.pseudo)}</strong></a>`;
+
+                    html += `<tr>
+                        <td class="leading-tight">${pseudoLink}${roleDisplay}</td>
+                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
+                        <td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${p.resources_generated.toLocaleString('fr-FR')}</strong></td>
+                    </tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
