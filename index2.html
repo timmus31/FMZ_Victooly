@@ -489,8 +489,7 @@
         let groupStartDate = null;
         let groupEndDate = null;
 
-        // Variables PERFO
-        let perfoFilterMode = '7days';
+        let perfoFilterMode = 'day';
         let perfoStartDate = '';
         let perfoEndDate = '';
         let perfoChartInstance = null;
@@ -671,12 +670,6 @@
                 else renderHistoryConvoys(data);
             } catch (err) { logout(); }
         }
-
-        /* --- VUE PERFO --- */
-        let perfoFilterMode = '7days';
-        let perfoStartDate = '';
-        let perfoEndDate = '';
-        let perfoChartInstance = null;
         
         // Variables pour le tri
         let perfoSortCol = 'diff';
