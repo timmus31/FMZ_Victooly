@@ -1734,7 +1734,7 @@
                     else if (c.status === 'cancelled') badge = '<span class="badge bg-retro-slate text-white"><i class="fa-solid fa-ban"></i> Annulé</span>';
                     
                     let actionBtn = '';
-                    const canManageConvoy = ['superadmin', 'admin'].includes(currentUserAdminInfo.role) || (currentUserAdminInfo.role === 'chef_de_rang' && currentUserAdminInfo.group_id === c.group_id);
+                    const canManageConvoy = ['superadmin', 'admin'].includes(currentUserAdminInfo.role) || (currentUserAdminInfo.role == 'chef_de_rang' && currentUserAdminInfo.group_id == c.group_id);
                     if (canManageConvoy && (c.status === 'pending' || c.status === 'failed')) {
                         actionBtn = `<button class="btn-action bg-retro-slate text-white ml-2 text-[0.65rem] py-1 px-2 border-2 border-retro-slate" onclick="openCloseConvoyModal(${c.id}, ${c.amount}, ${c.from_player_id}, '${escapeHtml(c.from_player_pseudo)}', ${c.group_id}, '${c.balance_date}')"><i class="fa-solid fa-ban"></i></button>`;
                     }
