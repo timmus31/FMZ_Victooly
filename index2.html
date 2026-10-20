@@ -908,23 +908,22 @@
         function drawAlliancesChart(data) {
             if (!data || data.length === 0) return;
 
-            // Optionnel mais robuste : on s'assure qu'un canvas existe bien, 
-            // car selon le chargement il peut avoir été écrasé.
             document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
             const ctx = document.getElementById('alliancesChart').getContext('2d');
             
             const datasetsMap = {};
             const labelsSet = new Set();
             const colors = [
-                '#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', 
-                '#8ab17d', '#b5838d', '#ffb703', '#fb8500', '#8ecae6',
-                '#9b5de5', '#f15bb5', '#00bbf9', '#00f5d4', '#fee440',
-                '#f94144', '#f3722c', '#f8961e', '#f9c74f', '#90be6d'
+                '#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#8ab17d', 
+                '#b5838d', '#ffb703', '#fb8500', '#8ecae6', '#9b5de5', 
+                '#f15bb5', '#00bbf9', '#00f5d4', '#fee440', '#f94144', 
+                '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#264653'
             ];
 
-            let previousField = {}; // Sert à calculer la "vélocité" (gain par heure)
+            let previousField = {}; 
 
             data.forEach(row => {
+                // On garde un format de date propre
                 const dateLabel = new Date(row.snapshot_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' });
                 labelsSet.add(dateLabel);
 
@@ -933,9 +932,8 @@
                     previousField[row.alliance_tag] = null;
                 }
 
-                // --- CALCUL DYNAMIQUE DU POINT (Y) SELON LA MÉTRIQUE ---
                 let yValue = 0;
-                const players = Math.max(1, Number(row.players_count)); // On évite la division par zéro !
+                const players = Math.max(1, Number(row.players_count));
 
                 if (perfoChartMetric === 'total_field') yValue = Number(row.total_field);
                 else if (perfoChartMetric === 'avg_field') yValue = Math.round(Number(row.total_field) / players);
@@ -944,7 +942,7 @@
                 else if (perfoChartMetric === 'avg_tech') yValue = Math.round(Number(row.total_technology_score) / players);
                 else if (perfoChartMetric === 'velocity') {
                     if (previousField[row.alliance_tag] === null) {
-                        yValue = 0; // Premier point affiché : pas de recul pour calculer la vitesse
+                        yValue = 0;
                     } else {
                         yValue = Number(row.total_field) - previousField[row.alliance_tag];
                     }
@@ -956,21 +954,33 @@
 
             const labels = Array.from(labelsSet).sort(); 
 
-            const datasets = Object.values(datasetsMap).map((d, i) => {
+            // Variable pour piocher les couleurs sans décaler à cause de V
+            let colorIndex = 0; 
+
+            const datasets = Object.values(datasetsMap).map(d => {
                 const alignedData = labels.map(l => {
                     const point = d.data.find(pt => pt.x === l);
                     return point ? point.y : null; 
                 });
 
+                // --- IDENTIFICATION DE TON ALLIANCE ---
+                const isMyAlliance = d.tag === 'V';
+                
+                // On assigne la couleur (V aura un bleu sombre/noir très fort, les autres piocheront dans la palette)
+                const lineColor = isMyAlliance ? '#1d2d44' : colors[colorIndex % colors.length];
+                if (!isMyAlliance) colorIndex++;
+
                 return {
                     label: d.tag,
                     data: alignedData,
-                    borderColor: colors[i % colors.length],
-                    backgroundColor: colors[i % colors.length],
-                    tension: 0.3, 
-                    borderWidth: 3,
-                    pointRadius: 3,
-                    spanGaps: false
+                    borderColor: lineColor,
+                    backgroundColor: lineColor,
+                    tension: 0.2, // Légère courbe mais pas trop pour éviter les vagues
+                    borderWidth: isMyAlliance ? 5 : 2, // Le trait de V sera 2.5x plus épais
+                    pointRadius: 0, // Fini l'effet "chenille", on cache les points !
+                    pointHoverRadius: 6, // Le point n'apparaît que quand tu passes la souris
+                    spanGaps: false,
+                    order: isMyAlliance ? -1 : 1 // L'ordre -1 force V à se dessiner PAR-DESSUS toutes les autres
                 };
             });
 
@@ -985,14 +995,23 @@
                     plugins: { 
                         tooltip: { 
                             enabled: true,
-                            // MAGIE : Tri les éléments de l'infobulle du plus grand au plus petit !
                             itemSort: function(a, b) { return b.raw - a.raw; } 
                         }, 
-                        legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' } } } 
+                        legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' }, usePointStyle: true } } 
                     },
                     scales: { 
-                        y: { beginAtZero: false, ticks: { font: { family: 'Outfit' } } },
-                        x: { ticks: { font: { family: 'Outfit' } } }
+                        y: { 
+                            beginAtZero: false, 
+                            ticks: { font: { family: 'Outfit' } } 
+                        },
+                        x: { 
+                            ticks: { 
+                                font: { family: 'Outfit' },
+                                maxTicksLimit: 14, // On limite le nombre de dates affichées en bas pour aérer
+                                maxRotation: 45,   // On incline légèrement le texte pour éviter qu'il ne se chevauche
+                                minRotation: 45
+                            } 
+                        }
                     }
                 }
             });
