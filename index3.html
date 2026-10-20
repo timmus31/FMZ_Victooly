@@ -1731,6 +1731,14 @@
                     let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> En attente</span>';
                     if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Complété</span>';
                     else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>';
+                    else if (c.status === 'cancelled') badge = '<span class="badge bg-retro-slate text-white"><i class="fa-solid fa-ban"></i> Annulé</span>';
+                    
+                    let actionBtn = '';
+                    const canManageConvoy = ['superadmin', 'admin'].includes(currentUserAdminInfo.role) || (currentUserAdminInfo.role === 'chef_de_rang' && currentUserAdminInfo.group_id === c.group_id);
+                    if (canManageConvoy && (c.status === 'pending' || c.status === 'failed')) {
+                        actionBtn = `<button class="btn-action bg-retro-slate text-white ml-2 text-[0.65rem] py-1 px-2 border-2 border-retro-slate" onclick="openCloseConvoyModal(${c.id}, ${c.amount}, ${c.from_player_id}, '${escapeHtml(c.from_player_pseudo)}', ${c.group_id}, '${c.balance_date}')"><i class="fa-solid fa-ban"></i></button>`;
+                    }
+                    
                     html += `<tr><td>${formatDateFR(c.balance_date)}</td>${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td><td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
                         <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td>${badge}</td></tr>`;
@@ -2511,6 +2519,127 @@
                 });
                 if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
             } catch (e) { alert("❌ Erreur."); }
+        }
+
+        // --- GESTION DE LA CLÔTURE DES CONVOIS ---
+        let redistributeData = {};
+
+        function openCloseConvoyModal(convoyId, amount, senderId, senderPseudo, groupId, balanceDate) {
+            // On récupère les joueurs du groupe depuis le cache de la page Groupe !
+            let groupPlayers = currentGroupDataCache.playerPerfs.filter(p => p.group_id === groupId);
+            
+            redistributeData = {
+                convoyId, amount, senderId, senderPseudo, groupId, balanceDate,
+                players: groupPlayers.map(p => ({
+                    player_id: p.player_id,
+                    pseudo: p.pseudo,
+                    ratio: p.calc_ratio,
+                    selected: true // Tout le monde est coché par défaut
+                }))
+            };
+            renderCloseConvoyModal();
+        }
+
+        function renderCloseConvoyModal() {
+            let totalRatio = redistributeData.players.filter(p => p.selected).reduce((sum, p) => sum + p.ratio, 0);
+            
+            let previewHtml = `<div class="max-h-52 overflow-y-auto mt-4 border-2 border-retro-slate rounded-xl"><table class="w-full text-sm"><thead class="bg-retro-slate text-white"><tr><th class="p-2 text-center"><i class="fa-solid fa-check-square"></i></th><th class="p-2">Joueur</th><th class="p-2 text-center">Ratio</th><th class="p-2 text-center">Nouvelle Part</th></tr></thead><tbody>`;
+            
+            redistributeData.players.forEach((p, idx) => {
+                let share = 0;
+                if (p.selected && totalRatio > 0) {
+                    share = Math.round(redistributeData.amount * (p.ratio / totalRatio));
+                }
+                const isSender = p.player_id === redistributeData.senderId;
+                
+                previewHtml += `<tr class="${!p.selected ? 'opacity-40 bg-retro-slate/5' : ''} border-b border-retro-slate/10 transition-opacity">
+                    <td class="p-2 text-center"><input type="checkbox" class="cursor-pointer" ${p.selected ? 'checked' : ''} ${isSender ? 'disabled' : ''} onchange="toggleRedistributePlayer(${idx})"></td>
+                    <td class="p-2 font-bold text-retro-slate">${escapeHtml(p.pseudo)} ${isSender ? '<br><span class="text-[0.65rem] text-retro-coral uppercase tracking-widest">(Expéditeur)</span>' : ''}</td>
+                    <td class="p-2 text-center font-fredoka font-bold text-retro-slate/70">${p.ratio}%</td>
+                    <td class="p-2 text-center font-bold ${share > 0 ? 'text-retro-mint-dark' : 'text-retro-slate/30'}">${share > 0 ? share.toLocaleString('fr-FR') : '-'}</td>
+                </tr>`;
+            });
+            previewHtml += `</tbody></table></div>`;
+
+            const contentHtml = `
+                <p class="mb-4 font-outfit text-retro-slate text-sm">Le convoi de <strong class="text-retro-coral">${redistributeData.amount.toLocaleString('fr-FR')} ressources</strong> de <strong>${escapeHtml(redistributeData.senderPseudo)}</strong> est bloqué. Que souhaitez-vous faire ?</p>
+                <div class="flex gap-2 mb-4">
+                    <button class="btn-action bg-retro-slate text-white w-full border-2 border-retro-slate hover:bg-retro-coral" onclick="executeCloseConvoy('cancel')"><i class="fa-solid fa-trash"></i> Perte Sèche (Annuler)</button>
+                    <button class="btn-action bg-retro-mint text-white w-full border-2 border-retro-slate" onclick="executeCloseConvoy('redistribute')"><i class="fa-solid fa-rotate"></i> Redistribuer</button>
+                </div>
+                <div id="redistribute-preview" class="bg-retro-cream p-3 rounded-xl border-2 border-retro-slate/20">
+                    <h5 class="font-fredoka font-bold text-retro-slate mb-2"><i class="fa-solid fa-calculator text-retro-yellow"></i> Prévisualisation de la redistribution :</h5>
+                    <p class="text-xs text-retro-slate/70 leading-tight">Décochez les joueurs punis pour les exclure du calcul. L'expéditeur est verrouillé car il conserve sa propre part proportionnelle.</p>
+                    ${previewHtml}
+                </div>
+            `;
+
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+
+            contentDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4 border-b-2 border-retro-slate pb-2">
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0">Clôture Exceptionnelle</h3>
+                    <button onclick="closeRetroModal()" class="text-retro-slate hover:text-retro-coral text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                ${contentHtml}
+            `;
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentDiv.classList.remove('scale-95');
+        }
+
+        function toggleRedistributePlayer(idx) {
+            redistributeData.players[idx].selected = !redistributeData.players[idx].selected;
+            renderCloseConvoyModal(); // On redessine pour recalculer les parts en temps réel !
+        }
+
+        async function executeCloseConvoy(action) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let newConvoys = [];
+
+            if (action === 'redistribute') {
+                let totalRatio = redistributeData.players.filter(p => p.selected).reduce((sum, p) => sum + p.ratio, 0);
+                if (totalRatio === 0) return showToast('Erreur', 'Aucun joueur sélectionné avec un ratio > 0.');
+
+                redistributeData.players.forEach(p => {
+                    if (p.selected && p.player_id !== redistributeData.senderId) {
+                        let share = Math.round(redistributeData.amount * (p.ratio / totalRatio));
+                        if (share > 0) {
+                            newConvoys.push({
+                                balance_date: redistributeData.balanceDate,
+                                from_player_id: redistributeData.senderId,
+                                to_player_id: p.player_id,
+                                amount: share
+                            });
+                        }
+                    }
+                });
+            }
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cancel_and_redistribute_convoy`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        p_session_token: sessionToken,
+                        p_convoy_id: redistributeData.convoyId,
+                        p_action: action,
+                        p_new_convoys: newConvoys
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('Opération Réussie', action === 'cancel' ? 'Convoi annulé.' : 'Convoi annulé et redistribué !');
+                    closeRetroModal();
+                    loadGroupConvoys(selectedGroupId); // Rafraîchissement automatique de la page
+                } else {
+                    const err = await res.json();
+                    showToast('Erreur', err.message || 'Action refusée.');
+                }
+            } catch (e) {
+                showToast('Erreur', 'Erreur réseau.');
+            }
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
