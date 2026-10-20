@@ -723,7 +723,11 @@
                 const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
 
                 // Top 10 Alliances
-                const rpcBodyAlliances = { p_start_date: perfoStartDate + 'T00:00:00Z', p_end_date: perfoEndDate + 'T23:59:59Z' };
+                const rpcBodyAlliances = { 
+                    p_start_date: perfoStartDate + 'T00:00:00Z', 
+                    p_end_date: perfoEndDate + 'T23:59:59Z',
+                    p_metric: perfoChartMetric
+                };
                 const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
                     method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyAlliances)
                 });
@@ -863,7 +867,7 @@
                 
                 <div class="flex items-center justify-between mb-4 mt-8">
                     <h3 class="font-shrikhand text-xl text-retro-slate m-0">🌍 Top 10 Alliances</h3>
-                    <select id="perfo-chart-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartMetric = this.value; drawAlliancesChart(currentPerfoDataCache.alliancesData);">
+                    <select id="perfo-chart-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartMetric = this.value; loadPerfoData();">
                         <option value="total_field" ${perfoChartMetric === 'total_field' ? 'selected' : ''}>Terrain Total</option>
                         <option value="avg_field" ${perfoChartMetric === 'avg_field' ? 'selected' : ''}>Terrain / Joueur</option>
                         <option value="velocity" ${perfoChartMetric === 'velocity' ? 'selected' : ''}>Vélocité (Gain terrain horaire)</option>
