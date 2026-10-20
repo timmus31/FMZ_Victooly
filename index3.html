@@ -2541,9 +2541,14 @@
         }
 
         function renderCloseConvoyModal() {
+            // 1. On mémorise la position de la barre de défilement (si elle existe déjà)
+            const scrollArea = document.getElementById('redistribute-scroll-area');
+            const currentScroll = scrollArea ? scrollArea.scrollTop : 0;
+
             let totalRatio = redistributeData.players.filter(p => p.selected).reduce((sum, p) => sum + p.ratio, 0);
             
-            let previewHtml = `<div class="max-h-52 overflow-y-auto mt-4 border-2 border-retro-slate rounded-xl"><table class="w-full text-sm"><thead class="bg-retro-slate text-white"><tr><th class="p-2 text-center"><i class="fa-solid fa-check-square"></i></th><th class="p-2">Joueur</th><th class="p-2 text-center">Ratio</th><th class="p-2 text-center">Nouvelle Part</th></tr></thead><tbody>`;
+            // On a ajouté un ID "redistribute-scroll-area" sur la div qui gère le défilement
+            let previewHtml = `<div id="redistribute-scroll-area" class="max-h-52 overflow-y-auto mt-4 border-2 border-retro-slate rounded-xl"><table class="w-full text-sm"><thead class="bg-retro-slate text-white"><tr><th class="p-2 text-center"><i class="fa-solid fa-check-square"></i></th><th class="p-2">Joueur</th><th class="p-2 text-center">Ratio</th><th class="p-2 text-center">Nouvelle Part</th></tr></thead><tbody>`;
             
             redistributeData.players.forEach((p, idx) => {
                 let share = 0;
@@ -2584,6 +2589,10 @@
                 </div>
                 ${contentHtml}
             `;
+
+            // 2. On remet la barre de défilement exactement là où elle était
+            const newScrollArea = document.getElementById('redistribute-scroll-area');
+            if (newScrollArea) newScrollArea.scrollTop = currentScroll;
 
             modal.classList.remove('opacity-0', 'pointer-events-none');
             contentDiv.classList.remove('scale-95');
