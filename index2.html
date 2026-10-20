@@ -493,6 +493,11 @@
         let perfoStartDate = '';
         let perfoEndDate = '';
         let perfoChartInstance = null;
+        let perfoChartMetric = 'total_field';
+
+        let perfoSortCol = 'diff';
+        let perfoSortAsc = false;
+        let currentPerfoDataCache = null;
 
         let mapPlayersData = [];
         let mapSelectedGroup = -1;
@@ -860,7 +865,17 @@
 
             html += `</tbody></table></div>
                 
-                <h3 class="font-shrikhand text-xl text-retro-slate mb-4 mt-8">🌍 Évolution du Top 10 Alliances (Terrain)</h3>
+                <div class="flex items-center justify-between mb-4 mt-8">
+                    <h3 class="font-shrikhand text-xl text-retro-slate m-0">🌍 Top 10 Alliances</h3>
+                    <select id="perfo-chart-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartMetric = this.value; drawAlliancesChart(currentPerfoDataCache.alliancesData);">
+                        <option value="total_field" ${perfoChartMetric === 'total_field' ? 'selected' : ''}>Terrain Total</option>
+                        <option value="avg_field" ${perfoChartMetric === 'avg_field' ? 'selected' : ''}>Terrain / Joueur</option>
+                        <option value="velocity" ${perfoChartMetric === 'velocity' ? 'selected' : ''}>Vélocité (Gain terrain horaire)</option>
+                        <option value="players_count" ${perfoChartMetric === 'players_count' ? 'selected' : ''}>Effectifs (Joueurs)</option>
+                        <option value="avg_build" ${perfoChartMetric === 'avg_build' ? 'selected' : ''}>Score Bâtiments / Joueur</option>
+                        <option value="avg_tech" ${perfoChartMetric === 'avg_tech' ? 'selected' : ''}>Score Techs / Joueur</option>
+                    </select>
+                </div>
                 <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8" id="chart-container">
                 </div>
             `;
@@ -885,10 +900,16 @@
         function drawAlliancesChart(data) {
             if (!data || data.length === 0) return;
 
+            // Optionnel mais robuste : on s'assure qu'un canvas existe bien, 
+            // car selon le chargement il peut avoir été écrasé.
+            document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
             const ctx = document.getElementById('alliancesChart').getContext('2d');
+            
             const datasetsMap = {};
             const labelsSet = new Set();
             const colors = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', '#8ab17d', '#b5838d', '#ffb703', '#fb8500', '#8ecae6'];
+
+            let previousField = {}; // Sert à calculer la "vélocité" (gain par heure)
 
             data.forEach(row => {
                 const dateLabel = new Date(row.snapshot_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' });
@@ -896,8 +917,28 @@
 
                 if (!datasetsMap[row.alliance_tag]) {
                     datasetsMap[row.alliance_tag] = { data: [], tag: row.alliance_tag };
+                    previousField[row.alliance_tag] = null;
                 }
-                datasetsMap[row.alliance_tag].data.push({ x: dateLabel, y: Number(row.total_field) });
+
+                // --- CALCUL DYNAMIQUE DU POINT (Y) SELON LA MÉTRIQUE ---
+                let yValue = 0;
+                const players = Math.max(1, Number(row.players_count)); // On évite la division par zéro !
+
+                if (perfoChartMetric === 'total_field') yValue = Number(row.total_field);
+                else if (perfoChartMetric === 'avg_field') yValue = Math.round(Number(row.total_field) / players);
+                else if (perfoChartMetric === 'players_count') yValue = players;
+                else if (perfoChartMetric === 'avg_build') yValue = Math.round(Number(row.total_building_score) / players);
+                else if (perfoChartMetric === 'avg_tech') yValue = Math.round(Number(row.total_technology_score) / players);
+                else if (perfoChartMetric === 'velocity') {
+                    if (previousField[row.alliance_tag] === null) {
+                        yValue = 0; // Premier point affiché : pas de recul pour calculer la vitesse
+                    } else {
+                        yValue = Number(row.total_field) - previousField[row.alliance_tag];
+                    }
+                    previousField[row.alliance_tag] = Number(row.total_field);
+                }
+
+                datasetsMap[row.alliance_tag].data.push({ x: dateLabel, y: yValue });
             });
 
             const labels = Array.from(labelsSet).sort(); 
@@ -928,7 +969,14 @@
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { tooltip: { enabled: true }, legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' } } } },
+                    plugins: { 
+                        tooltip: { 
+                            enabled: true,
+                            // MAGIE : Tri les éléments de l'infobulle du plus grand au plus petit !
+                            itemSort: function(a, b) { return b.raw - a.raw; } 
+                        }, 
+                        legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' } } } 
+                    },
                     scales: { 
                         y: { beginAtZero: false, ticks: { font: { family: 'Outfit' } } },
                         x: { ticks: { font: { family: 'Outfit' } } }
