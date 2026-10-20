@@ -1032,7 +1032,6 @@
             const container = document.getElementById('alliances-table-container');
             if (!container) return;
 
-            // Fonction pour extraire la valeur selon la métrique choisie
             const getMetricValue = (row) => {
                 const players = Math.max(1, Number(row.players_count));
                 if (perfoChartMetric === 'total_field' || perfoChartMetric === 'velocity') return Number(row.total_field);
@@ -1043,7 +1042,6 @@
                 return 0;
             };
 
-            // Regrouper par alliance pour trouver le début et la fin
             const summaryMap = {};
             data.forEach(row => {
                 if (!summaryMap[row.alliance_tag]) {
@@ -1068,10 +1066,19 @@
 
             const summaryList = Object.values(summaryMap).map(item => {
                 item.diff = item.end_val - item.start_val;
+                
+                // Si on est en vélocité, on convertit le gain total en moyenne journalière
+                if (perfoChartMetric === 'velocity') {
+                    const diffHours = (new Date(item.last_date) - new Date(item.first_date)) / (1000 * 60 * 60);
+                    if (diffHours > 0) {
+                        item.diff = Math.round((item.diff / diffHours) * 24);
+                    } else {
+                        item.diff = 0;
+                    }
+                }
                 return item;
             });
 
-            // Tri
             summaryList.sort((a, b) => {
                 let valA = a[perfoAllianceSortCol];
                 let valB = b[perfoAllianceSortCol];
@@ -1088,9 +1095,21 @@
                 return perfoAllianceSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
             };
 
+            let colStartName = "Valeur Initiale";
+            let colEndName = "Valeur Finale";
+            let colDiffName = "Progression";
             let unit = "";
-            if (perfoChartMetric === 'total_field' || perfoChartMetric === 'avg_field' || perfoChartMetric === 'velocity') unit = " cm²";
-            if (perfoChartMetric === 'players_count') unit = " j.";
+            let diffUnit = "";
+
+            if (perfoChartMetric === 'total_field' || perfoChartMetric === 'avg_field') { unit = " cm²"; diffUnit = " cm²"; }
+            else if (perfoChartMetric === 'players_count') { unit = " j."; diffUnit = " j."; }
+            else if (perfoChartMetric === 'velocity') {
+                colStartName = "Terrain Initial";
+                colEndName = "Terrain Final";
+                colDiffName = "Gain Moyen / Jour";
+                unit = " cm²";
+                diffUnit = " cm²/j"; // Unité spécifique pour clarifier la moyenne
+            }
 
             let html = `
                 <div class="table-container mt-4">
@@ -1098,9 +1117,9 @@
                         <thead>
                             <tr>
                                 <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfoAllianceSort('tag')">Alliance ${getSortIcon('tag')}</th>
-                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('start_val')">Valeur Initiale ${getSortIcon('start_val')}</th>
-                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('end_val')">Valeur Finale ${getSortIcon('end_val')}</th>
-                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('diff')">Progression ${getSortIcon('diff')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('start_val')">${colStartName} ${getSortIcon('start_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('end_val')">${colEndName} ${getSortIcon('end_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('diff')">${colDiffName} ${getSortIcon('diff')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1116,7 +1135,7 @@
                         <td>${tagDisplay}</td>
                         <td class="text-center">${item.start_val.toLocaleString('fr-FR')}${unit}</td>
                         <td class="text-center font-bold">${item.end_val.toLocaleString('fr-FR')}${unit}</td>
-                        <td class="text-center font-bold ${diffClass}">${diffText}${unit}</td>
+                        <td class="text-center font-bold ${diffClass}">${diffText}${diffUnit}</td>
                     </tr>
                 `;
             });
