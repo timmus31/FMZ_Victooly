@@ -678,6 +678,9 @@
         let perfoSortAsc = false;
         let currentPerfoDataCache = null;
 
+        let perfoAllianceSortCol = 'end_val';
+        let perfoAllianceSortAsc = false;
+
         function togglePerfoSort(col) {
             if (perfoSortCol === col) perfoSortAsc = !perfoSortAsc;
             else { perfoSortCol = col; perfoSortAsc = (col === 'id'); }
@@ -896,11 +899,11 @@
                 </div>
                 <!-- LA LIGNE MANQUANTE EST CELLE-CI : -->
                 <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8" id="chart-container"></div>
+                <!-- NOUVEAU CONTENEUR POUR LE TABLEAU DES ALLIANCES -->
+                <div id="alliances-table-container"></div>
             `;
 
             contentDiv.innerHTML = html;
-
-            console.log("📊 [DEBUG] Lignes à dessiner :", alliancesData ? alliancesData.length : 0);
 
             if (!alliancesData || alliancesData.length <= 0) {
                 document.getElementById('chart-container').innerHTML = `
@@ -912,6 +915,8 @@
             } else {
                 document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
                 drawAlliancesChart(alliancesData);
+                // APPEL DE NOTRE NOUVELLE FONCTION
+                renderAlliancesTable(alliancesData);
             }
         }
 
@@ -1025,6 +1030,112 @@
                     }
                 }
             });
+        }
+
+        function togglePerfoAllianceSort(col) {
+            if (perfoAllianceSortCol === col) perfoAllianceSortAsc = !perfoAllianceSortAsc;
+            else { perfoAllianceSortCol = col; perfoAllianceSortAsc = false; }
+            if (currentPerfoDataCache && currentPerfoDataCache.alliancesData) {
+                renderAlliancesTable(currentPerfoDataCache.alliancesData);
+            }
+        }
+
+        function renderAlliancesTable(data) {
+            if (!data || data.length === 0) return;
+            const container = document.getElementById('alliances-table-container');
+            if (!container) return;
+
+            // Fonction pour extraire la valeur selon la métrique choisie
+            const getMetricValue = (row) => {
+                const players = Math.max(1, Number(row.players_count));
+                if (perfoChartMetric === 'total_field' || perfoChartMetric === 'velocity') return Number(row.total_field);
+                if (perfoChartMetric === 'avg_field') return Math.round(Number(row.total_field) / players);
+                if (perfoChartMetric === 'players_count') return players;
+                if (perfoChartMetric === 'avg_build') return Math.round(Number(row.total_building_score) / players);
+                if (perfoChartMetric === 'avg_tech') return Math.round(Number(row.total_technology_score) / players);
+                return 0;
+            };
+
+            // Regrouper par alliance pour trouver le début et la fin
+            const summaryMap = {};
+            data.forEach(row => {
+                if (!summaryMap[row.alliance_tag]) {
+                    summaryMap[row.alliance_tag] = {
+                        tag: row.alliance_tag,
+                        first_date: row.snapshot_at,
+                        last_date: row.snapshot_at,
+                        start_val: getMetricValue(row),
+                        end_val: getMetricValue(row)
+                    };
+                } else {
+                    if (row.snapshot_at < summaryMap[row.alliance_tag].first_date) {
+                        summaryMap[row.alliance_tag].first_date = row.snapshot_at;
+                        summaryMap[row.alliance_tag].start_val = getMetricValue(row);
+                    }
+                    if (row.snapshot_at > summaryMap[row.alliance_tag].last_date) {
+                        summaryMap[row.alliance_tag].last_date = row.snapshot_at;
+                        summaryMap[row.alliance_tag].end_val = getMetricValue(row);
+                    }
+                }
+            });
+
+            const summaryList = Object.values(summaryMap).map(item => {
+                item.diff = item.end_val - item.start_val;
+                return item;
+            });
+
+            // Tri
+            summaryList.sort((a, b) => {
+                let valA = a[perfoAllianceSortCol];
+                let valB = b[perfoAllianceSortCol];
+                if (perfoAllianceSortCol === 'tag') {
+                    valA = valA.toLowerCase(); valB = valB.toLowerCase();
+                }
+                if (valA < valB) return perfoAllianceSortAsc ? -1 : 1;
+                if (valA > valB) return perfoAllianceSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const getSortIcon = (col) => {
+                if (perfoAllianceSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                return perfoAllianceSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+            };
+
+            let unit = "";
+            if (perfoChartMetric === 'total_field' || perfoChartMetric === 'avg_field' || perfoChartMetric === 'velocity') unit = " cm²";
+            if (perfoChartMetric === 'players_count') unit = " j.";
+
+            let html = `
+                <div class="table-container mt-4">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfoAllianceSort('tag')">Alliance ${getSortIcon('tag')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('start_val')">Valeur Initiale ${getSortIcon('start_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('end_val')">Valeur Finale ${getSortIcon('end_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('diff')">Progression ${getSortIcon('diff')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            summaryList.forEach(item => {
+                const diffText = item.diff >= 0 ? `+${item.diff.toLocaleString('fr-FR')}` : item.diff.toLocaleString('fr-FR');
+                const diffClass = item.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
+                const tagDisplay = item.tag === 'V' ? `<strong class="text-retro-coral bg-retro-cream px-2 py-1 rounded border-2 border-retro-slate shadow-retro-sm">${item.tag}</strong>` : `<strong>${item.tag}</strong>`;
+
+                html += `
+                    <tr>
+                        <td>${tagDisplay}</td>
+                        <td class="text-center">${item.start_val.toLocaleString('fr-FR')}${unit}</td>
+                        <td class="text-center font-bold">${item.end_val.toLocaleString('fr-FR')}${unit}</td>
+                        <td class="text-center font-bold ${diffClass}">${diffText}${unit}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
         }
 
         /* --- ONGLET CHAT --- */
