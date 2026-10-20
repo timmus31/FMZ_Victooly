@@ -1,0 +1,2493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Victooly — Gestion des Convois</title>
+    
+    <!-- Scripts & Config -->
+    <script src="config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Shrikhand&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Configuration Tailwind Rétro -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'retro-mint': '#3aafa9',
+                        'retro-mint-dark': '#2b8a85',
+                        'retro-coral': '#ff6f61',
+                        'retro-yellow': '#f4d03f',
+                        'retro-cream': '#f9f7f1',
+                        'retro-slate': '#1d2d44',
+                        'retro-avocado': '#8ba888',
+                    },
+                    fontFamily: {
+                        'shrikhand': ['Shrikhand', 'cursive'],
+                        'fredoka': ['Fredoka', 'sans-serif'],
+                        'outfit': ['Outfit', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'retro': '6px 6px 0px 0px #1d2d44',
+                        'retro-lg': '10px 10px 0px 0px #1d2d44',
+                        'retro-sm': '3px 3px 0px 0px #1d2d44',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f9f7f1;
+            background-image: radial-gradient(#1d2d44 0.75px, transparent 0.75px), radial-gradient(#1d2d44 0.75px, #f9f7f1 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+            color: #1d2d44;
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            /* Remplace l'URL ci-dessous par ton lien GitHub brut */
+            background-image: url('https://raw.githubusercontent.com/timmus31/FMZ_Victooly/refs/heads/main/victory.jpg');
+            background-size: 50%; /* Ajuste la taille selon tes préférences (cover, contain, ou un % fixe) */
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.2; /* L'opacité magique : très clair pour faire un beau filigrane ! */
+            z-index: -1; /* Assure que l'image reste bien tout au fond derrière les éléments */
+            pointer-events: none;
+        }
+
+        .token-box {
+            background-color: #f9f7f1;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 10px 10px 0px 0px #1d2d44;
+            max-width: 42rem;
+            margin: 2rem auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .token-step {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1d2d44;
+            margin-bottom: 0.5rem;
+        }
+
+        .token-btn, .btn-primary {
+            display: inline-block;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #1d2d44;
+            background-color: #f4d03f;
+            border: 3px solid #1d2d44;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            transition: all 0.15s ease;
+            text-align: center;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-primary { width: 100%; margin-top: 10px; }
+        .token-btn:hover, .btn-primary:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0px 0px #1d2d44; }
+        .token-btn:active, .btn-primary:active { transform: translate(4px, 4px); box-shadow: none; }
+
+        input[type="text"], input[type="date"], input[type="week"], input[type="number"], select {
+            width: 100%;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: #1d2d44;
+            box-shadow: inset 3px 3px 0px rgba(29, 45, 68, 0.05);
+            outline: none;
+        }
+        input:focus, select:focus { border-color: #ff6f61; }
+        select { padding: 0.5rem 1rem; margin-bottom: 0; width: auto; cursor: pointer; }
+
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background-color: #f9f7f1;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+
+        .tab-btn {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #1d2d44;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.75rem;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab-btn:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+        .tab-btn.active { background-color: #ff6f61; color: white; }
+        .tab-btn.group-active { background-color: #3aafa9; color: white; }
+        .tab-btn.map-active { background-color: #8ba888; color: white; }
+        .tab-btn.admin-active { background-color: #f4d03f; color: #1d2d44; }
+        .tab-btn.chat-active { background-color: #8e44ad; color: white; }
+        .tab-btn.perfo-active { background-color: #ff6f61; color: white; }
+
+        .btn-logout {
+            margin-left: auto;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            color: #f9f7f1;
+            background-color: #1d2d44;
+            border: 2px solid #1d2d44;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
+            transition: all 0.15s;
+        }
+        .btn-logout:hover { transform: translate(2px, 2px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+
+        .table-container {
+            background-color: #ffffff;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background-color: #1d2d44; color: #f9f7f1; font-family: 'Fredoka', sans-serif; padding: 1rem 1.25rem; white-space: nowrap; }
+        td { padding: 0.75rem 1.25rem; border-bottom: 2px solid rgba(29, 45, 68, 0.1); font-weight: 500; }
+        tr:last-child td { border-bottom: none; }
+        tr.row-failed { background-color: rgba(255, 111, 97, 0.05); }
+
+        .badge {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            border: 2px solid #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            font-size: 0.75rem;
+            display: inline-block;
+            color: #1d2d44;
+        }
+        .badge-pending { background-color: #f4d03f; }
+        .badge-success { background-color: #3aafa9; color: white; }
+        .badge-failed { background-color: #ff6f61; color: white; }
+        .badge-superadmin { background-color: #ff6f61; color: white; }
+        .badge-admin { background-color: #8e44ad; color: white;}
+        .badge-chef { background-color: #3aafa9; color: white; }
+        .badge-member { background-color: #e2e8f0; }
+
+        .btn-action, .btn-manual-ok {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.75rem;
+            border: 2px solid #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            color: #1d2d44;
+            display: inline-block;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .btn-manual-ok { background-color: #3aafa9; color: white; margin-left: 0.5rem; }
+        .btn-action:hover, .btn-manual-ok:hover { transform: translate(1px, 1px); box-shadow: 1px 1px 0px 0px #1d2d44; }
+
+        .stats-summary { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+        .stat-card {
+            flex: 1;
+            min-width: 140px;
+            background-color: #f9f7f1;
+            border: 3px solid #1d2d44;
+            border-radius: 1.5rem;
+            padding: 1.25rem;
+            text-align: center;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-card .val { font-family: 'Shrikhand', cursive; font-size: 1.75rem; color: #1d2d44; line-height: 1; margin-bottom: 0.25rem; }
+        .stat-card .lbl { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 0.8rem; color: #4a5d73; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .date-filter-box {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem;
+            background-color: #ffffff;
+            border: 3px solid #1d2d44;
+            border-radius: 1.25rem;
+            padding: 1rem 1.5rem;
+            box-shadow: 4px 4px 0px 0px #1d2d44;
+            margin-bottom: 1rem;
+        }
+        .date-filter-box button {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            background-color: #1d2d44;
+            color: #f9f7f1;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            border: 2px solid #1d2d44;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .date-filter-box button:hover { background-color: #ff6f61; }
+
+        .tv-screen {
+            border: 4px solid #1d2d44;
+            border-radius: 40px / 30px;
+            overflow: hidden;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            position: relative;
+            background-color: #f2ead0;
+            background-image: radial-gradient(rgba(29, 45, 68, 0.15) 1px, transparent 1px);
+            background-size: 15px 15px;
+        }
+        .map-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; width: 100%; max-width: 700px; margin-bottom: 1rem; }
+        .map-filter-btn {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.35rem 1rem;
+            border-radius: 9999px;
+            border: 2px solid #1d2d44;
+            background-color: #ffffff;
+            color: #1d2d44;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s ease;
+        }
+        .map-filter-btn.active {
+            background-color: #1d2d44;
+            color: #f9f7f1;
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+        .map-tool-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #f9f7f1;
+            border: 2px solid #1d2d44;
+            border-radius: 0.75rem;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            color: #1d2d44;
+            font-family: 'Shrikhand', cursive;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .map-tool-btn:hover { background-color: #f4d03f; }
+
+        .spin-starburst { animation: spin-slow 25s linear infinite; }
+        @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+
+        #retro-toast { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Styles CHAT */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border: 4px solid #1d2d44;
+            border-radius: 1.5rem;
+            box-shadow: 6px 6px 0px 0px #1d2d44;
+            height: 550px;
+            overflow: hidden;
+            position: relative;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background-color: #f4f6f9;
+        }
+        .chat-messages::-webkit-scrollbar { width: 8px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background-color: rgba(29, 45, 68, 0.2); border-radius: 10px; }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 1rem;
+            background: white;
+            border-top: 3px solid #1d2d44;
+        }
+        .chat-input-area input {
+            margin-bottom: 0;
+            box-shadow: inset 2px 2px 0px rgba(29, 45, 68, 0.05);
+        }
+        .chat-btn-send {
+            background-color: #ff6f61;
+            color: white;
+            border: 3px solid #1d2d44;
+            border-radius: 0.75rem;
+            padding: 0 1.5rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px 0px #1d2d44;
+            transition: all 0.1s;
+        }
+        .chat-btn-send:hover { transform: translate(1px,1px); box-shadow: 2px 2px 0px 0px #1d2d44;}
+        .chat-btn-send:active { transform: translate(3px,3px); box-shadow: none;}
+        
+        .new-messages-pill {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f4d03f;
+            color: #1d2d44;
+            border: 2px solid #1d2d44;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: bold;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #1d2d44;
+            z-index: 10;
+            display: none;
+        }
+
+        .chat-msg-bubble {
+            background: white;
+            border: 2px solid #1d2d44;
+            padding: 0.6rem 1rem;
+            border-radius: 1rem;
+            max-width: 85%;
+            box-shadow: 2px 2px 0px 0px #1d2d44;
+            position: relative;
+            animation: popIn 0.2s ease-out;
+        }
+        .chat-msg-bubble::after { content: ""; display: table; clear: both; }
+        .chat-msg-bubble.is-other { border-bottom-left-radius: 0; align-self: flex-start; }
+        .chat-msg-bubble.is-me { background-color: #f9f7f1; border-bottom-right-radius: 0; border-bottom-left-radius: 1rem; align-self: flex-end; }
+        .chat-meta { display: flex; flex-direction: column; line-height: 1.1; }
+        .chat-meta.is-other { float: left; margin-right: 0.5rem; margin-bottom: 0.2rem; align-items: flex-start; }
+        .chat-meta.is-me { float: right; margin-left: 0.5rem; margin-bottom: 0.2rem; align-items: flex-end; }
+        @keyframes popIn { 0% { transform: scale(0.95); opacity:0;} 100% { transform: scale(1); opacity:1;} }
+    </style>
+</head>
+<body>
+
+    <!-- Toast Notification -->
+    <div id="retro-toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 bg-retro-yellow border-4 border-retro-slate p-4 rounded-2xl shadow-retro flex items-center gap-3 max-w-sm">
+        <div class="text-3xl text-retro-slate"><i class="fa-solid fa-circle-info fa-bounce"></i></div>
+        <div>
+            <h4 class="font-shrikhand text-lg text-retro-slate leading-tight" id="toast-title">Notification!</h4>
+            <p class="font-fredoka text-sm text-retro-slate/90" id="toast-msg">Opération exécutée.</p>
+        </div>
+    </div>
+
+    <!-- Fenêtre Modale Rétro -->
+    <div id="retro-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-retro-slate/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro max-w-lg w-full mx-4 transform scale-95 transition-transform duration-300" id="retro-modal-content">
+            <!-- Le contenu sera injecté ici par Javascript -->
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-retro-cream/90 backdrop-blur-md border-b-4 border-retro-slate px-4 lg:px-8 py-3 w-full">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3 group cursor-default">
+                <div class="relative w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center shadow-retro-sm group-hover:rotate-12 transition-transform">
+                    <i class="fa-solid fa-bug text-retro-cream text-xl"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-shrikhand text-2xl tracking-wide text-retro-slate leading-none">Victooly</span>
+                    <span class="font-fredoka text-xs text-retro-coral font-bold tracking-widest uppercase">Bureau Central</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- Login -->
+        <div id="auth-section" class="token-box">
+            <svg class="absolute top-4 right-8 w-24 h-24 text-retro-coral opacity-20 spin-starburst pointer-events-none" viewBox="0 0 100 100">
+                <path fill="currentColor" d="M50,0 L58,35 L95,15 L68,42 L100,50 L68,58 L95,85 L58,65 L50,100 L42,65 L5,85 L32,58 L0,50 L32,42 L5,15 L42,35 Z"/>
+            </svg>
+            <h2 class="font-shrikhand text-3xl text-retro-slate mb-6 relative z-10">Identification Requise</h2>
+            <div class="relative z-10 space-y-6">
+                <div>
+                    <div class="token-step">1. Récupération du Token Fourmizzz</div>
+                    <p class="text-sm text-retro-slate/80 font-medium mb-3">Générez votre jeton d'accès depuis votre compte de jeu :</p>
+                    <a href="https://s5.fourmizzz.fr/api.php?getToken" target="_blank" class="token-btn text-sm">
+                        <i class="fa-solid fa-key mr-2"></i> Obtenir mon Token
+                    </a>
+                </div>
+                <div>
+                    <div class="token-step">2. Validation de session (continue)</div>
+                    <input type="text" id="token-input" placeholder="Coller le token ou le JSON complet ici..." onpaste="setTimeout(() => { this.value = cleanTokenInput(this.value); }, 10)">
+                    <button class="btn-primary flex items-center justify-center gap-2" onclick="handleAuth()">
+                        <i class="fa-solid fa-right-to-bracket"></i> Connexion au Tableau
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard-section" style="display:none;">
+            <!-- Onglets -->
+            <div class="nav-tabs">
+                <button id="tab-convoys-btn" class="tab-btn active" onclick="switchTab('convoys')"><i class="fa-solid fa-truck-fast mr-1"></i> Convois</button>
+                <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
+                <button id="tab-perfo-btn" class="tab-btn" onclick="switchTab('perfo')"><i class="fa-solid fa-chart-line mr-1"></i> Perfo</button>
+                <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
+                <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
+                <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
+                <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
+                <button class="btn-logout flex items-center gap-2" onclick="logout()"><i class="fa-solid fa-power-off text-retro-coral"></i> Quitter</button>
+            </div>
+
+            <div id="content-area">
+                <p class="text-center font-shrikhand text-retro-slate text-xl animate-pulse">Chargement des données...</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let activeTab = 'convoys';
+        let convoysSubTab = 'active'; // 'active' ou 'history'
+        
+        let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
+        let selectedGroupId = null;
+        let chatSelectedGroupId = null;
+        
+        let projectSubTab = 'changelog';
+        let projectData = { changelog: [], backlog: [], propositions: [] };
+
+        let groupFilterMode = 'day'; 
+        let groupStartDate = null;
+        let groupEndDate = null;
+
+        let perfoFilterMode = 'day';
+        let perfoStartDate = '';
+        let perfoEndDate = '';
+        let perfoChartInstance = null;
+        let perfoChartMetric = 'total_field';
+        let perfoChartLimit = 10;
+
+        let mapPlayersData = [];
+        let mapSelectedGroup = -1;
+        let mapSearchQuery = '';
+        let zoomLevel = 1;
+        let panX = 0; let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0; let dragStartY = 0;
+
+        let chatInterval = null;
+        let chatOldestId = null;
+        let chatLatestId = null;
+        let chatIsFetching = false;
+        let chatHasMore = true;
+
+        const GROUP_COLORS = [
+            '#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', 
+            '#e74c3c', '#9b59b6', '#3498db', '#f39c12',
+            '#1abc9c', '#d35400'
+        ];
+
+        function formatDateFR(dateStr) {
+            if (!dateStr) return '';
+            const cleanDate = dateStr.split('T')[0];
+            const parts = cleanDate.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function formatChatTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+            if (d.toDateString() === now.toDateString()) {
+                return timeStr;
+            } else {
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                return `${day}/${month} -${timeStr}`;
+            }
+        }
+
+        function showToast(title, message) {
+            const toast = document.getElementById('retro-toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-msg').innerText = message;
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 3500);
+        }
+
+        window.onload = () => {
+            const savedSessionToken = localStorage.getItem('alliance_session_token');
+            if (savedSessionToken) checkSessionAndLoad();
+            else logout();
+        };
+
+        function cleanTokenInput(rawInput) {
+            if (!rawInput) return '';
+            let cleaned = rawInput.trim();
+            if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(cleaned);
+                    if (parsed.Token) return parsed.Token.trim();
+                    if (parsed.token) return parsed.token.trim();
+                } catch (e) {}
+            }
+            const jsonMatch = cleaned.match(/"Token"\s*:\s*"([^"]+)"/i);
+            if (jsonMatch && jsonMatch[1]) return jsonMatch[1].trim();
+            return cleaned.replace(/^["'\[\s]+\vert{}["'\]\s]+$/g, '');
+        }
+        
+        async function handleAuth() {
+            const rawInput = document.getElementById('token-input').value;
+            const cleanedToken = cleanTokenInput(rawInput);
+            document.getElementById('token-input').value = cleanedToken;
+            if (!cleanedToken) return showToast("Erreur", "Veuillez saisir un token valide.");
+        
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_with_fourmizzz_token`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_fourmizzz_token: cleanedToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || "Token invalide.");
+                const sessionData = data[0];
+                localStorage.setItem('alliance_session_token', sessionData.session_token);
+                currentUserAdminInfo.pseudo = sessionData.pseudo;
+                showToast("Accès Autorisé", "Connexion au bureau central réussie.");
+                checkSessionAndLoad();
+            } catch (err) {
+                showToast("Échec", "Connexion échouée : " + err.message);
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+        }
+
+        async function checkSessionAndLoad() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            if (!sessionToken) return logout();
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_is_admin`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!res.ok) return logout();
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const userRole = data[0].role || (data[0].is_superadmin ? 'superadmin' : (data[0].is_admin ? 'admin' : 'member'));
+                    currentUserAdminInfo = { 
+                        role: userRole,
+                        isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
+                        isSuperAdmin: userRole === 'superadmin',
+                        pseudo: data[0].pseudo || currentUserAdminInfo.pseudo,
+                        group_id: data[0].group_id
+                    };
+                    const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
+                    document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
+                    showDashboard();
+                    renderTabContent();
+                } else {
+                    logout();
+                }
+            } catch (e) { logout(); }
+        }
+
+        async function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('tab-convoys-btn').className = `tab-btn ${tab === 'convoys' ? 'active' : ''}`;
+            document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
+            document.getElementById('tab-perfo-btn').className = `tab-btn ${tab === 'perfo' ? 'perfo-active' : ''}`;
+            document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
+            document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
+            document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
+            document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
+            
+            if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+            await checkSessionAndLoad();
+        }
+
+        async function renderTabContent() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            if (!sessionToken) return logout();
+            const contentDiv = document.getElementById('content-area');
+            contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>`;
+
+            if (activeTab === 'admin') { loadAdminPanel(); return; }
+            if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
+            if (activeTab === 'perfo') { loadPerfoData(); return; }
+            if (activeTab === 'map') { loadMapTab(); return; }
+            if (activeTab === 'chat') { loadChatTab(); return; }
+            if (activeTab === 'project') { loadProjectTab(); return; }
+            if (activeTab === 'convoys') { loadConvoysTab(); return; } // NOUVEAU
+        }
+
+      function switchConvoysSubTab(sub) {
+            convoysSubTab = sub;
+            loadConvoysTab();
+        }
+
+        async function loadConvoysTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const contentDiv = document.getElementById('content-area');
+            
+            // Structure de base avec les sous-onglets
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-truck-fast"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Logistique & Convois</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${convoysSubTab === 'active' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('active')"><i class="fa-solid fa-bolt"></i> En cours</button>
+                    <button class="btn-action ${convoysSubTab === 'history' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('history')"><i class="fa-solid fa-scroll"></i> Historique</button>
+                </div>
+                <div id="convoys-content-area">
+                    <div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>
+                </div>
+            `;
+
+            const rpcEndpoint = convoysSubTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcEndpoint}`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!response.ok) return logout();
+                const data = await response.json();
+                
+                if (convoysSubTab === 'active') renderActiveConvoys(data);
+                else renderHistoryConvoys(data);
+            } catch (err) { logout(); }
+        }
+        
+        // Variables pour le tri
+        let perfoSortCol = 'diff';
+        let perfoSortAsc = false;
+        let currentPerfoDataCache = null;
+
+        let perfoAllianceSortCol = 'diff';
+        let perfoAllianceSortAsc = false;
+
+        function togglePerfoSort(col) {
+            if (perfoSortCol === col) perfoSortAsc = !perfoSortAsc;
+            else { perfoSortCol = col; perfoSortAsc = (col === 'id'); }
+            if (currentPerfoDataCache) {
+                renderPerfoUI(currentPerfoDataCache.playersData, currentPerfoDataCache.alliancesData);
+            }
+        }
+
+        async function loadPerfoData() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const today = new Date();
+                const formatDate = d => d.toISOString().split('T')[0];
+                
+                if (perfoFilterMode === '7days') {
+                    const start = new Date(); start.setDate(today.getDate() - 6);
+                    perfoStartDate = formatDate(start); perfoEndDate = formatDate(today);
+                } else if (perfoFilterMode === 'day') {
+                    const inputDay = document.getElementById('perfo-filter-day');
+                    perfoStartDate = perfoEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+                } else if (perfoFilterMode === 'week') {
+                    const inputWeek = document.getElementById('perfo-filter-week');
+                    let refDate = new Date();
+                    if (inputWeek && inputWeek.value) {
+                        const parts = inputWeek.value.split('-W');
+                        if (parts.length === 2) refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
+                    } else {
+                        const day = today.getDay() || 7; refDate.setDate(today.getDate() - day + 1);
+                    }
+                    const monday = new Date(refDate); const sunday = new Date(refDate);
+                    sunday.setDate(monday.getDate() + 6);
+                    perfoStartDate = formatDate(monday); perfoEndDate = formatDate(sunday);
+                } else if (perfoFilterMode === 'custom') {
+                    const startInput = document.getElementById('perfo-filter-start');
+                    const endInput = document.getElementById('perfo-filter-end');
+                    perfoStartDate = startInput && startInput.value ? startInput.value : formatDate(today);
+                    perfoEndDate = endInput && endInput.value ? endInput.value : formatDate(today);
+                }
+
+                const rpcBodyGroups = { p_session_token: sessionToken, p_start_date: perfoStartDate, p_end_date: perfoEndDate, p_target_group_id: -1 };
+                const resGroups = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(rpcBodyGroups)
+                });
+                const allPlayersPerf = resGroups.ok ? await resGroups.json() : [];
+
+                // Top 10 Alliances
+                const rpcBodyAlliances = { 
+                    p_start_date: perfoStartDate + 'T00:00:00Z', 
+                    p_end_date: perfoEndDate + 'T23:59:59Z',
+                    p_metric: perfoChartMetric,
+                    p_limit: perfoChartLimit
+                };
+                // NOUVEAU : On ajoute 'Range': '0-5000' pour forcer Supabase à renvoyer plus de 1000 lignes !
+                const resAlliances = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_top_alliances_metrics`, {
+                    method: 'POST', 
+                    headers: { 
+                        'apikey': SUPABASE_ANON_KEY, 
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
+                        'Content-Type': 'application/json',
+                        'Range': '0-5000'
+                    }, 
+                    body: JSON.stringify(rpcBodyAlliances)
+                });
+                
+                // NOUVEAU : On intercepte l'erreur exacte de Supabase !
+                if (!resAlliances.ok) {
+                    const errText = await resAlliances.text();
+                    console.error("❌ ERREUR SUPABASE (Top 10) :", errText);
+                }
+
+                const topAlliances = resAlliances.ok ? await resAlliances.json() : [];
+                console.log("📊 [DEBUG] Données brutes du Top 10 :", topAlliances);
+
+                // LE LOG EST DÉPLACÉ ICI, APRÈS LA CRÉATION DE LA VARIABLE !
+                console.log("📊 [DEBUG] Données brutes du Top 10 :", topAlliances);
+
+                renderPerfoUI(allPlayersPerf, topAlliances);
+            } catch (err) {
+                console.error("Erreur Perfo:", err);
+                document.getElementById('content-area').innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur de chargement.</p>`;
+            }
+        }
+
+        function renderPerfoUI(playersData, alliancesData) {
+            currentPerfoDataCache = { playersData, alliancesData };
+            const contentDiv = document.getElementById('content-area');
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            const groupStats = {};
+            let totalDiff = 0, totalRes = 0, totalStart = 0, totalEnd = 0, totalPlayers = 0;
+            
+            playersData.forEach(p => {
+                if(p.group_id <= 0) return; // Exclut les hors-chaîne (0) et les partis (-1)
+                
+                if(!groupStats[p.group_id]) groupStats[p.group_id] = { id: p.group_id, start: 0, end: 0, diff: 0, res: 0, players: 0 };
+                
+                groupStats[p.group_id].start += p.start_terrain;
+                groupStats[p.group_id].end += p.end_terrain;
+                groupStats[p.group_id].diff += p.terrain_diff;
+                groupStats[p.group_id].res += Number(p.resources_generated);
+                groupStats[p.group_id].players += 1;
+                
+                totalStart += p.start_terrain;
+                totalEnd += p.end_terrain;
+                totalDiff += p.terrain_diff;
+                totalRes += Number(p.resources_generated);
+                totalPlayers += 1;
+            });
+            
+            // Calcul de la progression par joueur
+            Object.values(groupStats).forEach(g => {
+                g.prog_per_player = Math.round(g.diff / g.players);
+            });
+
+            // Moyenne de terrain globale par joueur actif
+            const avgPerPlayer = totalPlayers > 0 ? Math.round(totalEnd / totalPlayers) : 0;
+
+            // Tri dynamique
+            const sortedGroups = Object.values(groupStats).sort((a, b) => {
+                let valA = a[perfoSortCol]; let valB = b[perfoSortCol];
+                if (valA < valB) return perfoSortAsc ? -1 : 1;
+                if (valA > valB) return perfoSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const getSortIcon = (col) => {
+                if (perfoSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                return perfoSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+            };
+
+            let dateInputsHtml = '';
+            if (perfoFilterMode === 'day') dateInputsHtml = `<input type="date" id="perfo-filter-day" value="${perfoStartDate || todayStr}" onchange="loadPerfoData()">`;
+            else if (perfoFilterMode === 'week') dateInputsHtml = `<input type="week" id="perfo-filter-week" onchange="loadPerfoData()">`;
+            else if (perfoFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka font-bold ml-2">De</span> <input type="date" id="perfo-filter-start" value="${perfoStartDate || todayStr}"> <span class="font-fredoka font-bold">à</span> <input type="date" id="perfo-filter-end" value="${perfoEndDate || todayStr}"> <button onclick="loadPerfoData()"><i class="fa-solid fa-check"></i> Activer</button>`;
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-chart-pie"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport de Performances</h3>
+                </div>
+                
+                <div class="date-filter-box mb-6">
+                    <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
+                    <select id="perfo-filter-select" onchange="perfoFilterMode = this.value; loadPerfoData();">
+                        <option value="7days" ${perfoFilterMode === '7days' ? 'selected' : ''}>7 derniers jours</option>
+                        <option value="day" ${perfoFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
+                        <option value="week" ${perfoFilterMode === 'week' ? 'selected' : ''}>Semaine (Lun - Dim)</option>
+                        <option value="custom" ${perfoFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
+                    </select>
+                    ${dateInputsHtml}
+                </div>
+
+                <div class="stats-summary mb-8 flex-wrap">
+                    <div class="stat-card"><div class="val">${totalStart.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Initial</div></div>
+                    <div class="stat-card"><div class="val">${totalEnd.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Actuel</div></div>
+                    <div class="stat-card"><div class="val" style="color:${totalDiff >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${totalDiff >= 0 ? '+' : ''}${totalDiff.toLocaleString('fr-FR')}</div><div class="lbl">Progression</div></div>
+                    <div class="stat-card"><div class="val" style="color:#8ba888; text-shadow: 1px 1px 0 #1d2d44;">${avgPerPlayer.toLocaleString('fr-FR')}</div><div class="lbl">Moy. par Joueur</div></div>
+                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${totalRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
+                </div>
+
+                <h3 class="font-shrikhand text-xl text-retro-slate mb-4">🏆 Podium des Groupes</h3>
+                <div class="table-container mb-8">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfoSort('id')">Groupe ${getSortIcon('id')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('players')">Effectif ${getSortIcon('players')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('start')">Terrain Initial ${getSortIcon('start')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('end')">Terrain Actuel ${getSortIcon('end')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('diff')">Progression ${getSortIcon('diff')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('prog_per_player')">Prog par joueur ${getSortIcon('prog_per_player')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoSort('res')">Ressources ${getSortIcon('res')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            let visualRank = 1;
+            sortedGroups.forEach(g => {
+                let medal = visualRank === 1 ? '🥇' : visualRank === 2 ? '🥈' : visualRank === 3 ? '🥉' : '';
+                const pDiffText = g.diff >= 0 ? `+${g.diff.toLocaleString('fr-FR')}` : g.diff.toLocaleString('fr-FR');
+                const pPlayerText = g.prog_per_player >= 0 ? `+${g.prog_per_player.toLocaleString('fr-FR')}` : g.prog_per_player.toLocaleString('fr-FR');
+                
+                html += `<tr>
+                    <td class="font-bold text-retro-slate">${medal} Groupe ${g.id}</td>
+                    <td class="text-center">${g.players} <i class="fa-solid fa-user text-xs opacity-50"></i></td>
+                    <td class="text-center">${g.start.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold">${g.end.toLocaleString('fr-FR')} cm²</td>
+                    <td class="text-center font-bold ${g.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${pDiffText} cm²</td>
+                    <td class="text-center font-bold ${g.prog_per_player >= 0 ? 'text-retro-mint' : 'text-retro-coral'}">${pPlayerText} cm²</td>
+                    <td class="text-center font-bold text-retro-yellow">${g.res.toLocaleString('fr-FR')}</td>
+                </tr>`;
+                visualRank++;
+            });
+
+            html += `</tbody></table></div>
+                
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 mt-8">
+                    <h3 class="font-shrikhand text-xl text-retro-slate m-0">🌍 Comparateur d'Alliances</h3>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <select id="perfo-chart-limit" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartLimit = parseInt(this.value); loadPerfoData();">
+                            <option value="10" ${perfoChartLimit === 10 ? 'selected' : ''}>Top 10</option>
+                            <option value="5" ${perfoChartLimit === 5 ? 'selected' : ''}>Top 5</option>
+                            <option value="3" ${perfoChartLimit === 3 ? 'selected' : ''}>Top 3</option>
+                            <option value="0" ${perfoChartLimit === 0 ? 'selected' : ''}>Seulement "V"</option>
+                        </select>
+                        <select id="perfo-chart-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartMetric = this.value; loadPerfoData();">
+                            <option value="total_field" ${perfoChartMetric === 'total_field' ? 'selected' : ''}>Terrain Total</option>
+                            <option value="avg_field" ${perfoChartMetric === 'avg_field' ? 'selected' : ''}>Terrain / Joueur</option>
+                            <option value="velocity" ${perfoChartMetric === 'velocity' ? 'selected' : ''}>Vélocité (Gain terrain / Jour)</option>
+                            <option value="players_count" ${perfoChartMetric === 'players_count' ? 'selected' : ''}>Effectifs (Joueurs)</option>
+                            <option value="avg_build" ${perfoChartMetric === 'avg_build' ? 'selected' : ''}>Score Bâtiments / Joueur</option>
+                            <option value="avg_tech" ${perfoChartMetric === 'avg_tech' ? 'selected' : ''}>Score Techs / Joueur</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- LA LIGNE MANQUANTE EST CELLE-CI : -->
+                <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8" id="chart-container"></div>
+                <!-- NOUVEAU CONTENEUR POUR LE TABLEAU DES ALLIANCES -->
+                <div id="alliances-table-container"></div>
+            `;
+
+            contentDiv.innerHTML = html;
+
+            if (!alliancesData || alliancesData.length <= 0) {
+                document.getElementById('chart-container').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa-solid fa-chart-line text-4xl text-retro-slate/30 mb-3"></i>
+                        <p class="font-fredoka text-retro-slate/60 font-bold">La base de données historique vient d'être activée.</p>
+                        <p class="font-outfit text-retro-slate/50 text-sm">Le graphique s'affichera ici dès que nous aurons au moins 2 relevés (d'ici 1 à 2 heures).</p>
+                    </div>`;
+            } else {
+                document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
+                drawAlliancesChart(alliancesData);
+                // APPEL DE NOTRE NOUVELLE FONCTION
+                renderAlliancesTable(alliancesData);
+            }
+        }
+
+        function drawAlliancesChart(data) {
+            if (!data || data.length === 0) return;
+
+            document.getElementById('chart-container').innerHTML = `<canvas id="alliancesChart" width="100%" height="45"></canvas>`;
+            const ctx = document.getElementById('alliancesChart').getContext('2d');
+            
+            const datasetsMap = {};
+            const labelsSet = new Set();
+            const colors = [
+                '#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#8ab17d', 
+                '#b5838d', '#ffb703', '#fb8500', '#8ecae6', '#9b5de5', 
+                '#f15bb5', '#00bbf9', '#00f5d4', '#fee440', '#f94144', 
+                '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#264653'
+            ];
+
+            // NOUVEAU : On stocke la date exacte en plus de la valeur pour mesurer le temps écoulé
+            let previousPoint = {}; 
+
+            data.forEach(row => {
+                const dateLabel = new Date(row.snapshot_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' });
+                labelsSet.add(dateLabel);
+
+                if (!datasetsMap[row.alliance_tag]) {
+                    datasetsMap[row.alliance_tag] = { data: [], tag: row.alliance_tag };
+                    previousPoint[row.alliance_tag] = null;
+                }
+
+                let yValue = null; // Par défaut à null pour cacher le tout premier point sans repère
+                const players = Math.max(1, Number(row.players_count));
+
+                if (perfoChartMetric === 'total_field') yValue = Number(row.total_field);
+                else if (perfoChartMetric === 'avg_field') yValue = Math.round(Number(row.total_field) / players);
+                else if (perfoChartMetric === 'players_count') yValue = players;
+                else if (perfoChartMetric === 'avg_build') yValue = Math.round(Number(row.total_building_score) / players);
+                else if (perfoChartMetric === 'avg_tech') yValue = Math.round(Number(row.total_technology_score) / players);
+                else if (perfoChartMetric === 'velocity') {
+                    if (previousPoint[row.alliance_tag] !== null) {
+                        const diffField = Number(row.total_field) - previousPoint[row.alliance_tag].field;
+                        // Calcul du temps écoulé (en heures) entre les deux pings
+                        const diffHours = (new Date(row.snapshot_at) - new Date(previousPoint[row.alliance_tag].date)) / (1000 * 60 * 60);
+                        
+                        if (diffHours > 0) {
+                            // MAGIE : On convertit la vitesse pour qu'elle soit toujours sur une base de 24h !
+                            yValue = Math.round((diffField / diffHours) * 24);
+                        }
+                    }
+                    previousPoint[row.alliance_tag] = { field: Number(row.total_field), date: row.snapshot_at };
+                }
+
+                datasetsMap[row.alliance_tag].data.push({ x: dateLabel, y: yValue });
+            });
+
+            const labels = Array.from(labelsSet).sort(); 
+            let colorIndex = 0; 
+
+            const datasets = Object.values(datasetsMap).map(d => {
+                const alignedData = labels.map(l => {
+                    const point = d.data.find(pt => pt.x === l);
+                    return point && point.y !== null ? point.y : null; 
+                });
+
+                const isMyAlliance = d.tag === 'V';
+                const lineColor = isMyAlliance ? '#1d2d44' : colors[colorIndex % colors.length];
+                if (!isMyAlliance) colorIndex++;
+
+                return {
+                    label: d.tag,
+                    data: alignedData,
+                    borderColor: lineColor,
+                    backgroundColor: lineColor,
+                    tension: 0.2, 
+                    borderWidth: 2, 
+                    pointRadius: 0, 
+                    pointHoverRadius: 6, 
+                    spanGaps: false,
+                    order: isMyAlliance ? -1 : 1 
+                };
+            });
+
+            if (perfoChartInstance) perfoChartInstance.destroy();
+
+            perfoChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { 
+                        tooltip: { enabled: true, itemSort: function(a, b) { return b.raw - a.raw; } }, 
+                        legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' }, usePointStyle: true } } 
+                    },
+                    scales: { 
+                        y: { beginAtZero: false, ticks: { font: { family: 'Outfit' } } },
+                        x: { ticks: { font: { family: 'Outfit' }, maxTicksLimit: 14, maxRotation: 45, minRotation: 45 } }
+                    }
+                }
+            });
+        }
+
+        function togglePerfoAllianceSort(col) {
+            if (perfoAllianceSortCol === col) perfoAllianceSortAsc = !perfoAllianceSortAsc;
+            else { perfoAllianceSortCol = col; perfoAllianceSortAsc = false; }
+            if (currentPerfoDataCache && currentPerfoDataCache.alliancesData) {
+                renderAlliancesTable(currentPerfoDataCache.alliancesData);
+            }
+        }
+
+        function renderAlliancesTable(data) {
+            if (!data || data.length === 0) return;
+            const container = document.getElementById('alliances-table-container');
+            if (!container) return;
+
+            const getMetricValue = (row) => {
+                const players = Math.max(1, Number(row.players_count));
+                if (perfoChartMetric === 'total_field' || perfoChartMetric === 'velocity') return Number(row.total_field);
+                if (perfoChartMetric === 'avg_field') return Math.round(Number(row.total_field) / players);
+                if (perfoChartMetric === 'players_count') return players;
+                if (perfoChartMetric === 'avg_build') return Math.round(Number(row.total_building_score) / players);
+                if (perfoChartMetric === 'avg_tech') return Math.round(Number(row.total_technology_score) / players);
+                return 0;
+            };
+
+            const summaryMap = {};
+            data.forEach(row => {
+                if (!summaryMap[row.alliance_tag]) {
+                    summaryMap[row.alliance_tag] = {
+                        tag: row.alliance_tag,
+                        first_date: row.snapshot_at,
+                        last_date: row.snapshot_at,
+                        start_val: getMetricValue(row),
+                        end_val: getMetricValue(row)
+                    };
+                } else {
+                    if (row.snapshot_at < summaryMap[row.alliance_tag].first_date) {
+                        summaryMap[row.alliance_tag].first_date = row.snapshot_at;
+                        summaryMap[row.alliance_tag].start_val = getMetricValue(row);
+                    }
+                    if (row.snapshot_at > summaryMap[row.alliance_tag].last_date) {
+                        summaryMap[row.alliance_tag].last_date = row.snapshot_at;
+                        summaryMap[row.alliance_tag].end_val = getMetricValue(row);
+                    }
+                }
+            });
+
+            const summaryList = Object.values(summaryMap).map(item => {
+                item.diff = item.end_val - item.start_val;
+                
+                // Si on est en vélocité, on convertit le gain total en moyenne journalière
+                if (perfoChartMetric === 'velocity') {
+                    const diffHours = (new Date(item.last_date) - new Date(item.first_date)) / (1000 * 60 * 60);
+                    if (diffHours > 0) {
+                        item.diff = Math.round((item.diff / diffHours) * 24);
+                    } else {
+                        item.diff = 0;
+                    }
+                }
+                return item;
+            });
+
+            summaryList.sort((a, b) => {
+                let valA = a[perfoAllianceSortCol];
+                let valB = b[perfoAllianceSortCol];
+                if (perfoAllianceSortCol === 'tag') {
+                    valA = valA.toLowerCase(); valB = valB.toLowerCase();
+                }
+                if (valA < valB) return perfoAllianceSortAsc ? -1 : 1;
+                if (valA > valB) return perfoAllianceSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const getSortIcon = (col) => {
+                if (perfoAllianceSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                return perfoAllianceSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+            };
+
+            let colStartName = "Valeur Initiale";
+            let colEndName = "Valeur Finale";
+            let colDiffName = "Progression";
+            let unit = "";
+            let diffUnit = "";
+
+            if (perfoChartMetric === 'total_field' || perfoChartMetric === 'avg_field') { unit = " cm²"; diffUnit = " cm²"; }
+            else if (perfoChartMetric === 'players_count') { unit = " j."; diffUnit = " j."; }
+            else if (perfoChartMetric === 'velocity') {
+                colStartName = "Terrain Initial";
+                colEndName = "Terrain Final";
+                colDiffName = "Gain Moyen / Jour";
+                unit = " cm²";
+                diffUnit = " cm²/j"; // Unité spécifique pour clarifier la moyenne
+            }
+
+            let html = `
+                <div class="table-container mt-4">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfoAllianceSort('tag')">Alliance ${getSortIcon('tag')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('start_val')">${colStartName} ${getSortIcon('start_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('end_val')">${colEndName} ${getSortIcon('end_val')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors text-center" onclick="togglePerfoAllianceSort('diff')">${colDiffName} ${getSortIcon('diff')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            summaryList.forEach(item => {
+                const diffText = item.diff >= 0 ? `+${item.diff.toLocaleString('fr-FR')}` : item.diff.toLocaleString('fr-FR');
+                const diffClass = item.diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
+                const tagDisplay = item.tag === 'V' ? `<strong class="text-retro-coral bg-retro-cream px-2 py-1 rounded border-2 border-retro-slate shadow-retro-sm">${item.tag}</strong>` : `<strong>${item.tag}</strong>`;
+
+                html += `
+                    <tr>
+                        <td>${tagDisplay}</td>
+                        <td class="text-center">${item.start_val.toLocaleString('fr-FR')}${unit}</td>
+                        <td class="text-center font-bold">${item.end_val.toLocaleString('fr-FR')}${unit}</td>
+                        <td class="text-center font-bold ${diffClass}">${diffText}${diffUnit}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+        }
+
+        /* --- ONGLET CHAT --- */
+        async function loadChatTab(targetGroupId = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            chatOldestId = null;
+            chatLatestId = null;
+            chatHasMore = true;
+            chatIsFetching = false;
+
+            if (targetGroupId !== null) {
+                chatSelectedGroupId = parseInt(targetGroupId);
+            } else if (chatSelectedGroupId === null) {
+                chatSelectedGroupId = currentUserAdminInfo.group_id;
+                if (!chatSelectedGroupId || chatSelectedGroupId < 1) chatSelectedGroupId = 1;
+            }
+
+            try {
+                let availableGroups = [];
+                if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
+                    const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                        method: 'POST',
+                        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                    });
+                    if (groupsRes.ok) availableGroups = await groupsRes.json();
+                }
+
+                renderChatBaseUI(chatSelectedGroupId, availableGroups);
+                await fetchChatMessages(null, null, true);
+
+                if (chatInterval) clearInterval(chatInterval);
+                chatInterval = setInterval(() => {
+                    fetchChatMessages(null, chatLatestId, false);
+                }, 5000);
+
+            } catch (e) { console.error("Erreur Chat:", e); }
+        }
+
+        function renderChatBaseUI(currentGroupId, availableGroups) {
+            const contentDiv = document.getElementById('content-area');
+            
+            let groupSelectorHtml = `Groupe #${currentGroupId}`;
+            if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
+                let options = ``;
+                availableGroups.forEach(g => {
+                    if (g.group_id > 0) {
+                        options += `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`;
+                    }
+                });
+                groupSelectorHtml = `<select class="group-select" onchange="loadChatTab(this.value)">${options}</select>`;
+            }
+
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 bg-[#8e44ad] border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Transmission : ${groupSelectorHtml}</h3>
+                </div>
+
+                <div class="chat-container">
+                    <div id="chat-messages-box" class="chat-messages" onscroll="handleChatScroll()">
+                        <div id="chat-loader" class="text-center py-2 text-retro-slate/50 font-fredoka text-sm italic hidden">Récupération des archives...</div>
+                        <div id="chat-content" class="flex flex-col gap-3"></div>
+                    </div>
+                    
+                    <button id="chat-new-msg-pill" class="new-messages-pill" onclick="scrollToBottomChat()">
+                        ⬇️ Nouveaux messages
+                    </button>
+
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Saisissez votre transmission..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                        <button class="chat-btn-send" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchChatMessages(beforeId, afterId, isInitial = false) {
+            if (chatIsFetching) return;
+            chatIsFetching = true;
+            
+            const currentFetchGroupId = chatSelectedGroupId; 
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const box = document.getElementById('chat-messages-box');
+            const loader = document.getElementById('chat-loader');
+
+            if (beforeId && loader) loader.style.display = 'block';
+
+            try {
+                const bodyParams = { 
+                    p_session_token: sessionToken, 
+                    p_target_group_id: currentFetchGroupId,
+                    p_limit: 30
+                };
+                
+                if (beforeId) bodyParams.p_before_id = beforeId;
+                if (afterId) bodyParams.p_after_id = afterId;
+
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_messages`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyParams)
+                });
+
+                if (res.ok) {
+                    if (currentFetchGroupId !== chatSelectedGroupId) {
+                        chatIsFetching = false;
+                        return; 
+                    }
+
+                    let messages = await res.json();
+                    if (messages && messages.length > 0) {
+                        messages.reverse();
+
+                        if (beforeId) {
+                            chatOldestId = messages[0].message_id;
+                            const oldScrollHeight = box.scrollHeight;
+                            appendMessagesToDOM(messages, true);
+                            box.scrollTop = box.scrollHeight - oldScrollHeight; 
+                        } else {
+                            if (!chatOldestId) chatOldestId = messages[0].message_id;
+                            chatLatestId = messages[messages.length - 1].message_id;
+                            
+                            const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+                            appendMessagesToDOM(messages, false);
+                            
+                            if (isInitial || isNearBottom || !afterId) {
+                                scrollToBottomChat();
+                            } else {
+                                document.getElementById('chat-new-msg-pill').style.display = 'block';
+                            }
+                        }
+                    } else if (beforeId) {
+                        chatHasMore = false;
+                    }
+                }
+            } catch (e) { console.error(e); }
+            
+            chatIsFetching = false;
+            if (loader) loader.style.display = 'none';
+        }
+
+        function appendMessagesToDOM(messages, prepend) {
+            const container = document.getElementById('chat-content');
+            let html = '';
+
+            messages.forEach(m => {
+                const dateHtml = `<span class="text-[0.65rem] text-retro-slate/60 mt-0.5">${formatChatTime(m.created_at)}</span>`;
+                
+                let colorClass = 'text-[#3498db]'; 
+                if (m.role === 'superadmin') colorClass = 'text-retro-coral';
+                else if (m.role === 'admin') colorClass = 'text-[#8e44ad]';
+                else if (m.role === 'chef_de_rang') colorClass = 'text-retro-mint-dark';
+
+                const isMe = m.pseudo === currentUserAdminInfo.pseudo;
+                
+                const bubbleClass = isMe ? 'is-me' : 'is-other';
+                const metaClass = isMe ? 'is-me' : 'is-other';
+
+                html += `
+                    <div class="chat-msg-bubble ${bubbleClass}">
+                        <div class="chat-meta ${metaClass}">
+                            <strong class="font-fredoka font-bold text-sm ${colorClass}">
+                                ${escapeHtml(m.pseudo)}
+                            </strong>
+                            ${dateHtml}
+                        </div>
+                        <span class="text-sm font-outfit text-retro-slate leading-snug break-words">
+                            ${escapeHtml(m.message).replace(/\n/g, '<br>')}
+                        </span>
+                    </div>
+                `;
+            });
+
+            if (prepend) container.insertAdjacentHTML('afterbegin', html);
+            else container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function handleChatScroll() {
+            const box = document.getElementById('chat-messages-box');
+            if (!box || chatIsFetching) return;
+
+            if (box.scrollTop < 50 && chatHasMore && chatOldestId) {
+                fetchChatMessages(chatOldestId, null, false);
+            }
+
+            const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+            if (isNearBottom) {
+                document.getElementById('chat-new-msg-pill').style.display = 'none';
+            }
+        }
+
+        function scrollToBottomChat() {
+            const box = document.getElementById('chat-messages-box');
+            if (box) box.scrollTop = box.scrollHeight;
+            document.getElementById('chat-new-msg-pill').style.display = 'none';
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            input.value = '';
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/post_group_message`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: chatSelectedGroupId, p_message: msg })
+                });
+
+                if (res.ok) {
+                    const checkAndFetch = () => {
+                        if (chatIsFetching) setTimeout(checkAndFetch, 500);
+                        else fetchChatMessages(null, chatLatestId, false).then(() => scrollToBottomChat());
+                    };
+                    checkAndFetch();
+                } else {
+                    showToast("Erreur", "Transmission échouée.");
+                }
+            } catch (e) {
+                showToast("Erreur", "Réseau indisponible.");
+            }
+        }
+
+        /* --- ONGLET GROUPE --- */
+        async function loadGroupConvoys(targetGroupId = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                if (targetGroupId !== null) {
+                    selectedGroupId = parseInt(targetGroupId);
+                } else if (selectedGroupId === null) {
+                    selectedGroupId = currentUserAdminInfo.group_id > 0 ? currentUserAdminInfo.group_id : -1;
+                }
+                
+                computeDateRange();
+        
+                const paramsGlobal = { p_session_token: sessionToken, p_start_date: groupStartDate || null, p_end_date: groupEndDate || null };
+                const paramForConvoysAndLogs = selectedGroupId === -1 ? null : selectedGroupId;
+        
+                const resConvoys = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_group_convoys`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_target_group_id: paramForConvoysAndLogs })
+                });
+                if (!resConvoys.ok) return logout();
+                const convoysData = await resConvoys.json();
+        
+                const resLogs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_daily_logs`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: paramForConvoysAndLogs })
+                });
+                const logsData = resLogs.ok ? await resLogs.json() : [];
+        
+                const resPerfs = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_group_player_performances_v2`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...paramsGlobal, p_target_group_id: selectedGroupId })
+                });
+                let playerPerfsData = [];
+                if (resPerfs.ok) {
+                    playerPerfsData = await resPerfs.json();
+                }
+        
+                let availableGroups = [];
+                const groupsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }
+                });
+                if (groupsRes.ok) availableGroups = await groupsRes.json();
+        
+                renderGroupUI(convoysData, logsData, playerPerfsData, selectedGroupId, availableGroups);
+            } catch (e) { console.error(e); }
+        }
+
+        function computeDateRange() {
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+            
+            const formatDate = d => d.toISOString().split('T')[0];
+            
+            if (groupFilterMode === '7days') {
+                const start = new Date(); start.setDate(today.getDate() - 6);
+                groupStartDate = formatDate(start); groupEndDate = formatDate(today);
+            } else if (groupFilterMode === 'day') {
+                const inputDay = document.getElementById('filter-single-day');
+                groupStartDate = groupEndDate = inputDay && inputDay.value ? inputDay.value : formatDate(today);
+            } else if (groupFilterMode === 'week') {
+                const inputWeek = document.getElementById('filter-week-select');
+                let refDate = new Date();
+                if (inputWeek && inputWeek.value) {
+                    const parts = inputWeek.value.split('-W');
+                    if (parts.length === 2) refDate = getFirstDayOfWeek(parseInt(parts[0]), parseInt(parts[1]));
+                } else {
+                    const day = today.getDay() || 7; refDate.setDate(today.getDate() - day + 1);
+                }
+                const monday = new Date(refDate); const sunday = new Date(refDate);
+                sunday.setDate(monday.getDate() + 6);
+                groupStartDate = formatDate(monday); groupEndDate = formatDate(sunday);
+            } else if (groupFilterMode === 'custom') {
+                const startInput = document.getElementById('filter-start-date');
+                const endInput = document.getElementById('filter-end-date');
+                groupStartDate = startInput && startInput.value ? startInput.value : formatDate(today);
+                groupEndDate = endInput && endInput.value ? endInput.value : formatDate(today);
+            }
+        }
+
+        function getFirstDayOfWeek(year, week) {
+            const date = new Date(year, 0, 1 + (week - 1) * 7);
+            const dayOfWeek = date.getDay();
+            const ISOweekStart = date;
+            if (dayOfWeek <= 4) ISOweekStart.setDate(date.getDate() - date.getDay() + 1);
+            else ISOweekStart.setDate(date.getDate() + 8 - date.getDay());
+            return ISOweekStart;
+        }
+
+        let perfSortCol = 'end_terrain';
+        let perfSortAsc = false;
+        let currentGroupDataCache = null;
+
+        function togglePerfSort(col) {
+            if (perfSortCol === col) perfSortAsc = !perfSortAsc;
+            else { perfSortCol = col; perfSortAsc = (col === 'pseudo'); }
+            if (currentGroupDataCache) {
+                renderGroupUI(currentGroupDataCache.convoys, currentGroupDataCache.dailyLogs, currentGroupDataCache.playerPerfs, currentGroupDataCache.currentGroupId, currentGroupDataCache.availableGroups);
+            }
+        }
+
+        let adminSortCol = 'group_id';
+        let adminSortAsc = true;
+        let currentAdminDataCache = null;
+
+        function toggleAdminSort(col) {
+            if (adminSortCol === col) adminSortAsc = !adminSortAsc;
+            else { adminSortCol = col; adminSortAsc = true; }
+            if (currentAdminDataCache) renderAdminTable(currentAdminDataCache);
+        }
+
+        function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
+            currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
+            const contentDiv = document.getElementById('content-area');
+            
+            let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
+            if (availableGroups && availableGroups.length > 0) {
+                options += availableGroups.map(g => `<option value="${g.group_id}" ${g.group_id == currentGroupId ? 'selected' : ''}>Groupe #${g.group_id}</option>`).join('');
+            }
+            let groupSelectorHtml = `<select class="group-select" onchange="loadGroupConvoys(this.value)">${options}</select>`;
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            let dateInputsHtml = '';
+            if (groupFilterMode === 'day') dateInputsHtml = `<input type="date" id="filter-single-day" value="${groupStartDate || todayStr}" onchange="loadGroupConvoys()">`;
+            else if (groupFilterMode === 'week') dateInputsHtml = `<input type="week" id="filter-week-select" onchange="loadGroupConvoys()">`;
+            else if (groupFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}"> <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport Stratégique : ${groupSelectorHtml}</h3>
+                </div>
+                <div class="date-filter-box">
+                    <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
+                    <select id="filter-mode-select" onchange="groupFilterMode = this.value; loadGroupConvoys();">
+                        <option value="7days" ${groupFilterMode === '7days' ? 'selected' : ''}>7 jours glissants</option>
+                        <option value="day" ${groupFilterMode === 'day' ? 'selected' : ''}>Journée précise</option>
+                        <option value="week" ${groupFilterMode === 'week' ? 'selected' : ''}>Semaine (Lun - Dim)</option>
+                        <option value="custom" ${groupFilterMode === 'custom' ? 'selected' : ''}>Personnalisé (De - À)</option>
+                    </select>
+                    ${dateInputsHtml}
+                    ${groupFilterMode === 'custom' ? `<button onclick="loadGroupConvoys()"><i class="fa-solid fa-check"></i> Activer</button>` : ''}
+                </div>
+                <p class="font-fredoka text-sm text-retro-slate/70 mb-6 font-bold uppercase tracking-wide">Analyse du <span class="text-retro-coral">${formatDateFR(groupStartDate)}</span> au <span class="text-retro-coral">${formatDateFR(groupEndDate)}</span>.</p>
+            `;
+
+            if (currentGroupId === -1) {
+                if (playerPerfs) playerPerfs = playerPerfs.filter(p => p.group_id > 0);
+                if (dailyLogs) dailyLogs = dailyLogs.filter(l => l.group_id > 0);
+                if (convoys) convoys = convoys.filter(c => c.group_id > 0);
+            }
+
+            let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
+            let potCommun = 0;
+            let goodStudentsCount = 0;
+            
+            if (playerPerfs && playerPerfs.length > 0) {
+                const playerCount = playerPerfs.length;
+
+                // 1er passage : on calcule la production totale et le nombre de "bons élèves"
+                playerPerfs.forEach(p => { 
+                    sumStart += p.start_terrain; 
+                    sumEnd += p.end_terrain; 
+                    sumDiff += p.terrain_diff; 
+                    sumRes += Number(p.resources_generated); 
+                    
+                    // Sécurisation du ratio
+                    p.calc_ratio = (p.ratio !== undefined && p.ratio !== null) ? Number(p.ratio) : 100;
+                    if (p.calc_ratio === 100) goodStudentsCount++;
+                });
+
+                // Cible moyenne de base pour le groupe
+                const baseTargetAvg = playerCount > 0 ? (sumRes / playerCount) : 0;
+
+                // 2ème passage : on calcule les cibles des passeurs et on remplit le pot commun
+                playerPerfs.forEach(p => {
+                    if (p.calc_ratio === 100) {
+                        p.base_target = baseTargetAvg;
+                    } else {
+                        // Formule de sanction du backend : 0.5 + (ratio / 200)
+                        const penaltyFactor = 0.5 + (p.calc_ratio / 200);
+                        p.base_target = baseTargetAvg * penaltyFactor;
+                        potCommun += (baseTargetAvg - p.base_target);
+                    }
+                });
+
+                // 3ème passage : on redistribue le pot et on fixe le quota estimé
+                const beneficiariesCount = goodStudentsCount > 0 ? goodStudentsCount : playerCount;
+                const bonusPerPlayer = potCommun / beneficiariesCount;
+
+                playerPerfs.forEach(p => {
+                    if (goodStudentsCount > 0) {
+                        if (p.calc_ratio === 100) {
+                            p.estimated_quota = Math.round(p.base_target + bonusPerPlayer);
+                        } else {
+                            p.estimated_quota = Math.round(p.base_target);
+                        }
+                    } else {
+                        // Sécurité backend : si personne n'a 100%, tout le monde se partage le pot pour ne rien perdre
+                        p.estimated_quota = Math.round(p.base_target + bonusPerPlayer);
+                    }
+                });
+
+            } else if (dailyLogs && dailyLogs.length > 0) {
+                dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += Number(l.resources_generated); });
+                const startValues = dailyLogs.map(l => l.start_terrain);
+                const endValues = dailyLogs.map(l => l.end_terrain);
+                sumStart = Math.min(...startValues.filter(v => v > 0)); 
+                sumEnd = Math.max(...endValues);
+            }
+
+            const diffFormatted = sumDiff >= 0 ? `+${sumDiff.toLocaleString('fr-FR')}` : sumDiff.toLocaleString('fr-FR');
+            const diffColor = sumDiff >= 0 ? '#3aafa9' : '#ff6f61';
+
+            html += `
+                <div class="stats-summary">
+                    <div class="stat-card"><div class="val">${sumStart.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Initial</div></div>
+                    <div class="stat-card"><div class="val">${sumEnd.toLocaleString('fr-FR')}</div><div class="lbl">Terrain Actuel</div></div>
+                    <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
+                    <div class="stat-card"><div class="val" style="color:#f4d03f; text-shadow: 1px 1px 0 #1d2d44;">${sumRes.toLocaleString('fr-FR')}</div><div class="lbl">Ressources Générées</div></div>
+                </div>
+            `;
+
+            if (playerPerfs && playerPerfs.length > 0) {
+                playerPerfs.sort((a, b) => {
+                    let valA = a[perfSortCol];
+                    let valB = b[perfSortCol];
+                    if (perfSortCol === 'resources_generated') { valA = Number(valA); valB = Number(valB); } 
+                    else { if (typeof valA === 'string') valA = valA.toLowerCase(); if (typeof valB === 'string') valB = valB.toLowerCase(); }
+                    
+                    if (valA < valB) return perfSortAsc ? -1 : 1;
+                    if (valA > valB) return perfSortAsc ? 1 : -1;
+                    return 0;
+                });
+
+                const getSortIcon = (col) => {
+                    if (perfSortCol !== col) return '<i class="fa-solid fa-sort text-retro-cream/30 ml-1"></i>';
+                    return perfSortAsc ? '<i class="fa-solid fa-sort-up text-retro-yellow ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-yellow ml-1"></i>';
+                };
+
+                html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">👤 Bilan Individuel</h3>
+                    <div class="table-container"><table><thead><tr>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('pseudo')">Joueur ${getSortIcon('pseudo')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('start_terrain')">Terrain Initial ${getSortIcon('start_terrain')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('end_terrain')">Terrain Actuel ${getSortIcon('end_terrain')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('terrain_diff')">Progression ${getSortIcon('terrain_diff')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('resources_generated')">Ressources ${getSortIcon('resources_generated')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('calc_ratio')">Ratio ${getSortIcon('calc_ratio')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('estimated_quota')">Quota Estimé ${getSortIcon('estimated_quota')}</th>
+                    </tr></thead><tbody>`;
+                
+                playerPerfs.forEach(p => {
+                    const pDiffText = p.terrain_diff >= 0 ? `+${p.terrain_diff.toLocaleString('fr-FR')}` : p.terrain_diff.toLocaleString('fr-FR');
+                    const pDiffClass = p.terrain_diff >= 0 ? 'text-retro-mint' : 'text-retro-coral';
+                    
+                    let roleDisplay = '';
+                    if (p.group_role) {
+                        let roleName = p.group_role; let icon = '🛡️';
+                        if (p.group_role === 'chasseur') { roleName = 'Chasseur'; icon = '🏹'; }
+                        else if (p.group_role === 'passeur_bas') { roleName = 'Passeur bas'; icon = '📉'; }
+                        else if (p.group_role === 'passeur_inter') { roleName = `Passeur inter. (Étage ${p.floor_level || '?'})`; icon = '🔄'; }
+                        else if (p.group_role === 'grenier') { roleName = 'Grenier'; icon = '🌾'; }
+                        roleDisplay = `<br><span class="font-fredoka text-[0.65rem] text-retro-slate/60 font-bold uppercase tracking-widest">${icon} ${roleName}</span>`;
+                    }
+
+                    const pseudoLink = `<a href="https://s5.fourmizzz.fr/ennemie.php?Attaquer=${p.player_id}&lieu=1" target="_blank" class="text-retro-slate hover:text-retro-coral transition-colors" title="Attaquer ${escapeHtml(p.pseudo)}"><i class="fa-solid fa-crosshairs text-xs opacity-50 mr-1 hover:opacity-100"></i><strong>${escapeHtml(p.pseudo)}</strong></a>`;
+
+                    html += `<tr>
+                        <td class="leading-tight">${pseudoLink}${roleDisplay}</td>
+                        <td>${p.start_terrain.toLocaleString('fr-FR')} cm²</td>
+                        <td><strong>${p.end_terrain.toLocaleString('fr-FR')} cm²</strong></td>
+                        <td><strong class="${pDiffClass} drop-shadow-sm">${pDiffText} cm²</strong></td>
+                        <td><strong class="text-retro-yellow drop-shadow-sm">${Number(p.resources_generated).toLocaleString('fr-FR')}</strong></td>
+                        <td><strong class="text-retro-slate/80">${p.calc_ratio}%</strong></td>
+                        <td><strong class="text-retro-mint-dark drop-shadow-sm">${p.estimated_quota.toLocaleString('fr-FR')}</strong></td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+
+            html += `<h3 class="font-shrikhand text-xl text-retro-slate mt-8 mb-4">📦 Convois du Groupe</h3>`;
+            if (convoys.length === 0) html += `<p class="font-fredoka text-retro-slate/60 italic">Aucun convoi enregistré sur cette période.</p>`;
+            else {
+                html += `<div class="table-container"><table><thead><tr><th>Date</th>${currentGroupId === -1 ? '<th>Grp</th>' : ''}<th>Expéditeur</th><th>Destinataire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
+                convoys.forEach(c => {
+                    let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> En attente</span>';
+                    if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Complété</span>';
+                    else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>';
+                    html += `<tr><td>${formatDateFR(c.balance_date)}</td>${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
+                        <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td><td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td>${badge}</td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+            contentDiv.innerHTML = html;
+        }
+
+        /* --- CARTE 2D --- */
+        async function loadMapTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_map_data`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!res.ok) return logout();
+                mapPlayersData = await res.json();
+                const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0));
+                renderMapUI(Array.from(groupsSet).sort((a, b) => a - b));
+            } catch (e) { logout(); }
+        }
+
+        function renderMapUI(groups) {
+            const contentDiv = document.getElementById('content-area');
+            let filterButtons = `<button class="map-filter-btn ${mapSelectedGroup === -1 ? 'active' : ''}" onclick="setMapGroupFilter(-1)">🌐 Alliance entière</button>`;
+            groups.forEach(g => {
+                const color = g === 0 ? '#94a3b8' : GROUP_COLORS[(g - 1) % GROUP_COLORS.length];
+                const activeClass = mapSelectedGroup === g ? 'active' : '';
+                const label = g === 0 ? 'Hors-chaîne' : `Groupe #${g}`;
+                filterButtons += `<button class="map-filter-btn ${activeClass}" style="border-color:${color};" onclick="setMapGroupFilter(${g})">${label}</button>`;
+            });
+
+            contentDiv.innerHTML = `
+                <div class="flex flex-col items-center w-full">
+                    <div class="flex items-center gap-3 mb-6 w-full max-w-3xl">
+                        <div class="w-12 h-12 bg-retro-avocado border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-map"></i></div>
+                        <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Cartographie</h3>
+                    </div>
+                    <div class="map-controls">
+                        <input type="text" class="map-search" placeholder="🔍 Localiser un joueur..." value="${escapeHtml(mapSearchQuery)}" oninput="setMapSearch(this.value)">
+                        <div class="flex gap-2 flex-wrap justify-end">${filterButtons}</div>
+                    </div>
+                    <div class="w-full max-w-3xl relative tv-screen">
+                        <div class="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-retro-slate/10 z-10"></div>
+                        <canvas id="alliance-map" width="700" height="600" class="w-full h-auto cursor-grab active:cursor-grabbing"></canvas>
+                        <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
+                            <button class="map-tool-btn" onclick="zoomMap(1.25)" title="Zoom Avant"><i class="fa-solid fa-magnifying-glass-plus text-base"></i></button>
+                            <button class="map-tool-btn" onclick="zoomMap(0.8)" title="Zoom Arrière"><i class="fa-solid fa-magnifying-glass-minus text-base"></i></button>
+                            <button class="map-tool-btn" onclick="resetMapTransform()" title="Recalibrer"><i class="fa-solid fa-compress text-base"></i></button>
+                        </div>
+                        <div id="map-tooltip" class="absolute bg-[#f9f7f1] text-[#1d2d44] p-3 rounded-xl border-4 border-[#1d2d44] text-xs hidden z-30 shadow-retro pointer-events-none font-outfit font-bold"></div>
+                    </div>
+                    <div class="font-fredoka text-xs text-retro-slate/60 mt-4 font-bold uppercase tracking-wider"><i class="fa-solid fa-lightbulb text-retro-yellow"></i> Utilisez la molette pour zoomer et glissez la carte pour explorer.</div>
+                </div>
+            `;
+            initMapCanvasEvents(); drawMap();
+        }
+
+        function setMapGroupFilter(groupId) { mapSelectedGroup = groupId; const groupsSet = new Set(mapPlayersData.map(p => p.group_id).filter(g => g >= 0)); renderMapUI(Array.from(groupsSet).sort((a, b) => a - b)); }
+        function setMapSearch(query) { mapSearchQuery = query.toLowerCase().trim(); drawMap(); }
+        function zoomMap(factor) { zoomLevel = Math.max(0.8, Math.min(zoomLevel * factor, 5)); drawMap(); }
+        function resetMapTransform() { zoomLevel = 1; panX = 0; panY = 0; drawMap(); }
+
+        function initMapCanvasEvents() {
+            const canvas = document.getElementById('alliance-map'); const tooltip = document.getElementById('map-tooltip');
+            if (!canvas) return;
+            canvas.onwheel = (e) => { e.preventDefault(); const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85; zoomLevel = Math.max(0.8, Math.min(zoomLevel * zoomFactor, 5)); drawMap(); };
+            canvas.onmousedown = (e) => { isDragging = true; dragStartX = e.clientX - panX; dragStartY = e.clientY - panY; };
+            window.onmousemove = (e) => {
+                if (isDragging) { panX = e.clientX - dragStartX; panY = e.clientY - dragStartY; drawMap(); return; }
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect(); 
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const mouseX = (e.clientX - rect.left) * scaleX; 
+                    const mouseY = (e.clientY - rect.top) * scaleY;
+                    
+                    const found = mapPlayersData.find(p => { if (p._cx === undefined) return false; const dx = p._cx - mouseX; const dy = p._cy - mouseY; return (dx * dx + dy * dy) <= 120; });
+                    if (found && tooltip) {
+                        const groupLabel = found.group_id === 0 ? 'Hors-chaîne' : `#${found.group_id}`;
+                        tooltip.style.display = 'block'; 
+                        tooltip.style.left = `${(mouseX / scaleX) + 15}px`; 
+                        tooltip.style.top = `${(mouseY / scaleY) - 10}px`;
+                        tooltip.innerHTML = `<div class="border-b-2 border-[#1d2d44] pb-1 mb-1"><strong class="font-fredoka text-sm text-[#ff6f61]">${escapeHtml(found.pseudo)}</strong></div>Groupe ${groupLabel}<br>Coords : (${found.x}, ${found.y})`;
+                    } else if (tooltip) tooltip.style.display = 'none';
+                }
+            };
+            window.onmouseup = () => { isDragging = false; };
+            canvas.onmouseleave = () => { if (tooltip) tooltip.style.display = 'none'; };
+        }
+
+        function drawMap() {
+            const canvas = document.getElementById('alliance-map'); if (!canvas) return;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let minX = 0, maxX = 100, minY = 0, maxY = 100;
+            const padding = 70; 
+            const mapWidth = canvas.width - (padding * 2); 
+            const mapHeight = canvas.height - (padding * 2);
+            
+            ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoomLevel, zoomLevel); ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            
+            ctx.strokeStyle = 'rgba(29, 45, 68, 0.15)'; 
+            ctx.lineWidth = 1 / zoomLevel;
+            for (let i = -canvas.width; i <= canvas.width * 2; i += 50) { ctx.beginPath(); ctx.moveTo(i, -canvas.height); ctx.lineTo(i, canvas.height * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-canvas.width, i); ctx.lineTo(canvas.width * 2, i); ctx.stroke(); }
+            
+            ctx.strokeStyle = '#1d2d44';
+            ctx.lineWidth = 3 / zoomLevel;
+            ctx.strokeRect(padding - 15, padding - 15, mapWidth + 30, mapHeight + 30);
+            
+            ctx.fillStyle = '#1d2d44';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `bold ${Math.max(10, 13 / zoomLevel)}px 'Fredoka'`;
+            
+            for (let i = 0; i <= 4; i++) {
+                const val = i * 25; 
+                const plotX = padding + mapWidth * (i / 4);
+                const plotY = padding + mapHeight * (i / 4);
+                
+                ctx.fillText(val, plotX, padding - 28);
+                ctx.fillText(val, plotX, padding + mapHeight + 28);
+                ctx.fillText(val, padding - 38, plotY);
+                ctx.fillText(val, padding + mapWidth + 38, plotY);
+                
+                ctx.beginPath(); ctx.moveTo(plotX, padding - 15); ctx.lineTo(plotX, padding - 5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(plotX, padding + mapHeight + 15); ctx.lineTo(plotX, padding + mapHeight + 5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(padding - 15, plotY); ctx.lineTo(padding - 5, plotY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(padding + mapWidth + 15, plotY); ctx.lineTo(padding + mapWidth + 5, plotY); ctx.stroke();
+            }
+
+            const showLabels = (mapSelectedGroup !== -1) || (zoomLevel > 1.6) || (mapSearchQuery.length > 0);
+            const drawnRects = []; 
+            
+            mapPlayersData.forEach(p => {
+                const normX = padding + ((p.x - minX) / (maxX - minX)) * mapWidth; 
+                const normY = padding + ((p.y - minY) / (maxY - minY)) * mapHeight;
+                
+                const screenX = (normX - canvas.width / 2) * zoomLevel + canvas.width / 2 + panX; 
+                const screenY = (normY - canvas.height / 2) * zoomLevel + canvas.height / 2 + panY;
+                p._cx = screenX; p._cy = screenY;
+                
+                const isGroupMatch = (mapSelectedGroup === -1 || p.group_id === mapSelectedGroup); 
+                const isSearchMatch = mapSearchQuery === '' || p.pseudo.toLowerCase().includes(mapSearchQuery); 
+                const isHighlight = isGroupMatch && isSearchMatch;
+                const color = p.group_id > 0 ? GROUP_COLORS[(p.group_id - 1) % GROUP_COLORS.length] : '#94a3b8';
+                
+                ctx.beginPath(); 
+                ctx.arc(normX, normY, isHighlight ? 7 : 4, 0, Math.PI * 2); 
+                
+                ctx.fillStyle = isHighlight ? color : 'rgba(29, 45, 68, 0.1)';
+                ctx.fill(); 
+                
+                if (isHighlight) {
+                    ctx.strokeStyle = '#1d2d44'; 
+                    ctx.lineWidth = 2.5 / zoomLevel; 
+                    ctx.stroke();
+                    
+                    if (showLabels) { 
+                        ctx.font = `bold ${Math.max(10, 12 / zoomLevel)}px 'Fredoka'`; 
+                        const tw = ctx.measureText(p.pseudo).width;
+                        const th = 14 / zoomLevel;
+                        
+                        const positions = [
+                            {x: normX + 12, y: normY, align: 'left', base: 'middle'},
+                            {x: normX, y: normY + 14, align: 'center', base: 'top'},
+                            {x: normX, y: normY - 14, align: 'center', base: 'bottom'},
+                            {x: normX - 12, y: normY, align: 'right', base: 'middle'}
+                        ];
+                        
+                        for (let pos of positions) {
+                            let rx = pos.x; let ry = pos.y;
+                            if (pos.align === 'center') rx -= tw/2;
+                            if (pos.align === 'right') rx -= tw;
+                            if (pos.base === 'middle') ry -= th/2;
+                            if (pos.base === 'bottom') ry -= th;
+                            
+                            const rect = {x: rx - 2, y: ry - 2, w: tw + 4, h: th + 4};
+                            let overlap = false;
+                            
+                            for (let dr of drawnRects) {
+                                if (!(rect.x > dr.x + dr.w || rect.x + rect.w < dr.x || rect.y > dr.y + dr.h || rect.y + rect.h < dr.y)) {
+                                    overlap = true; break;
+                                }
+                            }
+                            
+                            if (!overlap) {
+                                ctx.textAlign = pos.align; ctx.textBaseline = pos.base;
+                                ctx.fillStyle = '#1d2d44'; ctx.strokeStyle = '#f2ead0';
+                                ctx.lineWidth = 3 / zoomLevel;
+                                ctx.strokeText(p.pseudo, pos.x, pos.y); ctx.fillText(p.pseudo, pos.x, pos.y);
+                                drawnRects.push(rect); break; 
+                            }
+                        }
+                    }
+                }
+            });
+            ctx.restore();
+        }
+
+        /* --- CONVOIS & ADMIN --- */
+        function renderActiveConvoys(convoys) {
+            const subContentDiv = document.getElementById('convoys-content-area');
+            if (!subContentDiv) return;
+            const toSend = convoys.filter(c => c.is_sender); const toReceive = convoys.filter(c => !c.is_sender);
+            
+            let html = `<h4 class="font-shrikhand text-xl text-retro-slate mb-4 mt-2"><i class="fa-solid fa-box-open text-retro-coral mr-2"></i> Ressources à expédier</h4>`;
+            html += renderTable(toSend, true);
+            html += `<h4 class="font-shrikhand text-xl text-retro-slate mb-4 mt-8"><i class="fa-solid fa-box text-retro-mint mr-2"></i> Ressources en approche</h4>`;
+            html += renderTable(toReceive, false);
+            subContentDiv.innerHTML = html;
+        }
+
+        function renderTable(list, isSender) {
+            if (list.length === 0) return `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucun convoi dans cette catégorie.</p>`;
+            let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Destinataire</th><th>Montant</th><th>Statut</th>${isSender ? '<th>Action</th>' : ''}</tr></thead><tbody>`;
+            list.forEach(c => {
+                const target = isSender ? c.to_player_pseudo : c.from_player_pseudo; 
+                const targetId = isSender ? c.to_player_id : c.from_player_id; 
+                const isFailed = c.status === 'failed';
+                const statusBadge = isFailed ? `<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>` : `<span class="badge badge-pending"><i class="fa-solid fa-hourglass-half"></i> En attente</span>`;
+                
+                let amountDisplay = `<strong class="text-retro-mint">${Number(c.amount).toLocaleString('fr-FR')}</strong> Ressources`;
+                let actionBtns = '';
+                
+                if (isSender) {
+                    amountDisplay = `<div class="flex items-center gap-1 sm:gap-2">
+                        <input type="text" inputmode="numeric" id="convoy-amount-${c.id}" value="${c.amount}" class="w-20 sm:w-24 shrink-0 bg-retro-cream border-2 border-retro-slate rounded-xl text-center font-bold text-retro-mint outline-none" style="margin:0; padding: 0.25rem; min-width: 75px;" oninput="cleanConvoyInput(this, ${c.amount})">
+                        <span class="text-xs font-bold text-retro-slate/50 whitespace-nowrap">/ ${Number(c.amount).toLocaleString('fr-FR')}</span>
+                    </div>`;
+
+                    const btnColor = isFailed ? 'bg-retro-coral text-white' : 'bg-retro-yellow text-retro-slate';
+                    actionBtns += `<button class="btn-action ${btnColor}" onclick="dispatchConvoy(${targetId}, ${c.id}, ${c.amount})">${isFailed ? '<i class="fa-solid fa-rotate-right"></i> Relancer' : '<i class="fa-solid fa-bolt"></i> Expédier'}</button>
+                    <button class="btn-manual-ok" onclick="markConvoyCompleted(${c.id}, ${c.amount})"><i class="fa-solid fa-check"></i> Acter</button>`;
+                }
+                
+                html += `<tr class="${isFailed ? 'row-failed' : ''}"><td>${formatDateFR(c.balance_date)}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${amountDisplay}</td><td>${statusBadge}</td>${isSender ? `<td>${actionBtns}</td>` : ''}</tr>`;
+            });
+            return html + `</tbody></table></div>`;
+        }
+
+        function dispatchConvoy(targetId, convoyId, maxAmount) {
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amount = input ? parseInt(input.value) : maxAmount;
+            if (amount > maxAmount) amount = maxAmount;
+            if (amount < 1) amount = 1;
+            window.open(`https://s5.fourmizzz.fr/commerce.php?ID=${targetId}&auto_convoy_id=${convoyId}&auto_amount=${amount}`, '_blank');
+        }
+
+        function cleanConvoyInput(input, maxAmount) {
+            input.value = input.value.replace(/\D/g, '');
+            if (input.value !== '') {
+                let val = parseInt(input.value, 10);
+                if (val > maxAmount) input.value = maxAmount;
+            }
+        }
+
+        function markConvoyCompleted(convoyId, maxAmount) {
+            const sessionToken = localStorage.getItem('alliance_session_token'); 
+            if (!sessionToken) return logout();
+
+            const input = document.getElementById(`convoy-amount-${convoyId}`);
+            let amountSent = input ? parseInt(input.value) : maxAmount;
+
+            if (!amountSent || amountSent <= 0 || amountSent > maxAmount) return showToast("Erreur", "Montant invalide.");
+
+            const html = `
+                <p class="mb-4 text-sm font-outfit text-retro-slate">Vous êtes sur le point de valider l'envoi de <strong class="text-retro-mint text-lg">${amountSent.toLocaleString('fr-FR')}</strong> ressources.</p>
+                <p class="text-xs text-retro-slate/80 italic border-l-4 border-retro-yellow pl-2">Avez-vous bien expédié cette quantité exacte en jeu ? Si le montant est inférieur au total, un nouveau convoi sera créé pour le reste.</p>
+            `;
+
+            openRetroModal('Confirmer l\'expédition', html, '<i class="fa-solid fa-check"></i> Acter l\'envoi', 'bg-retro-mint text-white', async () => {
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/complete_convoy_partial`, { 
+                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ p_session_token: sessionToken, p_convoy_id: parseInt(convoyId), p_amount_sent: amountSent }) 
+                    });
+                    
+                    if (res.ok) { showToast("Confirmation", "Convoi validé avec succès !"); renderTabContent(); } 
+                    else showToast("Erreur", "Erreur lors de la validation.");
+                } catch (e) { showToast("Erreur", "Erreur réseau."); }
+            });
+        }
+
+        function renderHistoryConvoys(historyList) {
+            const subContentDiv = document.getElementById('convoys-content-area');
+            if (!subContentDiv) return;
+            
+            if (historyList.length === 0) { subContentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`; return; }
+            
+            let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Flux</th><th>Partenaire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
+            historyList.forEach(c => {
+                const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
+                const typeText = c.is_sender ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Envoyé</span>' : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Reçu</span>';
+                html += `<tr><td>${formatDateFR(c.balance_date)}</td><td>${typeText}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td></tr>`;
+            });
+            subContentDiv.innerHTML = html + `</tbody></table></div>`;
+        }
+
+        async function loadAdminPanel() {
+            const sessionToken = localStorage.getItem('alliance_session_token'); const contentDiv = document.getElementById('content-area');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_alliance_admin_list`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: sessionToken }) });
+                if (!res.ok) { const err = await res.json(); contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center bg-white p-6 rounded-2xl border-4 border-retro-slate shadow-retro">⚠️ Accès refusé à la console d'administration : ${escapeHtml(err.message)}</p>`; return; }
+                const data = await res.json();
+                if (data && data.length > 0) currentUserAdminInfo = { role: data[0].current_user_role, group_id: data[0].current_user_group_id };
+                renderAdminTable(data);
+            } catch (e) { contentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur réseau.</p>`; }
+        }
+
+        function renderAdminTable(members) {
+            currentAdminDataCache = members;
+            const contentDiv = document.getElementById('content-area'); 
+            const myRole = currentUserAdminInfo.role; 
+            const myGroupId = currentUserAdminInfo.group_id;
+            
+            let sortedMembers = [...members];
+            sortedMembers.sort((a, b) => {
+                let valA = a[adminSortCol];
+                let valB = b[adminSortCol];
+
+                if (adminSortCol === 'role') {
+                    const weights = { 'superadmin': 1, 'admin': 2, 'chef_de_rang': 3, 'member': 4 };
+                    valA = weights[a.role] || 5; valB = weights[b.role] || 5;
+                } else if (adminSortCol === 'group_id') {
+                    valA = a.group_id === 0 ? 999 : a.group_id; valB = b.group_id === 0 ? 999 : b.group_id;
+                }
+
+                if (valA === null || valA === undefined) valA = adminSortAsc ? 99999 : -99999;
+                if (valB === null || valB === undefined) valB = adminSortAsc ? 99999 : -99999;
+
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return adminSortAsc ? -1 : 1;
+                if (valA > valB) return adminSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const getSortIcon = (col) => {
+                if (adminSortCol !== col) return '<i class="fa-solid fa-sort text-retro-slate/30 ml-1"></i>';
+                return adminSortAsc ? '<i class="fa-solid fa-sort-up text-retro-coral ml-1"></i>' : '<i class="fa-solid fa-sort-down text-retro-coral ml-1"></i>';
+            };
+            
+            const buildGroupOptions = (currentGroup) => { 
+                let opts = `<option value="0" ${currentGroup === 0 ? 'selected' : ''}>⚪ Hors-chaîne</option>`; 
+                if (myRole === 'superadmin' || myRole === 'admin') {
+                    for (let g = 1; g <= 10; g++) { opts += `<option value="${g}" ${currentGroup === g ? 'selected' : ''}>🔵 Groupe #${g}</option>`; } 
+                } else if (myRole === 'chef_de_rang' && myGroupId > 0) {
+                    opts += `<option value="${myGroupId}" ${currentGroup === myGroupId ? 'selected' : ''}>🔵 Groupe #${myGroupId}</option>`;
+                }
+                return opts; 
+            };
+            
+            let html = `
+                <div class="flex items-center gap-3 mb-2 mt-4">
+                    <div class="w-12 h-12 bg-retro-yellow border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-slate shadow-retro-sm text-xl"><i class="fa-solid fa-gears"></i></div>
+                    <div class="flex flex-col"><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Console d'Administration</h3><span class="font-fredoka text-sm font-bold text-retro-coral uppercase tracking-wide">Connecté en tant que : ${myRole}</span></div>
+                </div>
+                <div class="table-container mt-6">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="toggleAdminSort('member_pseudo')">Joueur ${getSortIcon('member_pseudo')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('group_id')">Groupe ${getSortIcon('group_id')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('group_role')">Rôle Groupe ${getSortIcon('group_role')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('floor_level')">Étage ${getSortIcon('floor_level')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('ratio')">Ratio (%) ${getSortIcon('ratio')}</th>
+                                <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" style="text-align:center;" onclick="toggleAdminSort('role')">Droits Admin ${getSortIcon('role')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                        
+            sortedMembers.forEach(m => {
+                let badge = '<span class="badge badge-member">Membre</span>';
+                if (m.role === 'superadmin') badge = '<span class="badge badge-superadmin"><i class="fa-solid fa-crown text-retro-yellow"></i> Super Admin</span>';
+                else if (m.role === 'admin') badge = '<span class="badge badge-admin"><i class="fa-solid fa-shield"></i> Admin</span>';
+                else if (m.role === 'chef_de_rang') badge = '<span class="badge badge-chef"><i class="fa-solid fa-star"></i> Chef de rang</span>';
+                
+                const gRole = m.group_role || 'chasseur'; 
+                const showFloor = gRole === 'passeur_inter';
+                
+                const canEditGroup = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && (m.group_id === 0 || m.group_id === myGroupId));
+                const groupCell = canEditGroup ? `<select class="group-select" onchange="updatePlayerGroup(${m.player_id}, this.value)">${buildGroupOptions(m.group_id)}</select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.group_id === 0 ? '⚪ Hors-chaîne' : 'Groupe #' + m.group_id}</span>`;
+                
+                const canEditTactics = (myRole === 'superadmin' || myRole === 'admin') || (myRole === 'chef_de_rang' && myGroupId > 0 && myGroupId === m.group_id);
+                const tacticsCell = canEditTactics ? `<select id="role-select-${m.player_id}" onchange="updatePlayerTactics(${m.player_id})"><option value="chasseur" ${gRole === 'chasseur' ? 'selected' : ''}>🏹 Chasseur</option><option value="passeur_bas" ${gRole === 'passeur_bas' ? 'selected' : ''}>📉 Passeur bas</option><option value="passeur_inter" ${gRole === 'passeur_inter' ? 'selected' : ''}>🔄 Passeur inter.</option><option value="grenier" ${gRole === 'grenier' ? 'selected' : ''}>🌾 Grenier</option></select>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${gRole}</span>`;
+                const floorCell = canEditTactics ? `<input type="number" id="floor-input-${m.player_id}" value="${m.floor_level !== null ? m.floor_level : ''}" placeholder="Ex: 2" min="1" max="100" style="width: 60px; text-align:center; margin:0; padding:0.4rem; display: ${showFloor ? 'inline-block' : 'none'};" onchange="updatePlayerTactics(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-outfit outline-none" /><span id="floor-dash-${m.player_id}" style="color:#4a5d73; display: ${showFloor ? 'none' : 'inline'};">-</span>` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${m.floor_level !== null ? m.floor_level : '-'}</span>`;
+                
+                const currentRatio = m.ratio !== undefined && m.ratio !== null ? m.ratio : 100;
+                const ratioCell = canEditTactics ? `<input type="number" id="ratio-input-${m.player_id}" value="${currentRatio}" min="0" max="100" style="width: 70px; text-align:center; margin:0; padding:0.4rem;" onchange="updatePlayerRatio(${m.player_id})" class="bg-white border-2 border-retro-slate rounded-lg font-bold text-retro-mint-dark outline-none" />` : `<span class="font-fredoka font-bold text-retro-slate/80 text-sm">${currentRatio}%</span>`;
+
+                let adminRoleAction = badge; 
+                const canEditAdminRole = (myRole === 'superadmin') || (myRole === 'admin' && m.role !== 'superadmin');
+                if (canEditAdminRole) {
+                    if (m.role === 'superadmin') adminRoleAction = badge;
+                    else adminRoleAction = `<select class="role-select" onchange="updatePlayerAdminRole(${m.player_id}, this.value)"><option value="member" ${m.role === 'member' ? 'selected' : ''}>👤 Membre</option><option value="chef_de_rang" ${m.role === 'chef_de_rang' ? 'selected' : ''}>🎖️ Chef de rang</option><option value="admin" ${m.role === 'admin' ? 'selected' : ''}>🛡️ Admin</option></select>`;
+                }
+                
+                html += `<tr>
+                    <td><strong class="text-retro-slate">${escapeHtml(m.member_pseudo)}</strong></td>
+                    <td style="text-align:center;">${groupCell}</td>
+                    <td style="text-align:center;">${tacticsCell}</td>
+                    <td style="text-align:center;">${floorCell}</td>
+                    <td style="text-align:center;">${ratioCell}</td>
+                    <td style="text-align:center;">${adminRoleAction}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`; 
+            contentDiv.innerHTML = html;
+        }
+
+        async function updatePlayerAdminRole(targetPlayerId, newRole) {
+            try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_admin_role`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_role: newRole }) });
+                if (res.ok) { showToast("Mise à jour", "Droits d'administration modifiés."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+        
+        async function updatePlayerTactics(playerId) {
+            const roleSelect = document.getElementById(`role-select-${playerId}`); const floorInput = document.getElementById(`floor-input-${playerId}`); const floorDash = document.getElementById(`floor-dash-${playerId}`);
+            const selectedRole = roleSelect.value; const isInter = selectedRole === 'passeur_inter';
+            floorInput.style.display = isInter ? 'inline-block' : 'none'; floorDash.style.display = isInter ? 'none' : 'inline';
+            const floorValue = isInter && floorInput.value !== '' ? parseInt(floorInput.value) : null;
+            try { await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group_role_and_floor`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(playerId), p_group_role: selectedRole, p_floor_level: floorValue }) }); showToast("Mise à jour", "Nouvelles directives tactiques appliquées."); } catch (e) { alert("❌ Erreur."); }
+        }
+        
+        async function updatePlayerGroup(targetPlayerId, newGroupId) {
+            try { const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_group`, { method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_session_token: localStorage.getItem('alliance_session_token'), p_target_player_id: parseInt(targetPlayerId), p_new_group_id: parseInt(newGroupId) }) });
+                if (res.ok) { showToast("Mise à jour", "Nouveau groupe assigné."); loadAdminPanel(); } else { alert("❌ Action refusée."); loadAdminPanel(); }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        async function updatePlayerRatio(playerId) {
+            const input = document.getElementById(`ratio-input-${playerId}`);
+            let newRatio = parseInt(input.value);
+
+            if (isNaN(newRatio) || newRatio < 0) newRatio = 0;
+            if (newRatio > 100) newRatio = 100;
+            input.value = newRatio;
+
+            try { 
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/set_player_ratio`, { 
+                    method: 'POST', 
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        p_session_token: localStorage.getItem('alliance_session_token'), 
+                        p_target_player_id: parseInt(playerId), 
+                        p_ratio: newRatio 
+                    }) 
+                });
+                
+                if (res.ok) { 
+                    showToast("Mise à jour", `Ratio réglé à ${newRatio}%.`); 
+                } else { 
+                    alert("❌ Action refusée."); 
+                    loadAdminPanel(); 
+                }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        /* --- ONGLET PROJET --- */
+        async function loadProjectTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_project_data`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+                if (!res.ok) throw new Error("Erreur SQL");
+                projectData = await res.json();
+                renderProjectUI();
+            } catch (e) {
+                document.getElementById('content-area').innerHTML = `<p class="font-fredoka font-bold text-retro-coral text-center">⚠️ Erreur de chargement des données projet.</p>`;
+            }
+        }
+
+        function switchProjectSubTab(sub) {
+            projectSubTab = sub;
+            renderProjectUI();
+        }
+
+        function renderProjectUI() {
+            const contentDiv = document.getElementById('content-area');
+            const isSuperAdmin = currentUserAdminInfo.role === 'superadmin';
+            const myPseudo = currentUserAdminInfo.pseudo;
+
+            let html = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Suivi du Projet</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${projectSubTab === 'changelog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('changelog')"><i class="fa-solid fa-book-journal-whills"></i> Journal (Changelog)</button>
+                    <button class="btn-action ${projectSubTab === 'backlog' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('backlog')"><i class="fa-solid fa-list-check"></i> À faire (Backlog)</button>
+                    <button class="btn-action ${projectSubTab === 'propositions' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchProjectSubTab('propositions')"><i class="fa-solid fa-lightbulb"></i> Boîte à idées</button>
+                </div>
+            `;
+
+            if (projectSubTab === 'changelog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                        <textarea id="new-changelog-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Décrivez la nouvelle mise à jour..."></textarea>
+                        <button class="btn-manual-ok" onclick="submitProjectItem('changelog', 'add')"><i class="fa-solid fa-plus"></i> Publier</button>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.changelog || projectData.changelog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucun historique.</p>`;
+                else {
+                    projectData.changelog.forEach(c => {
+                        let prioBadge = '';
+                        if (c.priority) {
+                            const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                            const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
+                            let label = prioLabels[c.priority] || `Priorité ${c.priority}`;
+                            let prioColor = prioColors[c.priority] || 'bg-retro-slate text-white';
+                            prioBadge = `<span class="badge ${prioColor} border-2 border-retro-slate mr-2 mb-1">${label}</span>`;
+                        }
+
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center flex-wrap gap-1 mb-2">
+                                ${prioBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold"><i class="fa-regular fa-clock"></i> ${formatDateFR(c.created_at)} par <span class="text-retro-mint-dark">${escapeHtml(c.pseudo)}</span></span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(c.content)}</div>
+                            ${isSuperAdmin ? `<button class="absolute top-3 right-3 text-retro-slate/40 hover:text-retro-coral" onclick="editProjectItem('changelog', ${c.id})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            } 
+            else if (projectSubTab === 'backlog') {
+                if (isSuperAdmin) {
+                    html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6 flex flex-col gap-3">
+                        <div class="flex gap-3 items-center">
+                            <label class="font-fredoka font-bold text-retro-slate text-sm">Priorité :</label>
+                            <select id="new-backlog-prio" class="bg-retro-cream border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none m-0" style="margin-bottom:0; width:auto; cursor:pointer;">
+                                <option value="1">1 - Urgent</option>
+                                <option value="2">2 - Important</option>
+                                <option value="3" selected>3 - À faire</option>
+                                <option value="4">4 - Pour plus tard</option>
+                                <option value="5">5 - Bonus</option>
+                            </select>
+                        </div>
+                        <textarea id="new-backlog-text" rows="2" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Description de la tâche..."></textarea>
+                        <div><button class="btn-manual-ok" onclick="submitProjectItem('backlog', 'add')"><i class="fa-solid fa-plus"></i> Ajouter au Backlog</button></div>
+                    </div>`;
+                }
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.backlog || projectData.backlog.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Le backlog est vide, tout est parfait !</p>`;
+                else {
+                    const prioLabels = { 1: "1 - Urgent", 2: "2 - Important", 3: "3 - À faire", 4: "4 - Pour plus tard", 5: "5 - Bonus" };
+                    const prioColors = { 1: "bg-retro-coral text-white", 2: "bg-retro-yellow text-retro-slate", 3: "bg-retro-mint text-white", 4: "bg-retro-slate text-white", 5: "bg-white text-retro-slate" };
+
+                    projectData.backlog.forEach(b => {
+                        let label = prioLabels[b.priority] || `Priorité ${b.priority}`;
+                        let prioColor = prioColors[b.priority] || 'bg-retro-slate text-white';
+                        
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="badge ${prioColor} border-2 border-retro-slate">${label}</span>
+                                <span class="text-xs text-retro-slate/60 font-bold">${formatDateFR(b.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(b.content)}</div>
+                            ${isSuperAdmin ? `<div class="absolute top-3 right-3 flex gap-2">
+                                <button class="text-retro-slate/40 hover:text-retro-mint" onclick="completeBacklogItem(${b.id})" title="Clôturer et publier"><i class="fa-solid fa-check-double"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-yellow" onclick="editProjectItem('backlog', ${b.id},${b.priority})" title="Modifier"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="text-retro-slate/40 hover:text-retro-coral" onclick="deleteProjectItem('backlog', ${b.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+                            </div>` : ''}
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+            else if (projectSubTab === 'propositions') {
+                html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-retro-sm mb-6">
+                    <textarea id="new-prop-text" rows="3" class="w-full bg-retro-cream border-2 border-retro-slate rounded-xl p-3 mb-3 font-outfit focus:border-retro-coral outline-none resize-y" placeholder="Vous avez une idée pour améliorer Victooly ? Décrivez-la ici..."></textarea>
+                    <button class="btn-manual-ok" onclick="submitProjectItem('propositions', 'add')"><i class="fa-solid fa-paper-plane"></i> Soumettre l'idée</button>
+                </div>`;
+                html += `<div class="flex flex-col gap-4">`;
+                if (!projectData.propositions || projectData.propositions.length === 0) html += `<p class="italic text-retro-slate/60 font-fredoka">Aucune proposition pour le moment.</p>`;
+                else {
+                    projectData.propositions.forEach(p => {
+                        const isMine = p.pseudo === myPseudo;
+                        const canEdit = isMine || isSuperAdmin;
+                        
+                        let statusBadge = '<span class="badge bg-white text-retro-slate border-2 border-retro-slate"><i class="fa-solid fa-hourglass-half text-retro-yellow"></i> En attente</span>';
+                        if (p.status === 'accepted') statusBadge = '<span class="badge bg-retro-mint text-white border-2 border-retro-slate"><i class="fa-solid fa-check"></i> Acceptée</span>';
+                        else if (p.status === 'rejected') statusBadge = '<span class="badge bg-retro-coral text-white border-2 border-retro-slate"><i class="fa-solid fa-xmark"></i> Refusée</span>';
+
+                        html += `<div class="bg-white border-2 border-retro-slate p-4 rounded-xl shadow-sm relative group">
+                            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                ${statusBadge}
+                                <span class="text-xs text-retro-slate/60 font-bold">par <span class="text-retro-mint-dark">${escapeHtml(p.pseudo)}</span> le ${formatDateFR(p.created_at)}</span>
+                            </div>
+                            <div class="font-outfit text-retro-slate whitespace-pre-wrap">${escapeHtml(p.content)}</div>
+                            
+                            <div class="mt-3 flex gap-2 justify-end">
+                                ${isSuperAdmin && p.status === 'pending' ? `
+                                    <button class="btn-action bg-retro-mint text-white border-2 border-retro-slate" onclick="acceptProposition(${p.id})"><i class="fa-solid fa-check"></i> Accepter</button>
+                                    <button class="btn-action bg-retro-coral text-white border-2 border-retro-slate" onclick="changePropStatus(${p.id}, 'rejected')"><i class="fa-solid fa-xmark"></i> Refuser</button>
+                                ` : ''}
+                                ${canEdit ? `
+                                    <button class="btn-action bg-white text-retro-slate" onclick="editProjectItem('propositions', ${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="btn-action bg-white text-retro-coral" onclick="deleteProjectItem('propositions', ${p.id})"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+
+            contentDiv.innerHTML = html;
+        }
+
+        function completeBacklogItem(id) {
+            openRetroModal('Clôturer le développement', '<p class="font-bold">Avez-vous terminé cette tâche ?</p><p class="text-sm mt-2 opacity-80">Elle sera automatiquement retirée du Backlog et ajoutée au Changelog (Journal des mises à jour) en conservant sa priorité initiale.</p>', '<i class="fa-solid fa-check-double"></i> Clôturer & Publier', 'bg-retro-mint text-white', async () => {
+                await submitProjectItem('backlog', 'complete', id);
+            });
+        }
+
+        async function submitProjectItem(type, action, id = null, forcedContent = null, forcedPrio = null) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let content = forcedContent;
+            let priority = forcedPrio || 3;
+
+            if (action === 'add' && !forcedContent) {
+                if (type === 'changelog') content = document.getElementById('new-changelog-text').value.trim();
+                else if (type === 'backlog') {
+                    content = document.getElementById('new-backlog-text').value.trim();
+                    priority = parseInt(document.getElementById('new-backlog-prio').value) || 3;
+                }
+                else if (type === 'propositions') content = document.getElementById('new-prop-text').value.trim();
+                
+                if (!content) return showToast("Erreur", "Le champ de texte est vide.");
+            }
+
+            let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+            
+            let body = { p_session_token: sessionToken, p_action: action, p_content: content };
+            if (id !== null) body.p_id = id;
+            if (type === 'backlog') body.p_priority = priority;
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    showToast("Succès", "Données sauvegardées avec succès.");
+                    loadProjectTab();
+                } else {
+                    const err = await res.json();
+                    alert("❌ Action refusée : " + err.message);
+                }
+            } catch (e) { alert("❌ Erreur réseau."); }
+        }
+
+        function openRetroModal(title, contentHtml, confirmText, confirmClass, onConfirm) {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+
+            contentDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4 border-b-2 border-retro-slate pb-2">
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0">${title}</h3>
+                    <button onclick="closeRetroModal()" class="text-retro-slate hover:text-retro-coral text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="mb-6 font-outfit text-retro-slate">
+                    ${contentHtml}
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button class="btn-action bg-white text-retro-slate" onclick="closeRetroModal()">Annuler</button>
+                    <button class="btn-action ${confirmClass}" id="modal-confirm-btn">${confirmText}</button>
+                </div>
+            `;
+
+            document.getElementById('modal-confirm-btn').onclick = () => { onConfirm(); closeRetroModal(); };
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentDiv.classList.remove('scale-95');
+        }
+
+        function closeRetroModal() {
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            contentDiv.classList.add('scale-95');
+        }
+
+        function editProjectItem(type, id, extraParam = null) {
+            let item = null;
+            if (type === 'changelog') item = projectData.changelog.find(x => x.id === id);
+            else if (type === 'backlog') item = projectData.backlog.find(x => x.id === id);
+            else if (type === 'propositions') item = projectData.propositions.find(x => x.id === id);
+            
+            if (!item) return;
+
+            let extraHtml = '';
+            if (type === 'backlog') {
+                const prio = extraParam || 3;
+                extraHtml = `
+                    <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1 mt-4">Priorité :</label>
+                    <select id="modal-edit-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                        <option value="1" ${prio===1?'selected':''}>1 - Urgent</option>
+                        <option value="2" ${prio===2?'selected':''}>2 - Important</option>
+                        <option value="3" ${prio===3?'selected':''}>3 - À faire</option>
+                        <option value="4" ${prio===4?'selected':''}>4 - Pour plus tard</option>
+                        <option value="5" ${prio===5?'selected':''}>5 - Bonus</option>
+                    </select>
+                `;
+            }
+
+            const html = `
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Texte :</label>
+                <textarea id="modal-edit-text" rows="5" class="w-full bg-white border-2 border-retro-slate rounded-xl p-3 font-outfit focus:border-retro-coral outline-none resize-y">${escapeHtml(item.content)}</textarea>
+                ${extraHtml}
+            `;
+
+            openRetroModal('Modifier l\'entrée', html, '<i class="fa-solid fa-floppy-disk"></i> Enregistrer', 'bg-retro-mint text-white', async () => {
+                const newText = document.getElementById('modal-edit-text').value.trim();
+                if (!newText) return showToast("Erreur", "Le texte ne peut pas être vide.");
+                
+                let priority = extraParam;
+                if (type === 'backlog') priority = parseInt(document.getElementById('modal-edit-prio').value) || 3;
+                
+                await submitProjectItem(type, 'update', id, newText, priority);
+            });
+        }
+
+        function deleteProjectItem(type, id) {
+            openRetroModal('Confirmation de suppression', '<p class="font-bold">Voulez-vous vraiment supprimer cet élément ?</p><p class="text-sm opacity-80">Cette action est irréversible.</p>', '<i class="fa-solid fa-trash"></i> Supprimer', 'bg-retro-coral text-white', async () => {
+                const sessionToken = localStorage.getItem('alliance_session_token');
+                let endpoint = `manage_${type === 'propositions' ? 'proposition' : type}`;
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+                        method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ p_session_token: sessionToken, p_action: 'delete', p_id: id })
+                    });
+                    if (res.ok) { showToast("Succès", "Élément supprimé."); loadProjectTab(); }
+                } catch (e) { alert("❌ Erreur."); }
+            });
+        }
+
+        function acceptProposition(id) {
+            const prop = projectData.propositions.find(x => x.id === id);
+            if (!prop) return;
+
+            const html = `
+                <p class="mb-4 text-sm">Vous allez transférer l'idée de <strong>${escapeHtml(prop.pseudo)}</strong> vers le Backlog. Choisissez sa priorité d'intégration :</p>
+                <label class="font-fredoka font-bold text-retro-slate text-sm block mb-1">Priorité :</label>
+                <select id="modal-accept-prio" class="w-full bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
+                    <option value="1">1 - Urgent</option>
+                    <option value="2">2 - Important</option>
+                    <option value="3" selected>3 - À faire</option>
+                    <option value="4">4 - Pour plus tard</option>
+                    <option value="5">5 - Bonus</option>
+                </select>
+            `;
+
+            openRetroModal('Accepter la proposition', html, '<i class="fa-solid fa-check"></i> Valider & Transférer', 'bg-retro-mint text-white', async () => {
+                const priority = parseInt(document.getElementById('modal-accept-prio').value) || 3;
+                const backlogText = `💡 Idée de ${prop.pseudo} :\n${prop.content}`;
+                
+                await submitProjectItem('backlog', 'add', null, backlogText, priority);
+                await changePropStatus(id, 'accepted');
+            });
+        }
+
+        async function changePropStatus(id, newStatus) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/manage_proposition`, {
+                    method: 'POST', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken, p_action: 'status', p_id: id, p_status: newStatus })
+                });
+                if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
+            } catch (e) { alert("❌ Erreur."); }
+        }
+
+        function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
+        function logout() { localStorage.removeItem('alliance_session_token'); document.getElementById('token-input').value = ''; document.getElementById('dashboard-section').style.display = 'none'; document.getElementById('auth-section').style.display = 'block'; }
+    </script>
+</body>
+</html>
