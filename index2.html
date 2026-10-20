@@ -986,6 +986,35 @@
 
             if (perfoChartInstance) perfoChartInstance.destroy();
 
+            // --- FILTRE ANTI-ANOMALIES (PERCENTILES) ---
+            let allYValues = [];
+            datasets.forEach(d => {
+                d.data.forEach(val => {
+                    if (val !== null && !isNaN(val)) allYValues.push(val);
+                });
+            });
+            allYValues.sort((a, b) => a - b);
+
+            let smartMin = undefined;
+            let smartMax = undefined;
+
+            if (allYValues.length > 20) { // On ne filtre que si on a assez de points
+                // On exclut les 2% les plus hauts et les 2% les plus bas
+                const lowerIndex = Math.floor(allYValues.length * 0.02);
+                const upperIndex = Math.floor(allYValues.length * 0.98);
+                
+                const rawMin = allYValues[lowerIndex];
+                const rawMax = allYValues[upperIndex];
+                
+                // On ajoute un petit "padding" visuel de 5% au-dessus et en-dessous
+                const padding = (rawMax - rawMin) * 0.05;
+                smartMin = rawMin - padding;
+                smartMax = rawMax + padding;
+                
+                // Sécurité : sauf pour la vélocité, on ne veut pas descendre sous zéro
+                if (perfoChartMetric !== 'velocity' && smartMin < 0) smartMin = 0;
+            }
+
             perfoChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { labels: labels, datasets: datasets },
