@@ -478,7 +478,6 @@
                 <button id="tab-convoys-btn" class="tab-btn active" onclick="switchTab('convoys')"><i class="fa-solid fa-truck-fast mr-1"></i> Convois</button>
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
                 <button id="tab-perfo-btn" class="tab-btn" onclick="switchTab('perfo')"><i class="fa-solid fa-chart-line mr-1"></i> Perfo</button>
-                <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
                 <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
@@ -495,6 +494,7 @@
     <script>
         let activeTab = 'convoys';
         let convoysSubTab = 'active'; // 'active' ou 'history'
+        let groupSubTab = 'rapport'; // 'rapport' ou 'chat'
         
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
@@ -654,7 +654,6 @@
             document.getElementById('tab-convoys-btn').className = `tab-btn ${tab === 'convoys' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-perfo-btn').className = `tab-btn ${tab === 'perfo' ? 'perfo-active' : ''}`;
-            document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
             document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
@@ -670,12 +669,44 @@
             contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>`;
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
-            if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
+            if (activeTab === 'group') { loadGroupTabWrapper(); return; } // ON UTILISE LE NOUVEAU WRAPPER
             if (activeTab === 'perfo') { loadPerfoData(); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
-            if (activeTab === 'chat') { loadChatTab(); return; }
             if (activeTab === 'project') { loadProjectTab(); return; }
-            if (activeTab === 'convoys') { loadConvoysTab(); return; } // NOUVEAU
+            if (activeTab === 'convoys') { loadConvoysTab(); return; }
+        }
+
+        // NOUVELLES FONCTIONS POUR L'ONGLET GROUPE
+        function switchGroupSubTab(sub) {
+            groupSubTab = sub;
+            // On coupe le rafraîchissement du chat si on quitte l'onglet communication
+            if (sub !== 'chat' && chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+            loadGroupTabWrapper();
+        }
+
+        async function loadGroupTabWrapper() {
+            const contentDiv = document.getElementById('content-area');
+            
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Espace Groupe</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${groupSubTab === 'rapport' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchGroupSubTab('rapport')"><i class="fa-solid fa-chart-bar"></i> Rapport Stratégique</button>
+                    <button class="btn-action ${groupSubTab === 'chat' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchGroupSubTab('chat')"><i class="fa-solid fa-comments"></i> Communication</button>
+                </div>
+                <div id="group-content-area">
+                    <div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>
+                </div>
+            `;
+
+            if (groupSubTab === 'rapport') {
+                loadGroupConvoys(selectedGroupId);
+            } else {
+                loadChatTab(chatSelectedGroupId);
+            }
         }
 
       function switchConvoysSubTab(sub) {
@@ -1226,7 +1257,7 @@
         }
 
         function renderChatBaseUI(currentGroupId, availableGroups) {
-            const contentDiv = document.getElementById('content-area');
+            const contentDiv = document.getElementById('group-content-area') || document.getElementById('content-area');
             
             let groupSelectorHtml = `Groupe #${currentGroupId}`;
             if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
@@ -1240,11 +1271,8 @@
             }
 
             contentDiv.innerHTML = `
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-12 h-12 bg-[#8e44ad] border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-comments"></i>
-                    </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Transmission : ${groupSelectorHtml}</h3>
+                <div class="flex items-center justify-between mb-4 mt-2">
+                    <h4 class="font-shrikhand text-xl text-retro-slate m-0"><i class="fa-solid fa-comments text-[#8e44ad] mr-2"></i> Canal de transmission : ${groupSelectorHtml}</h4>
                 </div>
 
                 <div class="chat-container">
@@ -1528,7 +1556,7 @@
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
-            const contentDiv = document.getElementById('content-area');
+            const contentDiv = document.getElementById('group-content-area') || document.getElementById('content-area');
             
             let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
             if (availableGroups && availableGroups.length > 0) {
@@ -1544,9 +1572,8 @@
             else if (groupFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}"> <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
 
             let html = `
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport Stratégique : ${groupSelectorHtml}</h3>
+                <div class="flex items-center justify-between mb-4 mt-2">
+                    <h4 class="font-shrikhand text-xl text-retro-slate m-0"><i class="fa-solid fa-chart-bar text-retro-mint mr-2"></i> Statistiques du ${groupSelectorHtml}</h4>
                 </div>
                 <div class="date-filter-box">
                     <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
