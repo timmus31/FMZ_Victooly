@@ -1541,44 +1541,56 @@
             }
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-            let totalKeptByOthers = 0;
-            let playersAt100Count = 0;
+            let potCommun = 0;
+            let goodStudentsCount = 0;
             
             if (playerPerfs && playerPerfs.length > 0) {
-                // 1er passage : on calcule la production totale et ce que gardent les "passeurs" (< 100%)
+                const playerCount = playerPerfs.length;
+
+                // 1er passage : on calcule la production totale et le nombre de "bons élèves"
                 playerPerfs.forEach(p => { 
                     sumStart += p.start_terrain; 
                     sumEnd += p.end_terrain; 
                     sumDiff += p.terrain_diff; 
+                    sumRes += Number(p.resources_generated); 
                     
-                    const pRes = Number(p.resources_generated);
-                    sumRes += pRes;
-                    
-                    // On sécurise le ratio (100 par défaut si Supabase ne l'envoie pas)
+                    // Sécurisation du ratio
                     p.calc_ratio = (p.ratio !== undefined && p.ratio !== null) ? Number(p.ratio) : 100;
-                    
-                    if (p.calc_ratio === 100) {
-                        playersAt100Count++;
-                    } else {
-                        // Le joueur < 100% garde son pourcentage de SA propre production
-                        p.base_kept = Math.round(pRes * (p.calc_ratio / 100));
-                        totalKeptByOthers += p.base_kept;
-                    }
+                    if (p.calc_ratio === 100) goodStudentsCount++;
                 });
 
-                // Le Pot partagé, c'est la TOUTE la production du groupe moins ce que les passeurs ont gardé
-                const sharedPot = Math.max(0, sumRes - totalKeptByOthers);
+                // Cible moyenne de base pour le groupe
+                const baseTargetAvg = playerCount > 0 ? (sumRes / playerCount) : 0;
 
-                // 2ème passage : on distribue
+                // 2ème passage : on calcule les cibles des passeurs et on remplit le pot commun
                 playerPerfs.forEach(p => {
                     if (p.calc_ratio === 100) {
-                        // Les 100% reçoivent tous EXACTEMENT la même somme
-                        p.estimated_quota = playersAt100Count > 0 ? Math.round(sharedPot / playersAt100Count) : 0;
+                        p.base_target = baseTargetAvg;
                     } else {
-                        // Les autres se contentent de leur part conservée
-                        p.estimated_quota = p.base_kept;
+                        // Formule de sanction du backend : 0.5 + (ratio / 200)
+                        const penaltyFactor = 0.5 + (p.calc_ratio / 200);
+                        p.base_target = baseTargetAvg * penaltyFactor;
+                        potCommun += (baseTargetAvg - p.base_target);
                     }
                 });
+
+                // 3ème passage : on redistribue le pot et on fixe le quota estimé
+                const beneficiariesCount = goodStudentsCount > 0 ? goodStudentsCount : playerCount;
+                const bonusPerPlayer = potCommun / beneficiariesCount;
+
+                playerPerfs.forEach(p => {
+                    if (goodStudentsCount > 0) {
+                        if (p.calc_ratio === 100) {
+                            p.estimated_quota = Math.round(p.base_target + bonusPerPlayer);
+                        } else {
+                            p.estimated_quota = Math.round(p.base_target);
+                        }
+                    } else {
+                        // Sécurité backend : si personne n'a 100%, tout le monde se partage le pot pour ne rien perdre
+                        p.estimated_quota = Math.round(p.base_target + bonusPerPlayer);
+                    }
+                });
+
             } else if (dailyLogs && dailyLogs.length > 0) {
                 dailyLogs.forEach(l => { sumDiff += l.terrain_diff; sumRes += Number(l.resources_generated); });
                 const startValues = dailyLogs.map(l => l.start_terrain);
