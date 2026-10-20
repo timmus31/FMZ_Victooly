@@ -1541,11 +1541,11 @@
             }
 
             let sumStart = 0, sumEnd = 0, sumDiff = 0, sumRes = 0;
-            let totalConfiscated = 0;
+            let totalKeptByOthers = 0;
             let playersAt100Count = 0;
             
             if (playerPerfs && playerPerfs.length > 0) {
-                // 1er passage : on calcule les totaux et le pot confisqué
+                // 1er passage : on calcule la production totale et ce que gardent les "passeurs" (< 100%)
                 playerPerfs.forEach(p => { 
                     sumStart += p.start_terrain; 
                     sumEnd += p.end_terrain; 
@@ -1554,25 +1554,29 @@
                     const pRes = Number(p.resources_generated);
                     sumRes += pRes;
                     
-                    // On sécurise le ratio (100 par défaut si non défini)
+                    // On sécurise le ratio (100 par défaut si Supabase ne l'envoie pas)
                     p.calc_ratio = (p.ratio !== undefined && p.ratio !== null) ? Number(p.ratio) : 100;
-                    
-                    // Calcul de la part conservée et de la part confisquée
-                    p.base_kept = pRes * (p.calc_ratio / 100);
-                    const pConfiscated = pRes - p.base_kept;
-                    totalConfiscated += pConfiscated;
                     
                     if (p.calc_ratio === 100) {
                         playersAt100Count++;
+                    } else {
+                        // Le joueur < 100% garde son pourcentage de SA propre production
+                        p.base_kept = Math.round(pRes * (p.calc_ratio / 100));
+                        totalKeptByOthers += p.base_kept;
                     }
                 });
 
-                // 2ème passage : on attribue le quota final (Part conservée + Bonus du pot commun si ratio 100%)
+                // Le Pot partagé, c'est la TOUTE la production du groupe moins ce que les passeurs ont gardé
+                const sharedPot = Math.max(0, sumRes - totalKeptByOthers);
+
+                // 2ème passage : on distribue
                 playerPerfs.forEach(p => {
-                    if (p.calc_ratio === 100 && playersAt100Count > 0) {
-                        p.estimated_quota = Math.round(p.base_kept + (totalConfiscated / playersAt100Count));
+                    if (p.calc_ratio === 100) {
+                        // Les 100% reçoivent tous EXACTEMENT la même somme
+                        p.estimated_quota = playersAt100Count > 0 ? Math.round(sharedPot / playersAt100Count) : 0;
                     } else {
-                        p.estimated_quota = Math.round(p.base_kept);
+                        // Les autres se contentent de leur part conservée
+                        p.estimated_quota = p.base_kept;
                     }
                 });
             } else if (dailyLogs && dailyLogs.length > 0) {
@@ -1620,7 +1624,7 @@
                         <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('terrain_diff')">Progression ${getSortIcon('terrain_diff')}</th>
                         <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('resources_generated')">Ressources ${getSortIcon('resources_generated')}</th>
                         <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('calc_ratio')">Ratio ${getSortIcon('calc_ratio')}</th>
-                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors bg-retro-slate/5" onclick="togglePerfSort('estimated_quota')">Quota Estimé ${getSortIcon('estimated_quota')}</th>
+                        <th class="cursor-pointer select-none hover:text-retro-coral transition-colors" onclick="togglePerfSort('estimated_quota')">Quota Estimé ${getSortIcon('estimated_quota')}</th>
                     </tr></thead><tbody>`;
                 
                 playerPerfs.forEach(p => {
