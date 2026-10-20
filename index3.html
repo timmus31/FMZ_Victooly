@@ -1741,7 +1741,7 @@
                     
                     html += `<tr><td>${formatDateFR(c.balance_date)}</td>${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td><td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td>${badge}</td></tr>`;
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td class="flex items-center gap-2">${badge} ${actionBtn}</td></tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
