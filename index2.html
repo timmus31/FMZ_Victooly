@@ -890,7 +890,7 @@
                         <select id="perfo-chart-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0 w-auto" onchange="perfoChartMetric = this.value; loadPerfoData();">
                             <option value="total_field" ${perfoChartMetric === 'total_field' ? 'selected' : ''}>Terrain Total</option>
                             <option value="avg_field" ${perfoChartMetric === 'avg_field' ? 'selected' : ''}>Terrain / Joueur</option>
-                            <option value="velocity" ${perfoChartMetric === 'velocity' ? 'selected' : ''}>Vélocité (Gain terrain horaire)</option>
+                            <option value="velocity" ${perfoChartMetric === 'velocity' ? 'selected' : ''}>Vélocité (Gain terrain / Jour)</option>
                             <option value="players_count" ${perfoChartMetric === 'players_count' ? 'selected' : ''}>Effectifs (Joueurs)</option>
                             <option value="avg_build" ${perfoChartMetric === 'avg_build' ? 'selected' : ''}>Score Bâtiments / Joueur</option>
                             <option value="avg_tech" ${perfoChartMetric === 'avg_tech' ? 'selected' : ''}>Score Techs / Joueur</option>
@@ -935,19 +935,19 @@
                 '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#264653'
             ];
 
-            let previousField = {}; 
+            // NOUVEAU : On stocke la date exacte en plus de la valeur pour mesurer le temps écoulé
+            let previousPoint = {}; 
 
             data.forEach(row => {
-                // On garde un format de date propre
                 const dateLabel = new Date(row.snapshot_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' });
                 labelsSet.add(dateLabel);
 
                 if (!datasetsMap[row.alliance_tag]) {
                     datasetsMap[row.alliance_tag] = { data: [], tag: row.alliance_tag };
-                    previousField[row.alliance_tag] = null;
+                    previousPoint[row.alliance_tag] = null;
                 }
 
-                let yValue = 0;
+                let yValue = null; // Par défaut à null pour cacher le tout premier point sans repère
                 const players = Math.max(1, Number(row.players_count));
 
                 if (perfoChartMetric === 'total_field') yValue = Number(row.total_field);
@@ -956,32 +956,32 @@
                 else if (perfoChartMetric === 'avg_build') yValue = Math.round(Number(row.total_building_score) / players);
                 else if (perfoChartMetric === 'avg_tech') yValue = Math.round(Number(row.total_technology_score) / players);
                 else if (perfoChartMetric === 'velocity') {
-                    if (previousField[row.alliance_tag] === null) {
-                        yValue = 0;
-                    } else {
-                        yValue = Number(row.total_field) - previousField[row.alliance_tag];
+                    if (previousPoint[row.alliance_tag] !== null) {
+                        const diffField = Number(row.total_field) - previousPoint[row.alliance_tag].field;
+                        // Calcul du temps écoulé (en heures) entre les deux pings
+                        const diffHours = (new Date(row.snapshot_at) - new Date(previousPoint[row.alliance_tag].date)) / (1000 * 60 * 60);
+                        
+                        if (diffHours > 0) {
+                            // MAGIE : On convertit la vitesse pour qu'elle soit toujours sur une base de 24h !
+                            yValue = Math.round((diffField / diffHours) * 24);
+                        }
                     }
-                    previousField[row.alliance_tag] = Number(row.total_field);
+                    previousPoint[row.alliance_tag] = { field: Number(row.total_field), date: row.snapshot_at };
                 }
 
                 datasetsMap[row.alliance_tag].data.push({ x: dateLabel, y: yValue });
             });
 
             const labels = Array.from(labelsSet).sort(); 
-
-            // Variable pour piocher les couleurs sans décaler à cause de V
             let colorIndex = 0; 
 
             const datasets = Object.values(datasetsMap).map(d => {
                 const alignedData = labels.map(l => {
                     const point = d.data.find(pt => pt.x === l);
-                    return point ? point.y : null; 
+                    return point && point.y !== null ? point.y : null; 
                 });
 
-                // --- IDENTIFICATION DE TON ALLIANCE ---
                 const isMyAlliance = d.tag === 'V';
-                
-                // On assigne la couleur (V aura un bleu sombre/noir très fort, les autres piocheront dans la palette)
                 const lineColor = isMyAlliance ? '#1d2d44' : colors[colorIndex % colors.length];
                 if (!isMyAlliance) colorIndex++;
 
@@ -990,12 +990,12 @@
                     data: alignedData,
                     borderColor: lineColor,
                     backgroundColor: lineColor,
-                    tension: 0.2, // Légère courbe mais pas trop pour éviter les vagues
-                    borderWidth: 2, // Le trait de V sera 2.5x plus épais
-                    pointRadius: 0, // Fini l'effet "chenille", on cache les points !
-                    pointHoverRadius: 6, // Le point n'apparaît que quand tu passes la souris
+                    tension: 0.2, 
+                    borderWidth: 2, 
+                    pointRadius: 0, 
+                    pointHoverRadius: 6, 
                     spanGaps: false,
-                    order: isMyAlliance ? -1 : 1 // L'ordre -1 force V à se dessiner PAR-DESSUS toutes les autres
+                    order: isMyAlliance ? -1 : 1 
                 };
             });
 
@@ -1008,25 +1008,12 @@
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
                     plugins: { 
-                        tooltip: { 
-                            enabled: true,
-                            itemSort: function(a, b) { return b.raw - a.raw; } 
-                        }, 
+                        tooltip: { enabled: true, itemSort: function(a, b) { return b.raw - a.raw; } }, 
                         legend: { position: 'bottom', labels: { font: { family: 'Outfit', weight: 'bold' }, usePointStyle: true } } 
                     },
                     scales: { 
-                        y: { 
-                            beginAtZero: false, 
-                            ticks: { font: { family: 'Outfit' } } 
-                        },
-                        x: { 
-                            ticks: { 
-                                font: { family: 'Outfit' },
-                                maxTicksLimit: 14, // On limite le nombre de dates affichées en bas pour aérer
-                                maxRotation: 45,   // On incline légèrement le texte pour éviter qu'il ne se chevauche
-                                minRotation: 45
-                            } 
-                        }
+                        y: { beginAtZero: false, ticks: { font: { family: 'Outfit' } } },
+                        x: { ticks: { font: { family: 'Outfit' }, maxTicksLimit: 14, maxRotation: 45, minRotation: 45 } }
                     }
                 }
             });
