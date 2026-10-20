@@ -2564,7 +2564,7 @@
             const contentHtml = `
                 <p class="mb-4 font-outfit text-retro-slate text-sm">Le convoi de <strong class="text-retro-coral">${redistributeData.amount.toLocaleString('fr-FR')} ressources</strong> de <strong>${escapeHtml(redistributeData.senderPseudo)}</strong> est bloqué. Que souhaitez-vous faire ?</p>
                 <div class="flex gap-2 mb-4">
-                    <button class="btn-action bg-retro-slate text-white w-full border-2 border-retro-slate hover:bg-retro-coral" onclick="executeCloseConvoy('cancel')"><i class="fa-solid fa-trash"></i> Perte Sèche (Annuler)</button>
+                    <button class="btn-action bg-retro-slate text-white w-full border-2 border-retro-slate hover:bg-retro-coral" onclick="confirmCancelConvoy()"><i class="fa-solid fa-trash"></i> Perte Sèche (Annuler)</button>
                     <button class="btn-action bg-retro-mint text-white w-full border-2 border-retro-slate" onclick="executeCloseConvoy('redistribute')"><i class="fa-solid fa-rotate"></i> Redistribuer</button>
                 </div>
                 <div id="redistribute-preview" class="bg-retro-cream p-3 rounded-xl border-2 border-retro-slate/20">
@@ -2587,6 +2587,24 @@
 
             modal.classList.remove('opacity-0', 'pointer-events-none');
             contentDiv.classList.remove('scale-95');
+        }
+
+        function confirmCancelConvoy() {
+            const html = `
+                <p class="font-outfit text-retro-slate mb-4">Êtes-vous absolument sûr de vouloir annuler ce convoi en <strong class="text-retro-coral">Perte Sèche</strong> ?</p>
+                <div class="bg-retro-coral/10 border-l-4 border-retro-coral p-3 rounded-r-xl">
+                    <p class="text-sm font-bold text-retro-slate/80"><i class="fa-solid fa-triangle-exclamation text-retro-coral"></i> Attention</p>
+                    <p class="text-xs text-retro-slate/70 mt-1">Les <strong>${redistributeData.amount.toLocaleString('fr-FR')} ressources</strong> ne seront pas redistribuées. Le convoi sera archivé comme "Annulé". Cette action est irréversible.</p>
+                </div>
+            `;
+            
+            openRetroModal(
+                'Confirmer la Perte Sèche', 
+                html, 
+                '<i class="fa-solid fa-trash"></i> Oui, annuler le convoi', 
+                'bg-retro-coral text-white', 
+                () => { executeCloseConvoy('cancel'); }
+            );
         }
 
         function toggleRedistributePlayer(idx) {
