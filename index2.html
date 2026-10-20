@@ -976,7 +976,7 @@
                     borderColor: lineColor,
                     backgroundColor: lineColor,
                     tension: 0.2, // Légère courbe mais pas trop pour éviter les vagues
-                    borderWidth: 2, // Le trait de V sera 2.5x plus épais
+                    borderWidth: isMyAlliance ? 5 : 2, // Le trait de V sera 2.5x plus épais
                     pointRadius: 0, // Fini l'effet "chenille", on cache les points !
                     pointHoverRadius: 6, // Le point n'apparaît que quand tu passes la souris
                     spanGaps: false,
@@ -985,35 +985,6 @@
             });
 
             if (perfoChartInstance) perfoChartInstance.destroy();
-
-            // --- FILTRE ANTI-ANOMALIES (PERCENTILES) ---
-            let allYValues = [];
-            datasets.forEach(d => {
-                d.data.forEach(val => {
-                    if (val !== null && !isNaN(val)) allYValues.push(val);
-                });
-            });
-            allYValues.sort((a, b) => a - b);
-
-            let smartMin = undefined;
-            let smartMax = undefined;
-
-            if (allYValues.length > 20) { // On ne filtre que si on a assez de points
-                // On exclut les 2% les plus hauts et les 2% les plus bas
-                const lowerIndex = Math.floor(allYValues.length * 0.02);
-                const upperIndex = Math.floor(allYValues.length * 0.98);
-                
-                const rawMin = allYValues[lowerIndex];
-                const rawMax = allYValues[upperIndex];
-                
-                // On ajoute un petit "padding" visuel de 5% au-dessus et en-dessous
-                const padding = (rawMax - rawMin) * 0.05;
-                smartMin = rawMin - padding;
-                smartMax = rawMax + padding;
-                
-                // Sécurité : sauf pour la vélocité, on ne veut pas descendre sous zéro
-                if (perfoChartMetric !== 'velocity' && smartMin < 0) smartMin = 0;
-            }
 
             perfoChartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1031,8 +1002,6 @@
                     scales: { 
                         y: { 
                             beginAtZero: false, 
-                            min: smartMin,
-                            max: smartMax,
                             ticks: { font: { family: 'Outfit' } } 
                         },
                         x: { 
