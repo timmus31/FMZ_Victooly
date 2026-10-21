@@ -5,7 +5,7 @@ export default {
     // -----------------------------------------------------------
     // ROUTE 1 : Génération dynamique du fichier config.js
     // -----------------------------------------------------------
-    if (url.pathname === '/config.js') {
+    if (url.pathname === '/configspb.js') {
       const jsContent = `
         window.SUPABASE_URL = "${env.SUPABASE_URL}";
         window.SUPABASE_ANON_KEY = "${env.SUPABASE_ANON_KEY}";
