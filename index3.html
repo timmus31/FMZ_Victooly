@@ -6,6 +6,7 @@
     <title>Victooly — Gestion des Convois</title>
     
     <!-- Scripts & Config -->
+    <script src="config.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -502,10 +503,6 @@
     </main>
 
     <script>
-
-        const SUPABASE_URL = "__INJECT_SUPABASE_URL__";
-        const SUPABASE_ANON_KEY = "__INJECT_SUPABASE_ANON_KEY__";
-        
         let activeTab = 'convoys';
         let convoysSubTab = 'active'; // 'active' ou 'history'
         let groupSubTab = 'rapport'; // 'rapport' ou 'chat'
