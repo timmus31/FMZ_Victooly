@@ -49,17 +49,29 @@
 
     <style>
         body {
-            background-color: #f9f7f1;
-            background-image: radial-gradient(#1d2d44 0.75px, transparent 0.75px), radial-gradient(#1d2d44 0.75px, #f9f7f1 0.75px);
-            background-size: 30px 30px;
-            background-position: 0 0, 15px 15px;
+            /* Couleur de base s'approchant du papier ancien de la bordure */
+            background-color: #f6ebd6;
+            
+            /* 1. Vos petits points noirs adorés */
+            /* 2. Une texture de grain subtile (similant le papier de la bordure) */
+            background-image: 
+                radial-gradient(#1d2d44 0.75px, transparent 0.75px), 
+                radial-gradient(#1d2d44 0.75px, #f6ebd6 0.75px),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            
+            background-size: 30px 30px, 30px 30px, auto;
+            background-position: 0 0, 15px 15px, 0 0;
+            
             color: #1d2d44;
             font-family: 'Outfit', sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            margin: 0;
+            position: relative;
         }
 
+        /* Le filigrane de votre logo complet au centre de la page */
         body::before {
             content: "";
             position: fixed;
@@ -67,13 +79,12 @@
             left: 0; 
             width: 100%; 
             height: 100%;
-            /* Remplace l'URL ci-dessous par ton lien GitHub brut */
             background-image: url('https://raw.githubusercontent.com/timmus31/FMZ_Victooly/refs/heads/main/victory.jpg');
-            background-size: 50%; /* Ajuste la taille selon tes préférences (cover, contain, ou un % fixe) */
+            background-size: 50%;
             background-position: center;
             background-repeat: no-repeat;
-            opacity: 0.2; /* L'opacité magique : très clair pour faire un beau filigrane ! */
-            z-index: -1; /* Assure que l'image reste bien tout au fond derrière les éléments */
+            opacity: 0.15;
+            z-index: -1;
             pointer-events: none;
         }
 
@@ -475,11 +486,9 @@
         <div id="dashboard-section" style="display:none;">
             <!-- Onglets -->
             <div class="nav-tabs">
-                <button id="tab-active-btn" class="tab-btn active" onclick="switchTab('active')"><i class="fa-solid fa-bolt text-retro-yellow mr-1"></i> En cours</button>
-                <button id="tab-history-btn" class="tab-btn" onclick="switchTab('history')"><i class="fa-solid fa-scroll mr-1"></i> Historique</button>
+                <button id="tab-convoys-btn" class="tab-btn active" onclick="switchTab('convoys')"><i class="fa-solid fa-truck-fast mr-1"></i> Convois</button>
                 <button id="tab-group-btn" class="tab-btn" onclick="switchTab('group')"><i class="fa-solid fa-users-viewfinder mr-1"></i> Groupe</button>
                 <button id="tab-perfo-btn" class="tab-btn" onclick="switchTab('perfo')"><i class="fa-solid fa-chart-line mr-1"></i> Perfo</button>
-                <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')"><i class="fa-solid fa-comments mr-1"></i> Coms</button>
                 <button id="tab-map-btn" class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot mr-1"></i> Carte 2D</button>
                 <button id="tab-project-btn" class="tab-btn" onclick="switchTab('project')"><i class="fa-solid fa-clipboard-list mr-1"></i> Projet</button>
                 <button id="tab-admin-btn" class="tab-btn" style="display:none;" onclick="switchTab('admin')"><i class="fa-solid fa-gears mr-1"></i> Admin</button>
@@ -494,7 +503,10 @@
     </main>
 
     <script>
-        let activeTab = 'active';
+        let activeTab = 'convoys';
+        let convoysSubTab = 'active'; // 'active' ou 'history'
+        let groupSubTab = 'rapport'; // 'rapport' ou 'chat'
+        
         let currentUserAdminInfo = { isAdmin: false, isSuperAdmin: false, role: 'member', pseudo: '' };
         let selectedGroupId = null;
         let chatSelectedGroupId = null;
@@ -650,11 +662,9 @@
 
         async function switchTab(tab) {
             activeTab = tab;
-            document.getElementById('tab-active-btn').className = `tab-btn ${tab === 'active' ? 'active' : ''}`;
-            document.getElementById('tab-history-btn').className = `tab-btn ${tab === 'history' ? 'active' : ''}`;
+            document.getElementById('tab-convoys-btn').className = `tab-btn ${tab === 'convoys' ? 'active' : ''}`;
             document.getElementById('tab-group-btn').className = `tab-btn ${tab === 'group' ? 'group-active' : ''}`;
             document.getElementById('tab-perfo-btn').className = `tab-btn ${tab === 'perfo' ? 'perfo-active' : ''}`;
-            document.getElementById('tab-chat-btn').className = `tab-btn ${tab === 'chat' ? 'chat-active' : ''}`;
             document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
             document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
             document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
@@ -670,13 +680,72 @@
             contentDiv.innerHTML = `<div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>`;
 
             if (activeTab === 'admin') { loadAdminPanel(); return; }
-            if (activeTab === 'group') { loadGroupConvoys(selectedGroupId); return; }
+            if (activeTab === 'group') { loadGroupTabWrapper(); return; } // ON UTILISE LE NOUVEAU WRAPPER
             if (activeTab === 'perfo') { loadPerfoData(); return; }
             if (activeTab === 'map') { loadMapTab(); return; }
-            if (activeTab === 'chat') { loadChatTab(); return; }
             if (activeTab === 'project') { loadProjectTab(); return; }
+            if (activeTab === 'convoys') { loadConvoysTab(); return; }
+        }
 
-            const rpcEndpoint = activeTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
+        // NOUVELLES FONCTIONS POUR L'ONGLET GROUPE
+        function switchGroupSubTab(sub) {
+            groupSubTab = sub;
+            // On coupe le rafraîchissement du chat si on quitte l'onglet communication
+            if (sub !== 'chat' && chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+            loadGroupTabWrapper();
+        }
+
+        async function loadGroupTabWrapper() {
+            const contentDiv = document.getElementById('content-area');
+            
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Espace Groupe</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${groupSubTab === 'rapport' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchGroupSubTab('rapport')"><i class="fa-solid fa-chart-bar"></i> Rapport Stratégique</button>
+                    <button class="btn-action ${groupSubTab === 'chat' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchGroupSubTab('chat')"><i class="fa-solid fa-comments"></i> Communication</button>
+                </div>
+                <div id="group-content-area">
+                    <div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>
+                </div>
+            `;
+
+            if (groupSubTab === 'rapport') {
+                loadGroupConvoys(selectedGroupId);
+            } else {
+                loadChatTab(chatSelectedGroupId);
+            }
+        }
+
+      function switchConvoysSubTab(sub) {
+            convoysSubTab = sub;
+            loadConvoysTab();
+        }
+
+        async function loadConvoysTab() {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            const contentDiv = document.getElementById('content-area');
+            
+            // Structure de base avec les sous-onglets
+            contentDiv.innerHTML = `
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-truck-fast"></i></div>
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Logistique & Convois</h3>
+                </div>
+                
+                <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
+                    <button class="btn-action ${convoysSubTab === 'active' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('active')"><i class="fa-solid fa-bolt"></i> En cours</button>
+                    <button class="btn-action ${convoysSubTab === 'history' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('history')"><i class="fa-solid fa-scroll"></i> Historique</button>
+                </div>
+                <div id="convoys-content-area">
+                    <div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>
+                </div>
+            `;
+
+            const rpcEndpoint = convoysSubTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcEndpoint}`, {
                     method: 'POST',
@@ -685,7 +754,8 @@
                 });
                 if (!response.ok) return logout();
                 const data = await response.json();
-                if (activeTab === 'active') renderActiveConvoys(data);
+                
+                if (convoysSubTab === 'active') renderActiveConvoys(data);
                 else renderHistoryConvoys(data);
             } catch (err) { logout(); }
         }
@@ -1198,7 +1268,7 @@
         }
 
         function renderChatBaseUI(currentGroupId, availableGroups) {
-            const contentDiv = document.getElementById('content-area');
+            const contentDiv = document.getElementById('group-content-area') || document.getElementById('content-area');
             
             let groupSelectorHtml = `Groupe #${currentGroupId}`;
             if (['superadmin', 'admin'].includes(currentUserAdminInfo.role)) {
@@ -1212,11 +1282,8 @@
             }
 
             contentDiv.innerHTML = `
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-12 h-12 bg-[#8e44ad] border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl">
-                        <i class="fa-solid fa-comments"></i>
-                    </div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Transmission : ${groupSelectorHtml}</h3>
+                <div class="flex items-center justify-between mb-4 mt-2">
+                    <h4 class="font-shrikhand text-xl text-retro-slate m-0"><i class="fa-solid fa-comments text-[#8e44ad] mr-2"></i> Canal de transmission : ${groupSelectorHtml}</h4>
                 </div>
 
                 <div class="chat-container">
@@ -1500,7 +1567,7 @@
 
         function renderGroupUI(convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups) {
             currentGroupDataCache = { convoys, dailyLogs, playerPerfs, currentGroupId, availableGroups };
-            const contentDiv = document.getElementById('content-area');
+            const contentDiv = document.getElementById('group-content-area') || document.getElementById('content-area');
             
             let options = `<option value="-1" ${currentGroupId === -1 ? 'selected' : ''}>🌐 Tous les groupes (Global)</option>`;
             if (availableGroups && availableGroups.length > 0) {
@@ -1516,9 +1583,8 @@
             else if (groupFilterMode === 'custom') dateInputsHtml = `<span class="font-fredoka text-retro-slate font-bold">De</span> <input type="date" id="filter-start-date" value="${groupStartDate || todayStr}"> <span class="font-fredoka text-retro-slate font-bold">à</span> <input type="date" id="filter-end-date" value="${groupEndDate || todayStr}">`;
 
             let html = `
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-users-viewfinder"></i></div>
-                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Rapport Stratégique : ${groupSelectorHtml}</h3>
+                <div class="flex items-center justify-between mb-4 mt-2">
+                    <h4 class="font-shrikhand text-xl text-retro-slate m-0"><i class="fa-solid fa-chart-bar text-retro-mint mr-2"></i> Statistiques du ${groupSelectorHtml}</h4>
                 </div>
                 <div class="date-filter-box">
                     <strong class="font-shrikhand text-lg text-retro-coral mr-2">📅 Période :</strong>
@@ -1676,9 +1742,17 @@
                     let badge = '<span class="badge badge-pending"><i class="fa-solid fa-spinner fa-spin-pulse"></i> En attente</span>';
                     if (c.status === 'completed') badge = '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Complété</span>';
                     else if (c.status === 'failed') badge = '<span class="badge badge-failed"><i class="fa-solid fa-triangle-exclamation"></i> Échoué</span>';
+                    else if (c.status === 'cancelled') badge = '<span class="badge bg-retro-slate text-white"><i class="fa-solid fa-ban"></i> Annulé</span>';
+                    
+                    let actionBtn = '';
+                    const canManageConvoy = ['superadmin', 'admin'].includes(currentUserAdminInfo.role) || (currentUserAdminInfo.role == 'chef_de_rang' && currentUserAdminInfo.group_id == c.group_id);
+                    if (canManageConvoy && (c.status === 'pending' || c.status === 'failed')) {
+                        actionBtn = `<button class="btn-action bg-retro-slate text-white ml-2 text-[0.65rem] py-1 px-2 border-2 border-retro-slate" onclick="openCloseConvoyModal(${c.id}, ${c.amount}, ${c.from_player_id}, '${escapeHtml(c.from_player_pseudo)}', ${c.group_id}, '${c.balance_date}')"><i class="fa-solid fa-ban"></i></button>`;
+                    }
+                    
                     html += `<tr><td>${formatDateFR(c.balance_date)}</td>${currentGroupId === -1 ? `<td><strong>#${c.group_id}</strong></td>` : ''}
                         <td><strong>${escapeHtml(c.from_player_pseudo)}</strong></td><td><strong>${escapeHtml(c.to_player_pseudo)}</strong></td>
-                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td>${badge}</td></tr>`;
+                        <td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td class="flex items-center gap-2">${badge} ${actionBtn}</td></tr>`;
                 });
                 html += `</tbody></table></div>`;
             }
@@ -1880,13 +1954,15 @@
 
         /* --- CONVOIS & ADMIN --- */
         function renderActiveConvoys(convoys) {
-            const contentDiv = document.getElementById('content-area');
+            const subContentDiv = document.getElementById('convoys-content-area');
+            if (!subContentDiv) return;
             const toSend = convoys.filter(c => c.is_sender); const toReceive = convoys.filter(c => !c.is_sender);
-            let html = `<div class="flex items-center gap-3 mb-6 mt-4"><div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-box-open"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources à expédier</h3></div>`;
+            
+            let html = `<h4 class="font-shrikhand text-xl text-retro-slate mb-4 mt-2"><i class="fa-solid fa-box-open text-retro-coral mr-2"></i> Ressources à expédier</h4>`;
             html += renderTable(toSend, true);
-            html += `<div class="flex items-center gap-3 mb-6 mt-12"><div class="w-12 h-12 bg-retro-mint border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-box"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Ressources en approche</h3></div>`;
+            html += `<h4 class="font-shrikhand text-xl text-retro-slate mb-4 mt-8"><i class="fa-solid fa-box text-retro-mint mr-2"></i> Ressources en attente</h4>`;
             html += renderTable(toReceive, false);
-            contentDiv.innerHTML = html;
+            subContentDiv.innerHTML = html;
         }
 
         function renderTable(list, isSender) {
@@ -1961,16 +2037,18 @@
         }
 
         function renderHistoryConvoys(historyList) {
-            const contentDiv = document.getElementById('content-area');
-            let header = `<div class="flex items-center gap-3 mb-6 mt-4"><div class="w-12 h-12 bg-retro-slate border-2 border-retro-slate rounded-full flex items-center justify-center text-retro-yellow shadow-retro-sm text-xl"><i class="fa-solid fa-file-invoice"></i></div><h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Archives</h3></div>`;
-            if (historyList.length === 0) { contentDiv.innerHTML = header + `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`; return; }
-            let html = header + `<div class="table-container"><table><thead><tr><th>Date</th><th>Flux</th><th>Partenaire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
+            const subContentDiv = document.getElementById('convoys-content-area');
+            if (!subContentDiv) return;
+            
+            if (historyList.length === 0) { subContentDiv.innerHTML = `<p class="font-fredoka font-bold text-retro-slate/50 italic bg-white p-4 rounded-xl border-2 border-retro-slate border-dashed">Aucune archive pour le moment.</p>`; return; }
+            
+            let html = `<div class="table-container"><table><thead><tr><th>Date</th><th>Flux</th><th>Partenaire</th><th>Montant</th><th>Statut</th></tr></thead><tbody>`;
             historyList.forEach(c => {
                 const target = c.is_sender ? c.to_player_pseudo : c.from_player_pseudo;
                 const typeText = c.is_sender ? '<span class="text-retro-coral font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-right"></i> Envoyé</span>' : '<span class="text-retro-mint font-bold uppercase tracking-wider text-xs"><i class="fa-solid fa-arrow-left"></i> Reçu</span>';
                 html += `<tr><td>${formatDateFR(c.balance_date)}</td><td>${typeText}</td><td><strong class="text-retro-slate">${escapeHtml(target)}</strong></td><td>${Number(c.amount).toLocaleString('fr-FR')} Ressources</td><td><span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Complété</span></td></tr>`;
             });
-            contentDiv.innerHTML = html + `</tbody></table></div>`;
+            subContentDiv.innerHTML = html + `</tbody></table></div>`;
         }
 
         async function loadAdminPanel() {
@@ -2452,6 +2530,154 @@
                 });
                 if (res.ok) { showToast("Succès", "Statut mis à jour."); loadProjectTab(); }
             } catch (e) { alert("❌ Erreur."); }
+        }
+
+        // --- GESTION DE LA CLÔTURE DES CONVOIS ---
+        let redistributeData = {};
+
+        function openCloseConvoyModal(convoyId, amount, senderId, senderPseudo, groupId, balanceDate) {
+            // On récupère les joueurs du groupe depuis le cache de la page Groupe !
+            let groupPlayers = currentGroupDataCache.playerPerfs.filter(p => p.group_id === groupId);
+            
+            redistributeData = {
+                convoyId, amount, senderId, senderPseudo, groupId, balanceDate,
+                players: groupPlayers.map(p => ({
+                    player_id: p.player_id,
+                    pseudo: p.pseudo,
+                    ratio: p.calc_ratio,
+                    selected: true // Tout le monde est coché par défaut
+                }))
+            };
+            renderCloseConvoyModal();
+        }
+
+        function renderCloseConvoyModal() {
+            // 1. On mémorise la position de la barre de défilement (si elle existe déjà)
+            const scrollArea = document.getElementById('redistribute-scroll-area');
+            const currentScroll = scrollArea ? scrollArea.scrollTop : 0;
+
+            let totalRatio = redistributeData.players.filter(p => p.selected).reduce((sum, p) => sum + p.ratio, 0);
+            
+            // On a ajouté un ID "redistribute-scroll-area" sur la div qui gère le défilement
+            let previewHtml = `<div id="redistribute-scroll-area" class="max-h-52 overflow-y-auto mt-4 border-2 border-retro-slate rounded-xl"><table class="w-full text-sm"><thead class="bg-retro-slate text-white"><tr><th class="p-2 text-center"><i class="fa-solid fa-check-square"></i></th><th class="p-2">Joueur</th><th class="p-2 text-center">Ratio</th><th class="p-2 text-center">Nouvelle Part</th></tr></thead><tbody>`;
+            
+            redistributeData.players.forEach((p, idx) => {
+                let share = 0;
+                if (p.selected && totalRatio > 0) {
+                    share = Math.round(redistributeData.amount * (p.ratio / totalRatio));
+                }
+                const isSender = p.player_id === redistributeData.senderId;
+                
+                previewHtml += `<tr class="${!p.selected ? 'opacity-40 bg-retro-slate/5' : ''} border-b border-retro-slate/10 transition-opacity">
+                    <td class="p-2 text-center"><input type="checkbox" class="cursor-pointer" ${p.selected ? 'checked' : ''} ${isSender ? 'disabled' : ''} onchange="toggleRedistributePlayer(${idx})"></td>
+                    <td class="p-2 font-bold text-retro-slate">${escapeHtml(p.pseudo)} ${isSender ? '<br><span class="text-[0.65rem] text-retro-coral uppercase tracking-widest">(Expéditeur)</span>' : ''}</td>
+                    <td class="p-2 text-center font-fredoka font-bold text-retro-slate/70">${p.ratio}%</td>
+                    <td class="p-2 text-center font-bold ${share > 0 ? 'text-retro-mint-dark' : 'text-retro-slate/30'}">${share > 0 ? share.toLocaleString('fr-FR') : '-'}</td>
+                </tr>`;
+            });
+            previewHtml += `</tbody></table></div>`;
+
+            const contentHtml = `
+                <p class="mb-4 font-outfit text-retro-slate text-sm">Le convoi de <strong class="text-retro-coral">${redistributeData.amount.toLocaleString('fr-FR')} ressources</strong> de <strong>${escapeHtml(redistributeData.senderPseudo)}</strong> est bloqué. Que souhaitez-vous faire ?</p>
+                <div class="flex gap-2 mb-4">
+                    <button class="btn-action bg-retro-slate text-white w-full border-2 border-retro-slate hover:bg-retro-coral" onclick="confirmCancelConvoy()"><i class="fa-solid fa-trash"></i> Perte Sèche (Annuler)</button>
+                    <button class="btn-action bg-retro-mint text-white w-full border-2 border-retro-slate" onclick="executeCloseConvoy('redistribute')"><i class="fa-solid fa-rotate"></i> Redistribuer</button>
+                </div>
+                <div id="redistribute-preview" class="bg-retro-cream p-3 rounded-xl border-2 border-retro-slate/20">
+                    <h5 class="font-fredoka font-bold text-retro-slate mb-2"><i class="fa-solid fa-calculator text-retro-yellow"></i> Prévisualisation de la redistribution :</h5>
+                    <p class="text-xs text-retro-slate/70 leading-tight">Décochez les joueurs punis pour les exclure du calcul. L'expéditeur est verrouillé car il conserve sa propre part proportionnelle.</p>
+                    ${previewHtml}
+                </div>
+            `;
+
+            const modal = document.getElementById('retro-modal');
+            const contentDiv = document.getElementById('retro-modal-content');
+
+            contentDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-4 border-b-2 border-retro-slate pb-2">
+                    <h3 class="font-shrikhand text-2xl text-retro-slate m-0">Clôture Exceptionnelle</h3>
+                    <button onclick="closeRetroModal()" class="text-retro-slate hover:text-retro-coral text-xl transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                ${contentHtml}
+            `;
+
+            // 2. On remet la barre de défilement exactement là où elle était
+            const newScrollArea = document.getElementById('redistribute-scroll-area');
+            if (newScrollArea) newScrollArea.scrollTop = currentScroll;
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentDiv.classList.remove('scale-95');
+        }
+
+        function confirmCancelConvoy() {
+            const html = `
+                <p class="font-outfit text-retro-slate mb-4">Êtes-vous absolument sûr de vouloir annuler ce convoi en <strong class="text-retro-coral">Perte Sèche</strong> ?</p>
+                <div class="bg-retro-coral/10 border-l-4 border-retro-coral p-3 rounded-r-xl">
+                    <p class="text-sm font-bold text-retro-slate/80"><i class="fa-solid fa-triangle-exclamation text-retro-coral"></i> Attention</p>
+                    <p class="text-xs text-retro-slate/70 mt-1">Les <strong>${redistributeData.amount.toLocaleString('fr-FR')} ressources</strong> ne seront pas redistribuées. Le convoi sera archivé comme "Annulé". Cette action est irréversible.</p>
+                </div>
+            `;
+            
+            openRetroModal(
+                'Confirmer la Perte Sèche', 
+                html, 
+                '<i class="fa-solid fa-trash"></i> Oui, annuler le convoi', 
+                'bg-retro-coral text-white', 
+                () => { executeCloseConvoy('cancel'); }
+            );
+        }
+
+        function toggleRedistributePlayer(idx) {
+            redistributeData.players[idx].selected = !redistributeData.players[idx].selected;
+            renderCloseConvoyModal(); // On redessine pour recalculer les parts en temps réel !
+        }
+
+        async function executeCloseConvoy(action) {
+            const sessionToken = localStorage.getItem('alliance_session_token');
+            let newConvoys = [];
+
+            if (action === 'redistribute') {
+                let totalRatio = redistributeData.players.filter(p => p.selected).reduce((sum, p) => sum + p.ratio, 0);
+                if (totalRatio === 0) return showToast('Erreur', 'Aucun joueur sélectionné avec un ratio > 0.');
+
+                redistributeData.players.forEach(p => {
+                    if (p.selected && p.player_id !== redistributeData.senderId) {
+                        let share = Math.round(redistributeData.amount * (p.ratio / totalRatio));
+                        if (share > 0) {
+                            newConvoys.push({
+                                balance_date: redistributeData.balanceDate,
+                                from_player_id: redistributeData.senderId,
+                                to_player_id: p.player_id,
+                                amount: share
+                            });
+                        }
+                    }
+                });
+            }
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cancel_and_redistribute_convoy`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        p_session_token: sessionToken,
+                        p_convoy_id: redistributeData.convoyId,
+                        p_action: action,
+                        p_new_convoys: newConvoys
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('Opération Réussie', action === 'cancel' ? 'Convoi annulé.' : 'Convoi annulé et redistribué !');
+                    closeRetroModal();
+                    loadGroupConvoys(selectedGroupId); // Rafraîchissement automatique de la page
+                } else {
+                    const err = await res.json();
+                    showToast('Erreur', err.message || 'Action refusée.');
+                }
+            } catch (e) {
+                showToast('Erreur', 'Erreur réseau.');
+            }
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ''; }
