@@ -648,7 +648,8 @@
                         isAdmin: ['superadmin', 'admin', 'chef_de_rang'].includes(userRole),
                         isSuperAdmin: userRole === 'superadmin',
                         pseudo: data[0].pseudo || currentUserAdminInfo.pseudo,
-                        group_id: data[0].group_id
+                        group_id: data[0].group_id,
+                        dette: data[0].dette || 0
                     };
                     const canSeeAdminTab = ['superadmin', 'admin', 'chef_de_rang'].includes(userRole);
                     document.getElementById('tab-admin-btn').style.display = canSeeAdminTab ? 'inline-block' : 'none';
@@ -728,6 +729,32 @@
         async function loadConvoysTab() {
             const sessionToken = localStorage.getItem('alliance_session_token');
             const contentDiv = document.getElementById('content-area');
+
+            // --- NOUVEAU BLOC D'AFFICHAGE DE LA DETTE ---
+            let detteHtml = '';
+                if (currentUserAdminInfo.dette && currentUserAdminInfo.dette !== 0) {
+                    const isDebt = currentUserAdminInfo.dette > 0;
+                    
+                    // C'est ici qu'on applique le fond blanc transparent (70%) avec un léger flou
+                    const bgColor = isDebt ? 'bg-white/70 backdrop-blur-sm border-retro-coral' : 'bg-white/70 backdrop-blur-sm border-retro-mint';
+                    const textColor = isDebt ? 'text-retro-coral' : 'text-retro-mint-dark';
+                    
+                    const title = isDebt ? '⚠️ Régularisation de colonisation' : '🎁 Compensation de colonisation';
+                    const desc = isDebt ? "Prélèvement automatique appliqué sur vos livraisons entrantes jusqu'à résorption." : "Crédit en cours d'amortissement : vous conservez une plus grande part de votre production au lieu de l'expédier.";
+                    const sign = isDebt ? '+' : '';
+                    
+                    detteHtml = `
+                        <div class="mb-6 p-4 rounded-2xl border-4 shadow-retro ${bgColor} flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <div>
+                                <h4 class="font-shrikhand text-xl text-retro-slate m-0">${title}</h4>
+                                <p class="font-outfit text-sm text-retro-slate/80 leading-tight mt-1">${desc}</p>
+                            </div>
+                            <div class="font-fredoka font-bold text-xl ${textColor} whitespace-nowrap bg-white px-4 py-2 rounded-xl border-4 border-retro-slate shadow-retro-sm">
+                                ${sign}${currentUserAdminInfo.dette.toLocaleString('fr-FR')}
+                            </div>
+                        </div>
+                    `;
+                }
             
             // Structure de base avec les sous-onglets
             contentDiv.innerHTML = `
@@ -735,6 +762,8 @@
                     <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-truck-fast"></i></div>
                     <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Logistique & Convois</h3>
                 </div>
+
+                ${detteHtml}
                 
                 <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
                     <button class="btn-action ${convoysSubTab === 'active' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('active')"><i class="fa-solid fa-bolt"></i> En cours</button>
