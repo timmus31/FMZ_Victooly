@@ -136,6 +136,7 @@ async function switchTab(tab) {
     document.getElementById('tab-perfo-btn').className = `tab-btn ${tab === 'perfo' ? 'perfo-active' : ''}`;
     document.getElementById('tab-map-btn').className = `tab-btn ${tab === 'map' ? 'map-active' : ''}`;
     document.getElementById('tab-project-btn').className = `tab-btn ${tab === 'project' ? 'active' : ''}`;
+    document.getElementById('tab-spy-btn').className = `tab-btn ${tab === 'spy' ? 'spy-active' : ''}`;
     document.getElementById('tab-admin-btn').className = `tab-btn ${tab === 'admin' ? 'admin-active' : ''}`;
     
     if (window.chatInterval) { clearInterval(window.chatInterval); window.chatInterval = null; }
@@ -153,5 +154,6 @@ async function renderTabContent() {
     if (activeTab === 'perfo') { loadPerfoData(); return; }
     if (activeTab === 'map') { loadMapTab(); return; }
     if (activeTab === 'project') { loadProjectTab(); return; }
+    if (activeTab === 'spy') { loadSpyTab(); return; }
     if (activeTab === 'convoys') { loadConvoysTab(); return; }
 }
