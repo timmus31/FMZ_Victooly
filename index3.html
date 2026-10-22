@@ -729,12 +729,59 @@
             const sessionToken = localStorage.getItem('alliance_session_token');
             const contentDiv = document.getElementById('content-area');
             
-            // Structure de base avec les sous-onglets
+            let debtBannerHtml = '';
+        
+            try {
+                // 1. Récupération de la dette du joueur connecté
+                const userRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_is_admin`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_session_token: sessionToken })
+                });
+        
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    if (userData && userData.length > 0 && userData[0].dette && userData[0].dette !== 0) {
+                        const dette = userData[0].dette;
+                        const isDebt = dette > 0;
+        
+                        const alertBg = isDebt ? 'bg-retro-yellow/20 border-retro-yellow' : 'bg-retro-mint/20 border-retro-mint';
+                        const alertIcon = isDebt ? 'fa-triangle-exclamation text-retro-coral' : 'fa-gift text-retro-mint-dark';
+                        const alertTitle = isDebt ? 'Régularisation de colonisation' : 'Compensation de colonisation';
+                        const alertDesc = isDebt 
+                            ? "Prélèvement automatique appliqué sur vos livraisons entrantes jusqu'à résorption." 
+                            : "Crédit en cours de versement via la redistribution des convois de votre groupe.";
+        
+                        debtBannerHtml = `
+                            <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-6 flex items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full border-2 border-retro-slate flex items-center justify-center text-lg ${alertBg}">
+                                        <i class="fa-solid ${alertIcon}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-shrikhand text-retro-slate text-base m-0">${alertTitle}</h4>
+                                        <p class="font-outfit text-xs text-retro-slate/80 m-0">${alertDesc}</p>
+                                    </div>
+                                </div>
+                                <div class="font-shrikhand text-xl ${isDebt ? 'text-retro-coral' : 'text-retro-mint-dark'} whitespace-nowrap">
+                                    ${isDebt ? '+' : ''}${dette.toLocaleString('fr-FR')} mat.
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (e) {
+                // En cas d'erreur de récupération de la dette, on ignore pour ne pas bloquer les convois
+            }
+            
+            // 2. Injection de la structure de base avec la bannière de dette
             contentDiv.innerHTML = `
                 <div class="flex items-center gap-3 mb-6">
                     <div class="w-12 h-12 bg-retro-coral border-2 border-retro-slate rounded-full flex items-center justify-center text-white shadow-retro-sm text-xl"><i class="fa-solid fa-truck-fast"></i></div>
                     <h3 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Logistique & Convois</h3>
                 </div>
+        
+                ${debtBannerHtml}
                 
                 <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
                     <button class="btn-action ${convoysSubTab === 'active' ? 'bg-retro-coral text-white' : 'bg-white'}" onclick="switchConvoysSubTab('active')"><i class="fa-solid fa-bolt"></i> En cours</button>
@@ -744,7 +791,8 @@
                     <div class="flex justify-center p-12"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-retro-coral"></i></div>
                 </div>
             `;
-
+        
+            // 3. Chargement des convois habituel
             const rpcEndpoint = convoysSubTab === 'active' ? 'get_my_convoys' : 'get_my_convoy_history';
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcEndpoint}`, {
