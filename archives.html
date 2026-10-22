@@ -200,8 +200,15 @@
             
             try {
                 // Récupération de l'historique de CE joueur, trié du plus ancien au plus récent
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/players_history?player_id=eq.${playerId}&order=snapshot_date.asc`, {
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+                // Appel RPC sécurisé pour contourner le RLS de Supabase
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_player_history`, {
+                    method: 'POST',
+                    headers: { 
+                        'apikey': SUPABASE_ANON_KEY, 
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ p_player_id: playerId })
                 });
                 const data = await res.json();
 
