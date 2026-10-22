@@ -732,26 +732,29 @@
 
             // --- NOUVEAU BLOC D'AFFICHAGE DE LA DETTE ---
             let detteHtml = '';
-            if (currentUserAdminInfo.dette && currentUserAdminInfo.dette !== 0) {
-                const isDebt = currentUserAdminInfo.dette > 0;
-                const bgColor = isDebt ? 'bg-retro-coral/10 border-retro-coral' : 'bg-retro-mint/10 border-retro-mint';
-                const textColor = isDebt ? 'text-retro-coral' : 'text-retro-mint-dark';
-                const title = isDebt ? '⚠️ Régularisation de colonisation' : '🎁 Compensation de colonisation';
-                const desc = isDebt ? "Prélèvement automatique appliqué sur vos livraisons entrantes jusqu'à résorption." : "Crédit en cours de versement via les convois redistribués par votre groupe.";
-                const sign = isDebt ? '+' : '';
-                
-                detteHtml = `
-                    <div class="mb-6 p-4 rounded-2xl border-4 shadow-retro ${bgColor} flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                        <div>
-                            <h4 class="font-shrikhand text-xl text-retro-slate m-0">${title}</h4>
-                            <p class="font-outfit text-sm text-retro-slate/80 leading-tight mt-1">${desc}</p>
+                if (currentUserAdminInfo.dette && currentUserAdminInfo.dette !== 0) {
+                    const isDebt = currentUserAdminInfo.dette > 0;
+                    
+                    // C'est ici qu'on applique le fond blanc transparent (70%) avec un léger flou
+                    const bgColor = isDebt ? 'bg-white/70 backdrop-blur-sm border-retro-coral' : 'bg-white/70 backdrop-blur-sm border-retro-mint';
+                    const textColor = isDebt ? 'text-retro-coral' : 'text-retro-mint-dark';
+                    
+                    const title = isDebt ? '⚠️ Régularisation de colonisation' : '🎁 Compensation de colonisation';
+                    const desc = isDebt ? "Prélèvement automatique appliqué sur vos livraisons entrantes jusqu'à résorption." : "Crédit en cours de versement via les convois redistribués par votre groupe.";
+                    const sign = isDebt ? '+' : '';
+                    
+                    detteHtml = `
+                        <div class="mb-6 p-4 rounded-2xl border-4 shadow-retro ${bgColor} flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <div>
+                                <h4 class="font-shrikhand text-xl text-retro-slate m-0">${title}</h4>
+                                <p class="font-outfit text-sm text-retro-slate/80 leading-tight mt-1">${desc}</p>
+                            </div>
+                            <div class="font-fredoka font-bold text-xl ${textColor} whitespace-nowrap bg-white px-4 py-2 rounded-xl border-4 border-retro-slate shadow-retro-sm">
+                                ${sign}${currentUserAdminInfo.dette.toLocaleString('fr-FR')}
+                            </div>
                         </div>
-                        <div class="font-fredoka font-bold text-xl ${textColor} whitespace-nowrap bg-white px-4 py-2 rounded-xl border-4 border-retro-slate shadow-retro-sm">
-                            ${sign}${currentUserAdminInfo.dette.toLocaleString('fr-FR')}
-                        </div>
-                    </div>
-                `;
-            }
+                    `;
+                }
             
             // Structure de base avec les sous-onglets
             contentDiv.innerHTML = `
