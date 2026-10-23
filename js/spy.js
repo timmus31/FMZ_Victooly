@@ -203,26 +203,35 @@ function renderSpyResults(data, metric, isPlayer) {
         const dateLabel = new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
         const currentVal = Number(snap[metric]) || 0;
         
+        // Le graphique affiche tous les points pour conserver la notion de temps (plateaux)
         labels.push(dateLabel);
         chartData.push(currentVal);
 
-        let diffText = "-"; 
-        let diffColor = "text-retro-slate/30";
-        
-        if (previousVal !== null) {
-            const diff = currentVal - previousVal;
-            if (diff > 0) { diffText = `+${diff.toLocaleString('fr-FR')}`; diffColor = "text-retro-mint-dark"; }
-            else if (diff < 0) { diffText = `${diff.toLocaleString('fr-FR')}`; diffColor = "text-retro-coral"; }
-            else { diffText = "="; }
-        }
+        // Le tableau filtre les relevés identiques
+        if (previousVal === null || currentVal !== previousVal) {
+            let diffText = "-"; 
+            let diffColor = "text-retro-slate/30";
+            
+            if (previousVal !== null) {
+                const diff = currentVal - previousVal;
+                if (diff > 0) { 
+                    diffText = `+${diff.toLocaleString('fr-FR')}`; 
+                    diffColor = "text-retro-mint-dark"; 
+                } else if (diff < 0) { 
+                    diffText = `${diff.toLocaleString('fr-FR')}`; 
+                    diffColor = "text-retro-coral"; 
+                }
+            }
 
-        tableRows.unshift(`
-            <tr>
-                <td class="font-bold text-retro-slate">${dateLabel}</td>
-                <td class="text-center font-bold text-retro-slate text-lg">${currentVal.toLocaleString('fr-FR')}</td>
-                <td class="text-center font-black ${diffColor}">${diffText}</td>
-            </tr>
-        `);
+            tableRows.unshift(`
+                <tr>
+                    <td class="font-bold text-retro-slate">${dateLabel}</td>
+                    <td class="text-center font-bold text-retro-slate text-lg">${currentVal.toLocaleString('fr-FR')}</td>
+                    <td class="text-center font-black ${diffColor}">${diffText}</td>
+                </tr>
+            `);
+        }
+        
         previousVal = currentVal;
     });
 
