@@ -1,9 +1,8 @@
 let currentSpyChart = null;
+let searchTimeout = null;
 
 async function loadSpyTab() {
     const contentDiv = document.getElementById('content-area');
-    
-    // Initialisation des dates au jour J
     const today = new Date().toISOString().split('T')[0];
 
     contentDiv.innerHTML = `
@@ -21,7 +20,8 @@ async function loadSpyTab() {
         <div id="spy-tab-joueurs" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-magnifying-glass text-retro-mint mr-2"></i> Analyser un joueur</h2>
             <div class="flex flex-wrap items-center gap-4">
-                <input type="text" id="playerSearch" class="flex-grow min-w-[200px]" placeholder="Pseudo ou ID..." autocomplete="off">
+                <input type="text" id="playerSearch" list="playerSuggestions" class="flex-grow min-w-[200px]" placeholder="Pseudo ou ID..." autocomplete="off" oninput="fetchSpySuggestions('joueurs', this.value)">
+                <datalist id="playerSuggestions"></datalist>
                 <select id="playerMetric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
                     <option value="field">Terrain de chasse</option>
                     <option value="building_score">Score Bâtiment</option>
@@ -42,7 +42,8 @@ async function loadSpyTab() {
         <div id="spy-tab-alliances" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8" style="display: none;">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-magnifying-glass text-[#8e44ad] mr-2"></i> Analyser une alliance</h2>
             <div class="flex flex-wrap items-center gap-4">
-                <input type="text" id="allianceSearch" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance..." autocomplete="off">
+                <input type="text" id="allianceSearch" list="allianceSuggestions" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance..." autocomplete="off" oninput="fetchSpySuggestions('alliances', this.value)">
+                <datalist id="allianceSuggestions"></datalist>
                 <select id="allianceMetric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
                     <option value="total_field">Terrain total</option>
                     <option value="players_count">Nombre de joueurs</option>
@@ -90,6 +91,38 @@ function switchSpySubTab(tabName) {
     document.getElementById('spy-results-container').style.display = 'none';
 }
 
+// Autocomplétion dynamique
+async function fetchSpySuggestions(type, query) {
+    if (query.trim().length < 2) return;
+    clearTimeout(searchTimeout);
+    
+    searchTimeout = setTimeout(async () => {
+        const isPlayer = type === 'joueurs';
+        const tableName = isPlayer ? 'players_history' : 'alliances_history';
+        const column = isPlayer ? 'pseudo' : 'tag';
+        
+        const url = `${SUPABASE_URL}/rest/v1/${tableName}?select=${column}&${column}=ilike.*${encodeURIComponent(query)}*&limit=15`;
+        
+        try {
+            const res = await fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' } });
+            const data = await res.json();
+            
+            const dataList = document.getElementById(isPlayer ? 'playerSuggestions' : 'allianceSuggestions');
+            dataList.innerHTML = '';
+            
+            // Retirer les doublons
+            const uniqueValues = [...new Set(data.map(item => item[column]))];
+            uniqueValues.forEach(val => {
+                const option = document.createElement('option');
+                option.value = val;
+                dataList.appendChild(option);
+            });
+        } catch (e) {
+            console.error("Erreur de suggestion :", e);
+        }
+    }, 300); // Délai de 300ms pour ne pas spammer la base de données
+}
+
 async function loadSpyData(type) {
     const isPlayer = type === 'joueurs';
     
@@ -100,14 +133,14 @@ async function loadSpyData(type) {
 
     if (!searchVal) return showToast("Erreur", "Veuillez entrer une cible à analyser.");
 
-    // Formatage des dates pour encadrer la journée complète
     const startIso = `${startDate}T00:00:00.000Z`;
     const endIso = `${endDate}T23:59:59.999Z`;
 
     const tableName = isPlayer ? 'players_history' : 'alliances_history';
-    // Si c'est un joueur, on vérifie si la recherche est un ID ou un pseudo[cite: 4]
     const searchColumn = isPlayer ? (isNaN(searchVal) ? 'pseudo' : 'player_id') : 'tag';
-    const searchParam = isNaN(searchVal) ? `ilike.*${searchVal}*` : `eq.${searchVal}`;
+    
+    // Encodage ajouté ici pour supporter les espaces et caractères spéciaux
+    const searchParam = isNaN(searchVal) ? `ilike.*${encodeURIComponent(searchVal)}*` : `eq.${searchVal}`;
 
     const url = `${SUPABASE_URL}/rest/v1/${tableName}?${searchColumn}=${searchParam}&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`;
 
@@ -189,7 +222,7 @@ function renderSpyResults(data, metric, isPlayer) {
 
 function renderSpyHistoryChart(labels, dataPoints, metricLabel, isPlayer) {
     const ctx = document.getElementById('spyHistoryChart').getContext('2d');
-    if (currentSpyChart) currentSpyChart.destroy(); // Nettoie le graphique précédent[cite: 4]
+    if (currentSpyChart) currentSpyChart.destroy();
 
     const chartColor = isPlayer ? '#3aafa9' : '#8e44ad';
 
