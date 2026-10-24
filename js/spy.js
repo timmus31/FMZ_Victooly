@@ -229,7 +229,7 @@ async function loadSpyData(type) {
     }
 }
 
-fufunction renderSpyResultsContainer() {
+function renderSpyResultsContainer() {
     const container = document.getElementById('spy-results-container');
     container.style.display = 'block';
 
