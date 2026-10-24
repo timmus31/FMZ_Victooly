@@ -229,7 +229,7 @@ async function loadSpyData(type) {
     }
 }
 
-function renderSpyResultsContainer() {
+fufunction renderSpyResultsContainer() {
     const container = document.getElementById('spy-results-container');
     container.style.display = 'block';
 
@@ -272,18 +272,18 @@ function renderSpyResultsContainer() {
                 <div class="flex items-center justify-between px-4 py-2.5 hover:bg-retro-cream/30 transition-colors gap-3">
                     <div class="flex items-center gap-2">
                         <i class="fa-regular fa-calendar text-retro-slate/50"></i>
-                        <input type="date" id="spy-dynamic-start" value="${currentSpyStartDate}" class="bg-transparent border-none p-0 m-0 outline-none text-sm font-outfit font-bold text-retro-slate cursor-pointer" onchange="updateSpyPeriod()">
+                        <input type="date" id="spy-dynamic-start" value="${currentSpyStartDate}" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 text-sm font-outfit font-bold text-retro-slate cursor-pointer" onchange="updateSpyPeriod()">
                     </div>
                     <i class="fa-solid fa-arrow-right-long text-retro-slate/30 text-xs"></i>
                     <div class="flex items-center gap-2">
-                        <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="bg-transparent border-none p-0 m-0 outline-none text-sm font-outfit font-bold text-retro-slate cursor-pointer" onchange="updateSpyPeriod()">
+                        <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 text-sm font-outfit font-bold text-retro-slate cursor-pointer" onchange="updateSpyPeriod()">
                     </div>
                 </div>
                 
                 <!-- Métrique -->
                 <div class="flex items-center px-4 py-2.5 hover:bg-retro-cream/30 transition-colors cursor-pointer relative">
                     <i class="fa-solid fa-chart-pie text-retro-slate/50 mr-2"></i>
-                    <select id="spy-dynamic-metric" class="bg-transparent border-none p-0 m-0 outline-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
+                    <select id="spy-dynamic-metric" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 shadow-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
                         ${metricOptions}
                     </select>
                     <i class="fa-solid fa-caret-down text-retro-slate/50 text-xs absolute right-4 pointer-events-none"></i>
@@ -292,7 +292,7 @@ function renderSpyResultsContainer() {
                 <!-- Intervalle -->
                 <div class="flex items-center px-4 py-2.5 hover:bg-retro-cream/30 transition-colors cursor-pointer relative">
                     <i class="fa-solid fa-layer-group text-retro-slate/50 mr-2"></i>
-                    <select id="spy-dynamic-interval" class="bg-transparent border-none p-0 m-0 outline-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
+                    <select id="spy-dynamic-interval" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 shadow-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
                         ${intervalOptions}
                     </select>
                     <i class="fa-solid fa-caret-down text-retro-slate/50 text-xs absolute right-4 pointer-events-none"></i>
