@@ -269,9 +269,19 @@ function updateSpyView() {
     document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
     document.getElementById('spy-table-metric-col').innerText = metricLabel;
 
-    // --- CARTES DE RÉSUMÉ (Toujours basées sur les valeurs brutes de début et de fin) ---
-    const startVal = Number(currentSpyData[0][metric]) || 0;
-    const endVal = Number(currentSpyData[currentSpyData.length - 1][metric]) || 0;
+    // Fonction pour intercepter la métrique "avg_field" calculée côté client
+    const getMetricValue = (snap, m) => {
+        if (m === 'avg_field') {
+            const field = Number(snap['total_field']) || 0;
+            const players = Math.max(1, Number(snap['players_count']) || 1); // Empêche la division par 0
+            return Math.round(field / players);
+        }
+        return Number(snap[m]) || 0;
+    };
+
+    // --- CARTES DE RÉSUMÉ ---
+    const startVal = getMetricValue(currentSpyData[0], metric);
+    const endVal = getMetricValue(currentSpyData[currentSpyData.length - 1], metric);
     const diffVal = endVal - startVal;
     const diffFormatted = diffVal >= 0 ? `+${diffVal.toLocaleString('fr-FR')}` : diffVal.toLocaleString('fr-FR');
     const diffColor = diffVal >= 0 ? '#3aafa9' : '#ff6f61';
@@ -289,7 +299,7 @@ function updateSpyView() {
     if (interval === 'raw') {
         processedData = currentSpyData.map(snap => ({
             dateObj: new Date(snap.snapshot_date),
-            val: Number(snap[metric]) || 0
+            val: getMetricValue(snap, metric)
         }));
     } else {
         const buckets = {};
@@ -298,7 +308,7 @@ function updateSpyView() {
             const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
             
             if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
-            buckets[bucketKey].sum += (Number(snap[metric]) || 0);
+            buckets[bucketKey].sum += getMetricValue(snap, metric);
             buckets[bucketKey].count += 1;
         });
 
@@ -310,13 +320,12 @@ function updateSpyView() {
         });
     }
 
-    // --- 2. TABLEAU (Généré à partir des données lissées) ---
+    // --- 2. TABLEAU ---
     const tableRows = [];
     let previousVal = null;
 
     processedData.forEach(item => {
         if (previousVal === null || item.val !== previousVal) {
-            // Affichage de l'heure uniquement si l'intervalle est inférieur à 1 jour
             let formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' };
             if (interval !== 'raw' && bucketMs >= 24 * 60 * 60 * 1000) {
                 formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -350,7 +359,7 @@ function updateSpyView() {
 
     document.getElementById('spy-history-tbody').innerHTML = tableRows.join('');
 
-    // --- 3. GRAPHIQUE (Généré à partir des mêmes données lissées) ---
+    // --- 3. GRAPHIQUE ---
     let chartLabels = [];
     let chartDataPoints = [];
 
