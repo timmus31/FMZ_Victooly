@@ -180,11 +180,21 @@ async function loadSpyData(type) {
     try {
         if (isGroupes) {
             if (spyActiveGroups.size === 0) return showToast("Erreur", "Sélectionnez au moins un groupe.");
+            
             const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_groups`, {
                 method: 'POST', 
                 headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ p_start: startIso, p_end: endIso })
             });
+
+            // 🔍 CAPTURE DE L'ERREUR SUPABASE
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
+                showToast("Erreur 500", "Regarde la console (F12) pour voir le problème exact !");
+                return;
+            }
+
             const rawData = await res.json();
             currentSpyData = rawData.filter(d => spyActiveGroups.has(d.group_id));
 
@@ -206,6 +216,14 @@ async function loadSpyData(type) {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?${searchColumn}=${searchParam}&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`, {
                 headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
             });
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
+                showToast("Erreur Base de données", "Détails dans la console (F12)");
+                return;
+            }
+
             currentSpyData = await res.json();
         }
 
@@ -213,7 +231,8 @@ async function loadSpyData(type) {
         renderSpyResultsContainer();
 
     } catch (error) {
-        showToast("Erreur", "Impossible de récupérer l'historique.");
+        console.error("Erreur réseau/JS :", error);
+        showToast("Erreur", "Impossible de contacter le serveur.");
     }
 }
 
