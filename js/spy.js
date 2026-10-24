@@ -262,19 +262,32 @@ function renderSpyResultsContainer() {
     }
 
     container.innerHTML = `
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 mt-8">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 mt-8">
             ${headerHtml}
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-2 bg-white border-2 border-retro-slate rounded-xl p-1.5 shadow-retro-sm m-0">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm ml-1">Du</span>
-                    <input type="date" id="spy-dynamic-start" value="${currentSpyStartDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit bg-transparent cursor-pointer" onchange="updateSpyPeriod()">
+            
+            <!-- BLOC UNIFIÉ : Dates, Métrique, Intervalle -->
+            <div class="flex flex-wrap items-center bg-white border-2 border-retro-slate rounded-xl p-1.5 shadow-retro-sm m-0 gap-2">
+                <div class="flex items-center gap-2 px-2">
+                    <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
+                    <input type="date" id="spy-dynamic-start" value="${currentSpyStartDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit font-bold text-retro-slate bg-transparent cursor-pointer" onchange="updateSpyPeriod()">
                     <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
-                    <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit bg-transparent cursor-pointer mr-1" onchange="updateSpyPeriod()">
+                    <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit font-bold text-retro-slate bg-transparent cursor-pointer" onchange="updateSpyPeriod()">
                 </div>
-                <select id="spy-dynamic-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${metricOptions}</select>
-                <select id="spy-dynamic-interval" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${intervalOptions}</select>
+                
+                <div class="hidden sm:block w-px h-6 bg-retro-slate/20"></div> <!-- Séparateur vertical -->
+                
+                <select id="spy-dynamic-metric" class="border-none bg-transparent font-outfit font-bold text-retro-slate text-sm outline-none cursor-pointer m-0 px-2" onchange="updateSpyView()">
+                    ${metricOptions}
+                </select>
+                
+                <div class="hidden sm:block w-px h-6 bg-retro-slate/20"></div> <!-- Séparateur vertical -->
+                
+                <select id="spy-dynamic-interval" class="border-none bg-transparent font-outfit font-bold text-retro-slate text-sm outline-none cursor-pointer m-0 px-2" onchange="updateSpyView()">
+                    ${intervalOptions}
+                </select>
             </div>
         </div>
+
         <div id="spy-summary-cards" class="stats-summary mb-6 flex-wrap"></div>
         
         <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
