@@ -183,16 +183,24 @@ async function loadSpyData(type) {
 }
 
 function renderSpyResults(data, metric, isPlayer) {
-    document.getElementById('spy-results-container').style.display = 'block';
+    const container = document.getElementById('spy-results-container');
+    container.style.display = 'block';
     
+    const firstSnapshot = data[0];
     const latestSnapshot = data[data.length - 1];
     const selectElem = document.getElementById(isPlayer ? 'playerMetric' : 'allianceMetric');
     const metricLabel = selectElem.options[selectElem.selectedIndex].text;
     
-    document.getElementById('spy-result-icon').innerHTML = isPlayer ? '🐜' : '🛡️';
-    document.getElementById('spy-display-title').innerText = isPlayer ? latestSnapshot.pseudo : `[${latestSnapshot.tag}] ${latestSnapshot.name || ''}`;
-    document.getElementById('spy-display-subtitle').innerText = isPlayer ? (latestSnapshot.alliance ? `Alliance [${latestSnapshot.alliance}]` : "Sans Alliance") : `${latestSnapshot.players_count} membres`;
-    document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
+    const title = isPlayer ? latestSnapshot.pseudo : `[${latestSnapshot.tag}] ${latestSnapshot.name || ''}`;
+    const subtitle = isPlayer ? (latestSnapshot.alliance ? `Alliance [${latestSnapshot.alliance}]` : "Sans Alliance") : `${latestSnapshot.players_count} membres`;
+    const icon = isPlayer ? '🐜' : '🛡️';
+
+    // Calcul du résumé global
+    const startVal = Number(firstSnapshot[metric]) || 0;
+    const endVal = Number(latestSnapshot[metric]) || 0;
+    const diffVal = endVal - startVal;
+    const diffFormatted = diffVal >= 0 ? `+${diffVal.toLocaleString('fr-FR')}` : diffVal.toLocaleString('fr-FR');
+    const diffColor = diffVal >= 0 ? '#3aafa9' : '#ff6f61';
 
     const labels = [];
     const chartData = [];
@@ -203,23 +211,21 @@ function renderSpyResults(data, metric, isPlayer) {
         const dateLabel = new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
         const currentVal = Number(snap[metric]) || 0;
         
-        // Le graphique affiche tous les points pour conserver la notion de temps (plateaux)
         labels.push(dateLabel);
         chartData.push(currentVal);
 
-        // Le tableau filtre les relevés identiques
         if (previousVal === null || currentVal !== previousVal) {
             let diffText = "-"; 
-            let diffColor = "text-retro-slate/30";
+            let tableDiffColor = "text-retro-slate/30";
             
             if (previousVal !== null) {
-                const diff = currentVal - previousVal;
-                if (diff > 0) { 
-                    diffText = `+${diff.toLocaleString('fr-FR')}`; 
-                    diffColor = "text-retro-mint-dark"; 
-                } else if (diff < 0) { 
-                    diffText = `${diff.toLocaleString('fr-FR')}`; 
-                    diffColor = "text-retro-coral"; 
+                const stepDiff = currentVal - previousVal;
+                if (stepDiff > 0) { 
+                    diffText = `+${stepDiff.toLocaleString('fr-FR')}`; 
+                    tableDiffColor = "text-retro-mint-dark"; 
+                } else if (stepDiff < 0) { 
+                    diffText = `${stepDiff.toLocaleString('fr-FR')}`; 
+                    tableDiffColor = "text-retro-coral"; 
                 }
             }
 
@@ -227,25 +233,47 @@ function renderSpyResults(data, metric, isPlayer) {
                 <tr>
                     <td class="font-bold text-retro-slate">${dateLabel}</td>
                     <td class="text-center font-bold text-retro-slate text-lg">${currentVal.toLocaleString('fr-FR')}</td>
-                    <td class="text-center font-black ${diffColor}">${diffText}</td>
+                    <td class="text-center font-black ${tableDiffColor}">${diffText}</td>
                 </tr>
             `);
         }
-        
         previousVal = currentVal;
     });
 
-    document.getElementById('spy-history-table-container').innerHTML = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Date du Relevé</th>
-                    <th class="text-center">${metricLabel}</th>
-                    <th class="text-center">Évolution</th>
-                </tr>
-            </thead>
-            <tbody>${tableRows.join('')}</tbody>
-        </table>
+    // Recomposition de l'affichage avec le tableau de résumé
+    container.innerHTML = `
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">${icon}</div>
+            <div>
+                <h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">${title}</h3>
+                <p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">${subtitle}</p>
+            </div>
+        </div>
+
+        <div class="stats-summary mb-6 flex-wrap">
+            <div class="stat-card"><div class="val">${startVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Initiale</div></div>
+            <div class="stat-card"><div class="val">${endVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Finale</div></div>
+            <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
+        </div>
+        
+        <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
+            <h4 class="font-shrikhand text-lg text-retro-slate mb-2">📈 Évolution : ${metricLabel}</h4>
+            <canvas id="spyHistoryChart" width="100%" height="40"></canvas>
+        </div>
+        
+        <h4 class="font-shrikhand text-lg text-retro-slate mb-4">📋 Historique des relevés</h4>
+        <div class="table-container mb-8">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date du Relevé</th>
+                        <th class="text-center">${metricLabel}</th>
+                        <th class="text-center">Évolution</th>
+                    </tr>
+                </thead>
+                <tbody>${tableRows.join('')}</tbody>
+            </table>
+        </div>
     `;
 
     renderSpyHistoryChart(labels, chartData, metricLabel, isPlayer);
