@@ -297,9 +297,13 @@ function renderSpyResultsContainer() {
             </div>
         </div>
 
-        <!-- RÉSUMÉ ALLIANCE V (Spécifique Groupes) -->
+        <!-- RÉSUMÉ ALLIANCE V -->
         <div id="spy-alliance-v-summary" class="mb-6"></div>
 
+        <!-- COMPOSITION DES GROUPES (DÉPLACÉ ICI) -->
+        <div id="spy-group-composition-container" class="mb-8"></div>
+
+        <!-- CARTES DE RÉSUMÉ JOUEUR/ALLIANCE -->
         <div id="spy-summary-cards" class="stats-summary mb-6 flex-wrap"></div>
         
         <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
@@ -308,9 +312,6 @@ function renderSpyResultsContainer() {
         </div>
         
         <div id="spy-tables-container" class="flex flex-wrap gap-6 mb-8 items-start"></div>
-
-        <!-- COMPOSITION DES GROUPES (Spécifique Groupes) -->
-        <div id="spy-group-composition-container" class="mb-8"></div>
     `;
 
     const metricSelect = document.getElementById('spy-dynamic-metric');
