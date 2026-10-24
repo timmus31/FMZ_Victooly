@@ -1,8 +1,13 @@
 let spyPlayersMap = new Map();
 let spyAlliancesMap = new Set();
+let spyAvailableGroups = [];
+let spyActiveGroups = new Set();
+
 let currentSpyChart = null;
 let currentSpyData = [];
-let currentSpyIsPlayer = true;
+let currentSpyType = 'joueurs'; // 'joueurs', 'alliances', 'groupes'
+
+const SPY_GROUP_COLORS = ['#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', '#e74c3c', '#9b59b6', '#3498db', '#f39c12', '#1abc9c', '#d35400'];
 
 async function loadSpyTab() {
     const contentDiv = document.getElementById('content-area');
@@ -17,6 +22,7 @@ async function loadSpyTab() {
         <div class="flex gap-2 mb-6 border-b-4 border-retro-slate pb-4 flex-wrap">
             <button id="spy-tab-joueurs-btn" class="btn-action bg-retro-coral text-white" onclick="switchSpySubTab('joueurs')"><i class="fa-solid fa-user-secret"></i> Joueurs</button>
             <button id="spy-tab-alliances-btn" class="btn-action bg-white" onclick="switchSpySubTab('alliances')"><i class="fa-solid fa-shield"></i> Alliances</button>
+            <button id="spy-tab-groupes-btn" class="btn-action bg-white" onclick="switchSpySubTab('groupes')"><i class="fa-solid fa-users-viewfinder"></i> Groupes</button>
         </div>
 
         <!-- Section Joueurs -->
@@ -34,14 +40,14 @@ async function loadSpyTab() {
                 </div>
                 <button class="btn-manual-ok ml-auto" onclick="loadSpyData('joueurs')"><i class="fa-solid fa-magnifying-glass"></i> Analyser</button>
             </div>
-            <p id="spy-player-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation des joueurs en cours...</p>
+            <p id="spy-player-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
         </div>
 
         <!-- Section Alliances -->
         <div id="spy-tab-alliances" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8" style="display: none;">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-magnifying-glass text-[#8e44ad] mr-2"></i> Analyser une alliance</h2>
             <div class="flex flex-wrap items-center gap-4">
-                <input type="text" id="spy-alliance-search" list="spy-alliances-list" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance (ex: -V-)..." autocomplete="off">
+                <input type="text" id="spy-alliance-search" list="spy-alliances-list" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance..." autocomplete="off">
                 <datalist id="spy-alliances-list"></datalist>
                 
                 <div class="flex items-center gap-2">
@@ -52,7 +58,30 @@ async function loadSpyTab() {
                 </div>
                 <button class="btn-manual-ok ml-auto" style="background-color: #8e44ad;" onclick="loadSpyData('alliances')"><i class="fa-solid fa-magnifying-glass"></i> Analyser</button>
             </div>
-            <p id="spy-alliance-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation des alliances en cours...</p>
+            <p id="spy-alliance-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
+        </div>
+
+        <!-- Section Groupes -->
+        <div id="spy-tab-groupes" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8" style="display: none;">
+            <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-users-viewfinder text-retro-yellow mr-2"></i> Comparer les Groupes</h2>
+            
+            <div class="mb-5">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-fredoka font-bold text-retro-slate">Sélectionnez les groupes :</span>
+                    <button class="text-xs font-bold bg-retro-slate text-white px-3 py-1 rounded-lg hover:bg-retro-coral transition-colors shadow-retro-sm" onclick="toggleAllSpyGroups()"><i class="fa-solid fa-check-double"></i> Tous / Aucun</button>
+                </div>
+                <div id="spy-groups-bubbles" class="flex flex-wrap gap-3"></div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4 border-t-2 border-retro-slate/10 pt-4">
+                <div class="flex items-center gap-2">
+                    <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
+                    <input type="date" id="groupStartDate" value="${today}" class="w-auto m-0">
+                    <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
+                    <input type="date" id="groupEndDate" value="${today}" class="w-auto m-0">
+                </div>
+                <button class="btn-manual-ok ml-auto" style="background-color: #f4d03f; color:#1d2d44;" onclick="loadSpyData('groupes')"><i class="fa-solid fa-magnifying-glass"></i> Comparer</button>
+            </div>
         </div>
 
         <!-- Conteneur des résultats -->
@@ -62,88 +91,125 @@ async function loadSpyTab() {
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' };
 
     try {
-        const [resPlayers, resAlliances] = await Promise.all([
-            fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_players`, { method: 'POST', headers: headers }),
-            fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_alliances`, { method: 'POST', headers: headers })
+        const [resP, resA, resG] = await Promise.all([
+            fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_players`, { method: 'POST', headers }),
+            fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_alliances`, { method: 'POST', headers }),
+            fetch(`${SUPABASE_URL}/rest/v1/rpc/get_available_groups`, { method: 'POST', headers })
         ]);
 
-        if (resPlayers.ok) {
-            const players = await resPlayers.json();
+        if (resP.ok) {
+            const players = await resP.json();
             const datalistP = document.getElementById('spy-players-list');
             spyPlayersMap.clear();
-            players.forEach(p => {
-                spyPlayersMap.set(p.pseudo, p.player_id);
-                const option = document.createElement('option');
-                option.value = p.pseudo;
-                datalistP.appendChild(option);
-            });
-            document.getElementById('spy-player-msg').innerHTML = `<i class="fa-solid fa-check text-retro-mint"></i> Registre prêt (${players.length.toLocaleString('fr-FR')} profils indexés)`;
-        } else throw new Error("Erreur joueurs");
+            players.forEach(p => { spyPlayersMap.set(p.pseudo, p.player_id); datalistP.appendChild(new Option(p.pseudo, p.pseudo)); });
+            document.getElementById('spy-player-msg').innerHTML = `<i class="fa-solid fa-check text-retro-mint"></i> ${players.length.toLocaleString()} profils`;
+        }
 
-        if (resAlliances.ok) {
-            const alliances = await resAlliances.json();
+        if (resA.ok) {
+            const alliances = await resA.json();
             const datalistA = document.getElementById('spy-alliances-list');
             spyAlliancesMap.clear();
-            alliances.forEach(a => {
-                spyAlliancesMap.add(a.tag);
-                const option = document.createElement('option');
-                option.value = a.tag;
-                datalistA.appendChild(option);
-            });
-            document.getElementById('spy-alliance-msg').innerHTML = `<i class="fa-solid fa-check text-[#8e44ad]"></i> Registre prêt (${alliances.length.toLocaleString('fr-FR')} alliances indexées)`;
-        } else throw new Error("Erreur alliances");
+            alliances.forEach(a => { spyAlliancesMap.add(a.tag); datalistA.appendChild(new Option(a.tag, a.tag)); });
+            document.getElementById('spy-alliance-msg').innerHTML = `<i class="fa-solid fa-check text-[#8e44ad]"></i> ${alliances.length.toLocaleString()} alliances`;
+        }
+
+        if (resG.ok) {
+            const grps = await resG.json();
+            spyAvailableGroups = grps.filter(g => g.group_id > 0).map(g => g.group_id).sort((a,b) => a-b);
+            spyActiveGroups = new Set(spyAvailableGroups);
+            renderSpyGroupBubbles();
+        }
 
     } catch (err) {
-        document.getElementById('spy-player-msg').innerHTML = `<span class="text-retro-coral"><i class="fa-solid fa-triangle-exclamation"></i> Erreur de chargement de l'index.</span>`;
-        document.getElementById('spy-alliance-msg').innerHTML = `<span class="text-retro-coral"><i class="fa-solid fa-triangle-exclamation"></i> Erreur de chargement de l'index.</span>`;
+        showToast("Erreur", "Erreur d'indexation.");
     }
+}
+
+function renderSpyGroupBubbles() {
+    const container = document.getElementById('spy-groups-bubbles');
+    if (!container) return;
+    
+    container.innerHTML = spyAvailableGroups.map(gid => {
+        const isActive = spyActiveGroups.has(gid);
+        const color = SPY_GROUP_COLORS[(gid - 1) % SPY_GROUP_COLORS.length];
+        const baseStyle = `border: 3px solid ${color};`;
+        const activeStyle = isActive 
+            ? `background-color: ${color}; color: white; transform: translateY(-3px); box-shadow: 2px 4px 0px 0px #1d2d44;` 
+            : `background-color: #ffffff; color: #1d2d44; box-shadow: inset 2px 2px 0px rgba(29, 45, 68, 0.05); opacity: 0.6;`;
+            
+        return `<button onclick="toggleSpyGroup(${gid})" class="font-shrikhand px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer select-none text-sm" style="${baseStyle} ${activeStyle}">G${gid}</button>`;
+    }).join('');
+}
+
+function toggleSpyGroup(gid) {
+    if (spyActiveGroups.has(gid)) spyActiveGroups.delete(gid);
+    else spyActiveGroups.add(gid);
+    renderSpyGroupBubbles();
+}
+
+function toggleAllSpyGroups() {
+    if (spyActiveGroups.size === spyAvailableGroups.length) spyActiveGroups.clear();
+    else spyAvailableGroups.forEach(gid => spyActiveGroups.add(gid));
+    renderSpyGroupBubbles();
 }
 
 function switchSpySubTab(tabName) {
     document.getElementById('spy-tab-joueurs').style.display = tabName === 'joueurs' ? 'block' : 'none';
     document.getElementById('spy-tab-alliances').style.display = tabName === 'alliances' ? 'block' : 'none';
+    document.getElementById('spy-tab-groupes').style.display = tabName === 'groupes' ? 'block' : 'none';
     
     document.getElementById('spy-tab-joueurs-btn').className = `btn-action ${tabName === 'joueurs' ? 'bg-retro-coral text-white' : 'bg-white'}`;
     document.getElementById('spy-tab-alliances-btn').className = `btn-action ${tabName === 'alliances' ? 'bg-retro-coral text-white' : 'bg-white'}`;
+    document.getElementById('spy-tab-groupes-btn').className = `btn-action ${tabName === 'groupes' ? 'bg-retro-coral text-white' : 'bg-white'}`;
     
     document.getElementById('spy-results-container').style.display = 'none';
 }
 
 async function loadSpyData(type) {
-    currentSpyIsPlayer = type === 'joueurs';
-    const inputVal = document.getElementById(currentSpyIsPlayer ? "spy-player-search" : "spy-alliance-search").value.trim();
+    currentSpyType = type;
+    const isJoueur = type === 'joueurs';
+    const isAlliance = type === 'alliances';
+    const isGroupes = type === 'groupes';
     
-    if (!inputVal) return showToast("Erreur", "Veuillez entrer une cible valide.");
-
-    let finalSearchParam = '';
-    let searchColumn = '';
-
-    if (currentSpyIsPlayer) {
-        const pId = spyPlayersMap.get(inputVal);
-        if (!pId) return showToast("Erreur", "Joueur introuvable dans le registre.");
-        searchColumn = 'player_id';
-        finalSearchParam = `eq.${pId}`;
-    } else {
-        if (!spyAlliancesMap.has(inputVal)) return showToast("Erreur", "Alliance introuvable dans le registre.");
-        searchColumn = 'tag';
-        finalSearchParam = `eq.${encodeURIComponent(inputVal)}`;
-    }
-
-    const startDate = document.getElementById(currentSpyIsPlayer ? "playerStartDate" : "allianceStartDate").value;
-    const endDate = document.getElementById(currentSpyIsPlayer ? "playerEndDate" : "allianceEndDate").value;
-
+    const startDate = document.getElementById(isJoueur ? "playerStartDate" : (isAlliance ? "allianceStartDate" : "groupStartDate")).value;
+    const endDate = document.getElementById(isJoueur ? "playerEndDate" : (isAlliance ? "allianceEndDate" : "groupEndDate")).value;
+    
     const startIso = `${startDate}T00:00:00Z`;
     const endIso = `${endDate}T23:59:59Z`;
-    const tableName = currentSpyIsPlayer ? 'players_history' : 'alliances_history';
-
-    const url = `${SUPABASE_URL}/rest/v1/${tableName}?${searchColumn}=${finalSearchParam}&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`;
 
     try {
-        const response = await fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' } });
-        currentSpyData = await response.json();
+        if (isGroupes) {
+            if (spyActiveGroups.size === 0) return showToast("Erreur", "Sélectionnez au moins un groupe.");
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_groups`, {
+                method: 'POST', 
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ p_start: startIso, p_end: endIso })
+            });
+            const rawData = await res.json();
+            currentSpyData = rawData.filter(d => spyActiveGroups.has(d.group_id));
 
-        if (currentSpyData.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée pour cette période.");
-        
+        } else {
+            const inputVal = document.getElementById(isJoueur ? "spy-player-search" : "spy-alliance-search").value.trim();
+            if (!inputVal) return showToast("Erreur", "Veuillez entrer une cible.");
+
+            let searchParam = '', searchColumn = '';
+            if (isJoueur) {
+                const pId = spyPlayersMap.get(inputVal);
+                if (!pId) return showToast("Erreur", "Joueur introuvable.");
+                searchColumn = 'player_id'; searchParam = `eq.${pId}`;
+            } else {
+                if (!spyAlliancesMap.has(inputVal)) return showToast("Erreur", "Alliance introuvable.");
+                searchColumn = 'tag'; searchParam = `eq.${encodeURIComponent(inputVal)}`;
+            }
+
+            const tableName = isJoueur ? 'players_history' : 'alliances_history';
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?${searchColumn}=${searchParam}&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`, {
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            currentSpyData = await res.json();
+        }
+
+        if (currentSpyData.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée.");
         renderSpyResultsContainer();
 
     } catch (error) {
@@ -155,78 +221,43 @@ function renderSpyResultsContainer() {
     const container = document.getElementById('spy-results-container');
     container.style.display = 'block';
 
-    const firstDate = new Date(currentSpyData[0].snapshot_date);
-    const lastDate = new Date(currentSpyData[currentSpyData.length - 1].snapshot_date);
-    const diffDays = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+    // Détermination de l'intervalle
+    const dates = currentSpyData.map(d => new Date(d.snapshot_date).getTime());
+    const minDate = Math.min(...dates);
+    const maxDate = Math.max(...dates);
+    const diffDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
 
     let intervalOptions = `<option value="raw">Données brutes</option>`;
-    
-    if (diffDays <= 3) {
-        intervalOptions += `
-            <option value="1h">Moyenne / 1H</option>
-            <option value="3h">Moyenne / 3H</option>
-            <option value="6h">Moyenne / 6H</option>
-            <option value="12h">Moyenne / 12H</option>
-        `;
-    } else if (diffDays <= 30) {
-        intervalOptions += `
-            <option value="12h">Moyenne / 12H</option>
-            <option value="1d">Moyenne / 1 Jour</option>
-            <option value="3d">Moyenne / 3 Jours</option>
-            <option value="1w">Moyenne / 1 Semaine</option>
-        `;
-    } else {
-        intervalOptions += `
-            <option value="1d">Moyenne / 1 Jour</option>
-            <option value="3d">Moyenne / 3 Jours</option>
-            <option value="1w">Moyenne / 1 Semaine</option>
-            <option value="1m">Moyenne / 1 Mois</option>
-        `;
-    }
+    if (diffDays <= 3) intervalOptions += `<option value="1h">Moyenne / 1H</option><option value="3h">Moyenne / 3H</option><option value="6h">Moyenne / 6H</option><option value="12h">Moyenne / 12H</option>`;
+    else if (diffDays <= 30) intervalOptions += `<option value="12h">Moyenne / 12H</option><option value="1d">Moyenne / 1 Jour</option><option value="3d">Moyenne / 3 Jours</option><option value="1w">Moyenne / 1 Semaine</option>`;
+    else intervalOptions += `<option value="1d">Moyenne / 1 Jour</option><option value="3d">Moyenne / 3 Jours</option><option value="1w">Moyenne / 1 Semaine</option><option value="1m">Moyenne / 1 Mois</option>`;
 
     let metricOptions = '';
-    if (currentSpyIsPlayer) {
-        metricOptions = `
-            <option value="field">Terrain de chasse</option>
-            <option value="building_score">Score Bâtiment</option>
-            <option value="technology_score">Score Technologie</option>
-            <option value="trophy_score">Score Trophée</option>
-        `;
+    if (currentSpyType === 'joueurs') {
+        metricOptions = `<option value="field">Terrain de chasse</option><option value="building_score">Score Bâtiment</option><option value="technology_score">Score Technologie</option><option value="trophy_score">Score Trophée</option>`;
     } else {
-        metricOptions = `
-            <option value="total_field">Terrain total</option>
-            <option value="avg_field">Terrain / Joueur</option>
-            <option value="players_count">Nombre de joueurs</option>
-            <option value="total_building_score">Score Bâtiment total</option>
-            <option value="total_technology_score">Score Technologie total</option>
-            <option value="total_trophy_score">Score Trophée total</option>
-        `;
+        metricOptions = `<option value="total_field">Terrain total</option><option value="avg_field">Terrain / Joueur</option><option value="players_count">Nombre de joueurs</option><option value="total_building_score">Score Bâtiment total</option><option value="total_technology_score">Score Technologie total</option><option value="total_trophy_score">Score Trophée total</option>`;
     }
 
-    const latestSnapshot = currentSpyData[currentSpyData.length - 1];
-    const title = currentSpyIsPlayer ? latestSnapshot.pseudo : `[${latestSnapshot.tag}] ${latestSnapshot.name || ''}`;
-    const subtitle = currentSpyIsPlayer ? (latestSnapshot.alliance ? `Alliance [${latestSnapshot.alliance}]` : "Sans Alliance") : `${latestSnapshot.players_count} membres`;
-    const icon = currentSpyIsPlayer ? '🐜' : '🛡️';
+    let headerHtml = '';
+    if (currentSpyType === 'groupes') {
+        headerHtml = `<div class="flex items-center gap-4"><div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">🎯</div><div><h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">Comparateur de Groupes</h3><p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">Analyse Multidimensionnelle</p></div></div>`;
+    } else {
+        const latest = currentSpyData[currentSpyData.length - 1];
+        const title = currentSpyType === 'joueurs' ? latest.pseudo : `[${latest.tag}] ${latest.name || ''}`;
+        const subtitle = currentSpyType === 'joueurs' ? (latest.alliance ? `Alliance [${latest.alliance}]` : "Sans Alliance") : `${latest.players_count} membres`;
+        const icon = currentSpyType === 'joueurs' ? '🐜' : '🛡️';
+        headerHtml = `<div class="flex items-center gap-4"><div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">${icon}</div><div><h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">${title}</h3><p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">${subtitle}</p></div></div>`;
+    }
 
     container.innerHTML = `
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 mt-8">
-            <div class="flex items-center gap-4">
-                <div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">${icon}</div>
-                <div>
-                    <h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">${title}</h3>
-                    <p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">${subtitle}</p>
-                </div>
-            </div>
+            ${headerHtml}
             <div class="flex flex-wrap items-center gap-3">
-                <select id="spy-dynamic-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">
-                    ${metricOptions}
-                </select>
-                <select id="spy-dynamic-interval" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">
-                    ${intervalOptions}
-                </select>
+                <select id="spy-dynamic-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${metricOptions}</select>
+                <select id="spy-dynamic-interval" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${intervalOptions}</select>
             </div>
         </div>
-
         <div id="spy-summary-cards" class="stats-summary mb-6 flex-wrap"></div>
         
         <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
@@ -234,24 +265,11 @@ function renderSpyResultsContainer() {
             <canvas id="spyHistoryChart" width="100%" height="40"></canvas>
         </div>
         
-        <h4 class="font-shrikhand text-lg text-retro-slate mb-4">📋 Historique complet des variations</h4>
-        <div class="table-container mb-8">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date du Relevé</th>
-                        <th class="text-center" id="spy-table-metric-col">Valeur</th>
-                        <th class="text-center">Évolution</th>
-                    </tr>
-                </thead>
-                <tbody id="spy-history-tbody"></tbody>
-            </table>
-        </div>
+        <div id="spy-tables-container" class="flex flex-wrap gap-6 mb-8 items-start"></div>
     `;
 
     const intSelect = document.getElementById('spy-dynamic-interval');
     if (intSelect.options.length > 1) intSelect.selectedIndex = 1;
-    
     updateSpyView();
 }
 
@@ -260,144 +278,161 @@ function getBucketSize(intervalStr) {
     return hoursMap[intervalStr] ? hoursMap[intervalStr] * 60 * 60 * 1000 : null;
 }
 
+function getMetricValue(snap, m) {
+    if (m === 'avg_field') {
+        const field = Number(snap['total_field']) || 0;
+        const players = Math.max(1, Number(snap['players_count']) || 1);
+        return Math.round(field / players);
+    }
+    return Number(snap[m]) || 0;
+}
+
 function updateSpyView() {
     const metric = document.getElementById('spy-dynamic-metric').value;
     const interval = document.getElementById('spy-dynamic-interval').value;
-    const selectElem = document.getElementById('spy-dynamic-metric');
-    const metricLabel = selectElem.options[selectElem.selectedIndex].text;
+    const metricLabel = document.getElementById('spy-dynamic-metric').options[document.getElementById('spy-dynamic-metric').selectedIndex].text;
     
     document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
-    document.getElementById('spy-table-metric-col').innerText = metricLabel;
 
-    // Fonction pour intercepter la métrique "avg_field" calculée côté client
-    const getMetricValue = (snap, m) => {
-        if (m === 'avg_field') {
-            const field = Number(snap['total_field']) || 0;
-            const players = Math.max(1, Number(snap['players_count']) || 1); // Empêche la division par 0
-            return Math.round(field / players);
-        }
-        return Number(snap[m]) || 0;
-    };
+    // --- SÉPARATION DES DONNÉES PAR ENTITÉ (Joueur unique, Alliance unique, ou Multi-groupes) ---
+    const dataByEntity = {};
+    
+    currentSpyData.forEach(snap => {
+        let eId, eName, color;
+        if (currentSpyType === 'joueurs') { eId = snap.player_id; eName = snap.pseudo; color = '#3aafa9'; }
+        else if (currentSpyType === 'alliances') { eId = snap.tag; eName = snap.tag; color = '#8e44ad'; }
+        else { eId = snap.group_id; eName = `Groupe ${snap.group_id}`; color = SPY_GROUP_COLORS[(snap.group_id - 1) % SPY_GROUP_COLORS.length]; }
+        
+        if (!dataByEntity[eId]) dataByEntity[eId] = { id: eId, name: eName, color: color, rawData: [], processedData: [] };
+        dataByEntity[eId].rawData.push(snap);
+    });
 
-    // --- CARTES DE RÉSUMÉ ---
-    const startVal = getMetricValue(currentSpyData[0], metric);
-    const endVal = getMetricValue(currentSpyData[currentSpyData.length - 1], metric);
-    const diffVal = endVal - startVal;
-    const diffFormatted = diffVal >= 0 ? `+${diffVal.toLocaleString('fr-FR')}` : diffVal.toLocaleString('fr-FR');
-    const diffColor = diffVal >= 0 ? '#3aafa9' : '#ff6f61';
-
-    document.getElementById('spy-summary-cards').innerHTML = `
-        <div class="stat-card"><div class="val">${startVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Initiale</div></div>
-        <div class="stat-card"><div class="val">${endVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Finale</div></div>
-        <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression Globale</div></div>
-    `;
-
-    // --- 1. PRÉPARATION DES DONNÉES (Lissage selon l'intervalle) ---
-    let processedData = [];
     const bucketMs = interval !== 'raw' ? getBucketSize(interval) : 0;
+    const globalTimeKeys = new Set();
 
-    if (interval === 'raw') {
-        processedData = currentSpyData.map(snap => ({
-            dateObj: new Date(snap.snapshot_date),
-            val: getMetricValue(snap, metric)
-        }));
-    } else {
-        const buckets = {};
-        currentSpyData.forEach(snap => {
-            const ts = new Date(snap.snapshot_date).getTime();
-            const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
-            
-            if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
-            buckets[bucketKey].sum += getMetricValue(snap, metric);
-            buckets[bucketKey].count += 1;
-        });
-
-        Object.keys(buckets).sort((a, b) => a - b).forEach(key => {
-            processedData.push({
-                dateObj: new Date(Number(key)),
-                val: Math.round(buckets[key].sum / buckets[key].count)
+    // --- LISSAGE INDÉPENDANT ---
+    Object.values(dataByEntity).forEach(entity => {
+        if (interval === 'raw') {
+            entity.processedData = entity.rawData.map(snap => {
+                const ts = new Date(snap.snapshot_date).getTime();
+                globalTimeKeys.add(ts);
+                return { ts: ts, val: getMetricValue(snap, metric) };
             });
-        });
+        } else {
+            const buckets = {};
+            entity.rawData.forEach(snap => {
+                const ts = new Date(snap.snapshot_date).getTime();
+                const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
+                if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
+                buckets[bucketKey].sum += getMetricValue(snap, metric);
+                buckets[bucketKey].count += 1;
+            });
+            Object.keys(buckets).sort((a,b) => a-b).forEach(key => {
+                const tsKey = Number(key);
+                globalTimeKeys.add(tsKey);
+                entity.processedData.push({ ts: tsKey, val: Math.round(buckets[key].sum / buckets[key].count) });
+            });
+        }
+    });
+
+    // --- RÉSUMÉ (Cartes en haut - Uniquement pour single entité) ---
+    if (currentSpyType !== 'groupes') {
+        const singleEntity = Object.values(dataByEntity)[0];
+        const startVal = getMetricValue(singleEntity.rawData[0], metric);
+        const endVal = getMetricValue(singleEntity.rawData[singleEntity.rawData.length - 1], metric);
+        const diffVal = endVal - startVal;
+        
+        document.getElementById('spy-summary-cards').innerHTML = `
+            <div class="stat-card"><div class="val">${startVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Initiale</div></div>
+            <div class="stat-card"><div class="val">${endVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Finale</div></div>
+            <div class="stat-card"><div class="val" style="color:${diffVal >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${diffVal >= 0 ? '+' : ''}${diffVal.toLocaleString('fr-FR')}</div><div class="lbl">Progression Globale</div></div>
+        `;
+    } else {
+        document.getElementById('spy-summary-cards').innerHTML = ''; // Pas de cartes globales pour les groupes multiples
     }
 
-    // --- 2. TABLEAU ---
-    const tableRows = [];
-    let previousVal = null;
-
-    processedData.forEach(item => {
-        if (previousVal === null || item.val !== previousVal) {
-            let formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' };
-            if (interval !== 'raw' && bucketMs >= 24 * 60 * 60 * 1000) {
-                formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
-            }
-            
-            const dateLabel = item.dateObj.toLocaleString('fr-FR', formatOptions);
-            let diffText = "-"; 
-            let tableDiffColor = "text-retro-slate/30";
-            
-            if (previousVal !== null) {
-                const stepDiff = item.val - previousVal;
-                if (stepDiff > 0) { 
-                    diffText = `+${stepDiff.toLocaleString('fr-FR')}`; 
-                    tableDiffColor = "text-retro-mint-dark"; 
-                } else if (stepDiff < 0) { 
-                    diffText = `${stepDiff.toLocaleString('fr-FR')}`; 
-                    tableDiffColor = "text-retro-coral"; 
+    // --- TABLEAUX PARALLÈLES ---
+    let tablesHtml = '';
+    const isMultiTable = currentSpyType === 'groupes';
+    
+    Object.values(dataByEntity).forEach(entity => {
+        const tableRows = [];
+        let previousVal = null;
+        
+        entity.processedData.forEach(item => {
+            if (previousVal === null || item.val !== previousVal) {
+                const dObj = new Date(item.ts);
+                let fmt = (interval !== 'raw' && bucketMs >= 24*3600*1000) ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
+                const dateLabel = dObj.toLocaleString('fr-FR', fmt);
+                
+                let diffText = "-"; let colorCls = "text-retro-slate/30";
+                if (previousVal !== null) {
+                    const diff = item.val - previousVal;
+                    if (diff > 0) { diffText = `+${diff.toLocaleString('fr-FR')}`; colorCls = "text-retro-mint-dark"; } 
+                    else if (diff < 0) { diffText = `${diff.toLocaleString('fr-FR')}`; colorCls = "text-retro-coral"; }
                 }
+
+                tableRows.unshift(`<tr>
+                    <td class="font-bold text-retro-slate text-sm whitespace-nowrap">${dateLabel}</td>
+                    <td class="text-center font-bold text-retro-slate">${item.val.toLocaleString('fr-FR')}</td>
+                    <td class="text-center font-black text-sm ${colorCls}">${diffText}</td>
+                </tr>`);
             }
+            previousVal = item.val;
+        });
 
-            tableRows.unshift(`
-                <tr>
-                    <td class="font-bold text-retro-slate">${dateLabel}</td>
-                    <td class="text-center font-bold text-retro-slate text-lg">${item.val.toLocaleString('fr-FR')}</td>
-                    <td class="text-center font-black ${tableDiffColor}">${diffText}</td>
-                </tr>
-            `);
-        }
-        previousVal = item.val;
+        const headerColor = isMultiTable ? entity.color : '#1d2d44';
+        const titleHtml = isMultiTable ? `<h5 class="text-center font-shrikhand text-xl mb-3" style="color:${headerColor};">${entity.name}</h5>` : '';
+
+        tablesHtml += `
+            <div class="flex-1 min-w-[300px] table-container border-t-4" style="border-top-color: ${headerColor};">
+                ${titleHtml}
+                <table>
+                    <thead><tr>
+                        <th>Date</th>
+                        <th class="text-center">${isMultiTable ? 'Valeur' : metricLabel}</th>
+                        <th class="text-center">Évolution</th>
+                    </tr></thead>
+                    <tbody>${tableRows.join('')}</tbody>
+                </table>
+            </div>
+        `;
+    });
+    
+    document.getElementById('spy-tables-container').innerHTML = tablesHtml;
+
+    // --- GRAPHIQUE MULTI-COURBES SYNCHRONISÉ ---
+    const sortedGlobalTs = Array.from(globalTimeKeys).sort((a, b) => a - b);
+    const chartLabels = sortedGlobalTs.map(ts => {
+        let fmt = (interval !== 'raw' && bucketMs >= 24*3600*1000) ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
+        return new Date(ts).toLocaleString('fr-FR', fmt);
     });
 
-    document.getElementById('spy-history-tbody').innerHTML = tableRows.join('');
+    const datasets = Object.values(dataByEntity).map(entity => {
+        const alignedData = sortedGlobalTs.map(ts => {
+            const match = entity.processedData.find(d => d.ts === ts);
+            return match ? match.val : null; // null permet de ne pas lier les points s'il y a un trou
+        });
 
-    // --- 3. GRAPHIQUE ---
-    let chartLabels = [];
-    let chartDataPoints = [];
-
-    processedData.forEach(item => {
-        let formatOptions = { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
-        if (interval !== 'raw' && bucketMs >= 24 * 60 * 60 * 1000) {
-            formatOptions = { day: '2-digit', month: '2-digit' };
-        }
-        chartLabels.push(item.dateObj.toLocaleString('fr-FR', formatOptions));
-        chartDataPoints.push(item.val);
+        return {
+            label: entity.name,
+            data: alignedData,
+            borderColor: entity.color,
+            backgroundColor: entity.color,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: entity.color,
+            pointHoverRadius: 6,
+            pointRadius: 3,
+            borderWidth: 3,
+            tension: 0.1,
+            spanGaps: true // Relie les courbes même si un groupe a raté un relevé
+        };
     });
 
-    renderSpyHistoryChart(chartLabels, chartDataPoints, metricLabel, currentSpyIsPlayer);
-}
-
-function renderSpyHistoryChart(labels, dataPoints, metricLabel, isPlayer) {
-    const ctx = document.getElementById('spyHistoryChart').getContext('2d');
     if (currentSpyChart) currentSpyChart.destroy();
-
-    const chartColor = isPlayer ? '#3aafa9' : '#8e44ad';
-
-    currentSpyChart = new Chart(ctx, {
+    currentSpyChart = new Chart(document.getElementById('spyHistoryChart').getContext('2d'), {
         type: 'line',
-        data: { 
-            labels: labels, 
-            datasets: [{ 
-                label: metricLabel, 
-                data: dataPoints, 
-                borderColor: '#1d2d44', 
-                backgroundColor: chartColor, 
-                pointBackgroundColor: '#ff6f61', 
-                pointBorderColor: '#1d2d44', 
-                pointHoverRadius: 8, 
-                pointRadius: 4, 
-                borderWidth: 3, 
-                tension: 0.1 
-            }] 
-        },
+        data: { labels: chartLabels, datasets: datasets },
         options: { 
             responsive: true, 
             interaction: { mode: 'index', intersect: false }, 
