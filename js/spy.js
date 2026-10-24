@@ -6,12 +6,21 @@ let spyActiveGroups = new Set();
 let currentSpyChart = null;
 let currentSpyData = [];
 let currentSpyType = 'joueurs'; // 'joueurs', 'alliances', 'groupes'
+let currentSpyStartDate = '';
+let currentSpyEndDate = '';
+let currentSpyMetric = '';
 
 const SPY_GROUP_COLORS = ['#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', '#e74c3c', '#9b59b6', '#3498db', '#f39c12', '#1abc9c', '#d35400'];
 
 async function loadSpyTab() {
     const contentDiv = document.getElementById('content-area');
-    const today = new Date().toISOString().split('T')[0];
+    
+    // Initialisation : 7 derniers jours par défaut
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    currentSpyEndDate = today.toISOString().split('T')[0];
+    currentSpyStartDate = sevenDaysAgo.toISOString().split('T')[0];
 
     contentDiv.innerHTML = `
         <div class="flex items-center gap-3 mb-6">
@@ -31,13 +40,6 @@ async function loadSpyTab() {
             <div class="flex flex-wrap items-center gap-4">
                 <input type="text" id="spy-player-search" list="spy-players-list" class="flex-grow min-w-[200px]" placeholder="Commencez à taper un pseudo..." autocomplete="off">
                 <datalist id="spy-players-list"></datalist>
-                
-                <div class="flex items-center gap-2">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
-                    <input type="date" id="playerStartDate" value="${today}" class="w-auto m-0">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
-                    <input type="date" id="playerEndDate" value="${today}" class="w-auto m-0">
-                </div>
                 <button class="btn-manual-ok ml-auto" onclick="loadSpyData('joueurs')"><i class="fa-solid fa-magnifying-glass"></i> Analyser</button>
             </div>
             <p id="spy-player-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
@@ -49,13 +51,6 @@ async function loadSpyTab() {
             <div class="flex flex-wrap items-center gap-4">
                 <input type="text" id="spy-alliance-search" list="spy-alliances-list" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance..." autocomplete="off">
                 <datalist id="spy-alliances-list"></datalist>
-                
-                <div class="flex items-center gap-2">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
-                    <input type="date" id="allianceStartDate" value="${today}" class="w-auto m-0">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
-                    <input type="date" id="allianceEndDate" value="${today}" class="w-auto m-0">
-                </div>
                 <button class="btn-manual-ok ml-auto" style="background-color: #8e44ad;" onclick="loadSpyData('alliances')"><i class="fa-solid fa-magnifying-glass"></i> Analyser</button>
             </div>
             <p id="spy-alliance-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
@@ -74,12 +69,6 @@ async function loadSpyTab() {
             </div>
 
             <div class="flex flex-wrap items-center gap-4 border-t-2 border-retro-slate/10 pt-4">
-                <div class="flex items-center gap-2">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
-                    <input type="date" id="groupStartDate" value="${today}" class="w-auto m-0">
-                    <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
-                    <input type="date" id="groupEndDate" value="${today}" class="w-auto m-0">
-                </div>
                 <button class="btn-manual-ok ml-auto" style="background-color: #f4d03f; color:#1d2d44;" onclick="loadSpyData('groupes')"><i class="fa-solid fa-magnifying-glass"></i> Comparer</button>
             </div>
         </div>
@@ -165,17 +154,24 @@ function switchSpySubTab(tabName) {
     document.getElementById('spy-results-container').style.display = 'none';
 }
 
+function updateSpyPeriod() {
+    currentSpyStartDate = document.getElementById('spy-dynamic-start').value;
+    currentSpyEndDate = document.getElementById('spy-dynamic-end').value;
+    
+    const metricSelect = document.getElementById('spy-dynamic-metric');
+    if (metricSelect) currentSpyMetric = metricSelect.value;
+    
+    loadSpyData(currentSpyType);
+}
+
 async function loadSpyData(type) {
     currentSpyType = type;
     const isJoueur = type === 'joueurs';
     const isAlliance = type === 'alliances';
     const isGroupes = type === 'groupes';
     
-    const startDate = document.getElementById(isJoueur ? "playerStartDate" : (isAlliance ? "allianceStartDate" : "groupStartDate")).value;
-    const endDate = document.getElementById(isJoueur ? "playerEndDate" : (isAlliance ? "allianceEndDate" : "groupEndDate")).value;
-    
-    const startIso = `${startDate}T00:00:00Z`;
-    const endIso = `${endDate}T23:59:59Z`;
+    const startIso = `${currentSpyStartDate}T00:00:00Z`;
+    const endIso = `${currentSpyEndDate}T23:59:59Z`;
 
     try {
         if (isGroupes) {
@@ -187,12 +183,10 @@ async function loadSpyData(type) {
                 body: JSON.stringify({ p_start: startIso, p_end: endIso })
             });
 
-            // 🔍 CAPTURE DE L'ERREUR SUPABASE
             if (!res.ok) {
                 const errorText = await res.text();
                 console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
-                showToast("Erreur 500", "Regarde la console (F12) pour voir le problème exact !");
-                return;
+                return showToast("Erreur", "Problème serveur, voir la console.");
             }
 
             const rawData = await res.json();
@@ -220,14 +214,13 @@ async function loadSpyData(type) {
             if (!res.ok) {
                 const errorText = await res.text();
                 console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
-                showToast("Erreur Base de données", "Détails dans la console (F12)");
-                return;
+                return showToast("Erreur", "Problème base de données.");
             }
 
             currentSpyData = await res.json();
         }
 
-        if (currentSpyData.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée.");
+        if (currentSpyData.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée sur cette période.");
         renderSpyResultsContainer();
 
     } catch (error) {
@@ -240,7 +233,6 @@ function renderSpyResultsContainer() {
     const container = document.getElementById('spy-results-container');
     container.style.display = 'block';
 
-    // Détermination de l'intervalle
     const dates = currentSpyData.map(d => new Date(d.snapshot_date).getTime());
     const minDate = Math.min(...dates);
     const maxDate = Math.max(...dates);
@@ -273,6 +265,12 @@ function renderSpyResultsContainer() {
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 mt-8">
             ${headerHtml}
             <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 bg-white border-2 border-retro-slate rounded-xl p-1.5 shadow-retro-sm m-0">
+                    <span class="font-fredoka font-bold text-retro-slate text-sm ml-1">Du</span>
+                    <input type="date" id="spy-dynamic-start" value="${currentSpyStartDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit bg-transparent cursor-pointer" onchange="updateSpyPeriod()">
+                    <span class="font-fredoka font-bold text-retro-slate text-sm">au</span>
+                    <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="w-auto m-0 border-none p-0 outline-none text-sm font-outfit bg-transparent cursor-pointer mr-1" onchange="updateSpyPeriod()">
+                </div>
                 <select id="spy-dynamic-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${metricOptions}</select>
                 <select id="spy-dynamic-interval" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">${intervalOptions}</select>
             </div>
@@ -287,8 +285,15 @@ function renderSpyResultsContainer() {
         <div id="spy-tables-container" class="flex flex-wrap gap-6 mb-8 items-start"></div>
     `;
 
+    // Restaure la métrique si elle était déjà sélectionnée (lors d'un changement de date)
+    const metricSelect = document.getElementById('spy-dynamic-metric');
+    if (currentSpyMetric && metricSelect.querySelector(`option[value="${currentSpyMetric}"]`)) {
+        metricSelect.value = currentSpyMetric;
+    }
+
     const intSelect = document.getElementById('spy-dynamic-interval');
     if (intSelect.options.length > 1) intSelect.selectedIndex = 1;
+    
     updateSpyView();
 }
 
@@ -307,13 +312,13 @@ function getMetricValue(snap, m) {
 }
 
 function updateSpyView() {
-    const metric = document.getElementById('spy-dynamic-metric').value;
+    const metricSelect = document.getElementById('spy-dynamic-metric');
+    currentSpyMetric = metricSelect.value;
     const interval = document.getElementById('spy-dynamic-interval').value;
-    const metricLabel = document.getElementById('spy-dynamic-metric').options[document.getElementById('spy-dynamic-metric').selectedIndex].text;
+    const metricLabel = metricSelect.options[metricSelect.selectedIndex].text;
     
     document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
 
-    // --- SÉPARATION DES DONNÉES PAR ENTITÉ (Joueur unique, Alliance unique, ou Multi-groupes) ---
     const dataByEntity = {};
     
     currentSpyData.forEach(snap => {
@@ -329,13 +334,12 @@ function updateSpyView() {
     const bucketMs = interval !== 'raw' ? getBucketSize(interval) : 0;
     const globalTimeKeys = new Set();
 
-    // --- LISSAGE INDÉPENDANT ---
     Object.values(dataByEntity).forEach(entity => {
         if (interval === 'raw') {
             entity.processedData = entity.rawData.map(snap => {
                 const ts = new Date(snap.snapshot_date).getTime();
                 globalTimeKeys.add(ts);
-                return { ts: ts, val: getMetricValue(snap, metric) };
+                return { ts: ts, val: getMetricValue(snap, currentSpyMetric) };
             });
         } else {
             const buckets = {};
@@ -343,7 +347,7 @@ function updateSpyView() {
                 const ts = new Date(snap.snapshot_date).getTime();
                 const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
                 if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
-                buckets[bucketKey].sum += getMetricValue(snap, metric);
+                buckets[bucketKey].sum += getMetricValue(snap, currentSpyMetric);
                 buckets[bucketKey].count += 1;
             });
             Object.keys(buckets).sort((a,b) => a-b).forEach(key => {
@@ -354,11 +358,10 @@ function updateSpyView() {
         }
     });
 
-    // --- RÉSUMÉ (Cartes en haut - Uniquement pour single entité) ---
     if (currentSpyType !== 'groupes') {
         const singleEntity = Object.values(dataByEntity)[0];
-        const startVal = getMetricValue(singleEntity.rawData[0], metric);
-        const endVal = getMetricValue(singleEntity.rawData[singleEntity.rawData.length - 1], metric);
+        const startVal = getMetricValue(singleEntity.rawData[0], currentSpyMetric);
+        const endVal = getMetricValue(singleEntity.rawData[singleEntity.rawData.length - 1], currentSpyMetric);
         const diffVal = endVal - startVal;
         
         document.getElementById('spy-summary-cards').innerHTML = `
@@ -367,10 +370,9 @@ function updateSpyView() {
             <div class="stat-card"><div class="val" style="color:${diffVal >= 0 ? '#3aafa9' : '#ff6f61'}; text-shadow: 1px 1px 0 #1d2d44;">${diffVal >= 0 ? '+' : ''}${diffVal.toLocaleString('fr-FR')}</div><div class="lbl">Progression Globale</div></div>
         `;
     } else {
-        document.getElementById('spy-summary-cards').innerHTML = ''; // Pas de cartes globales pour les groupes multiples
+        document.getElementById('spy-summary-cards').innerHTML = '';
     }
 
-    // --- TABLEAUX PARALLÈLES ---
     let tablesHtml = '';
     const isMultiTable = currentSpyType === 'groupes';
     
@@ -420,7 +422,6 @@ function updateSpyView() {
     
     document.getElementById('spy-tables-container').innerHTML = tablesHtml;
 
-    // --- GRAPHIQUE MULTI-COURBES SYNCHRONISÉ ---
     const sortedGlobalTs = Array.from(globalTimeKeys).sort((a, b) => a - b);
     const chartLabels = sortedGlobalTs.map(ts => {
         let fmt = (interval !== 'raw' && bucketMs >= 24*3600*1000) ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
@@ -430,7 +431,7 @@ function updateSpyView() {
     const datasets = Object.values(dataByEntity).map(entity => {
         const alignedData = sortedGlobalTs.map(ts => {
             const match = entity.processedData.find(d => d.ts === ts);
-            return match ? match.val : null; // null permet de ne pas lier les points s'il y a un trou
+            return match ? match.val : null;
         });
 
         return {
@@ -444,7 +445,7 @@ function updateSpyView() {
             pointRadius: 3,
             borderWidth: 3,
             tension: 0.1,
-            spanGaps: true // Relie les courbes même si un groupe a raté un relevé
+            spanGaps: true
         };
     });
 
