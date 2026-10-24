@@ -499,13 +499,32 @@ function updateSpyView() {
 
         const sortedActiveGroups = Array.from(spyActiveGroups).sort((a, b) => a - b);
         
+        // Définition de l'ordre de priorité des rôles
+        const getRoleWeight = (role) => {
+            if (!role) return 5;
+            const r = role.toLowerCase();
+            if (r === 'grenier') return 1;
+            if (r === 'passeur_inter') return 2;
+            if (r === 'passeur_bas') return 3;
+            if (r === 'chasseur') return 4;
+            return 5;
+        };
+
         sortedActiveGroups.forEach(gid => {
             const color = SPY_GROUP_COLORS[(gid - 1) % SPY_GROUP_COLORS.length];
             const players = playersByGroup[gid] || [];
             
-            // Tri : Étage décroissant, puis alphabétique
+            // Tri personnalisé : Poids du rôle, puis Étage décroissant, puis Alphabétique
             players.sort((a, b) => {
-                if ((b.floor_level || 0) !== (a.floor_level || 0)) return (b.floor_level || 0) - (a.floor_level || 0);
+                const weightA = getRoleWeight(a.group_role);
+                const weightB = getRoleWeight(b.group_role);
+                
+                if (weightA !== weightB) return weightA - weightB;
+                
+                if ((b.floor_level || 0) !== (a.floor_level || 0)) {
+                    return (b.floor_level || 0) - (a.floor_level || 0);
+                }
+                
                 return (a.pseudo || '').localeCompare(b.pseudo || '');
             });
 
