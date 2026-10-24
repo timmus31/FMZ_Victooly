@@ -5,17 +5,20 @@ let spyActiveGroups = new Set();
 
 let currentSpyChart = null;
 let currentSpyData = [];
-let currentSpyType = 'joueurs'; // 'joueurs', 'alliances', 'groupes'
+let currentSpyType = 'joueurs';
 let currentSpyStartDate = '';
 let currentSpyEndDate = '';
 let currentSpyMetric = '';
+
+// Nouvelles variables pour stocker les données annexes des groupes
+let currentSpyAllianceVData = [];
+let currentSpyGroupPlayers = [];
 
 const SPY_GROUP_COLORS = ['#ff6f61', '#f4d03f', '#3aafa9', '#8ba888', '#e74c3c', '#9b59b6', '#3498db', '#f39c12', '#1abc9c', '#d35400'];
 
 async function loadSpyTab() {
     const contentDiv = document.getElementById('content-area');
     
-    // Initialisation : 7 derniers jours par défaut
     const today = new Date();
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(today.getDate() - 7);
@@ -34,7 +37,6 @@ async function loadSpyTab() {
             <button id="spy-tab-groupes-btn" class="btn-action bg-white" onclick="switchSpySubTab('groupes')"><i class="fa-solid fa-users-viewfinder"></i> Groupes</button>
         </div>
 
-        <!-- Section Joueurs -->
         <div id="spy-tab-joueurs" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-magnifying-glass text-retro-mint mr-2"></i> Analyser un joueur</h2>
             <div class="flex flex-wrap items-center gap-4">
@@ -45,7 +47,6 @@ async function loadSpyTab() {
             <p id="spy-player-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
         </div>
 
-        <!-- Section Alliances -->
         <div id="spy-tab-alliances" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8" style="display: none;">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-magnifying-glass text-[#8e44ad] mr-2"></i> Analyser une alliance</h2>
             <div class="flex flex-wrap items-center gap-4">
@@ -56,7 +57,6 @@ async function loadSpyTab() {
             <p id="spy-alliance-msg" class="text-xs font-fredoka text-retro-slate/50 font-bold uppercase tracking-wider mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Indexation...</p>
         </div>
 
-        <!-- Section Groupes -->
         <div id="spy-tab-groupes" class="bg-retro-cream border-4 border-retro-slate rounded-2xl p-6 shadow-retro mb-8" style="display: none;">
             <h2 class="font-shrikhand text-2xl text-retro-slate mb-4"><i class="fa-solid fa-users-viewfinder text-retro-yellow mr-2"></i> Comparer les Groupes</h2>
             
@@ -73,7 +73,6 @@ async function loadSpyTab() {
             </div>
         </div>
 
-        <!-- Conteneur des résultats -->
         <div id="spy-results-container" style="display: none;"></div>
     `;
 
@@ -177,20 +176,30 @@ async function loadSpyData(type) {
         if (isGroupes) {
             if (spyActiveGroups.size === 0) return showToast("Erreur", "Sélectionnez au moins un groupe.");
             
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_groups`, {
-                method: 'POST', 
-                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p_start: startIso, p_end: endIso })
-            });
+            const activeGroupsArray = Array.from(spyActiveGroups);
+            const activeGroupsStr = activeGroupsArray.join(',');
 
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
-                return showToast("Erreur", "Problème serveur, voir la console.");
-            }
+            // On lance 3 requêtes en parallèle : Historique Groupes, Historique Alliance V, Composition Joueurs
+            const [resGroups, resAllianceV, resPlayers] = await Promise.all([
+                fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_groups`, {
+                    method: 'POST', 
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ p_start: startIso, p_end: endIso })
+                }),
+                fetch(`${SUPABASE_URL}/rest/v1/alliances_history?tag=eq.V&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`, {
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+                }),
+                fetch(`${SUPABASE_URL}/rest/v1/players?group_id=in.(${activeGroupsStr})&select=pseudo,group_id,group_role,floor_level&order=group_id.asc`, {
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+                })
+            ]);
 
-            const rawData = await res.json();
+            if (!resGroups.ok) return showToast("Erreur", "Problème récupération historique groupes.");
+            
+            const rawData = await resGroups.json();
             currentSpyData = rawData.filter(d => spyActiveGroups.has(d.group_id));
+            currentSpyAllianceVData = resAllianceV.ok ? await resAllianceV.json() : [];
+            currentSpyGroupPlayers = resPlayers.ok ? await resPlayers.json() : [];
 
         } else {
             const inputVal = document.getElementById(isJoueur ? "spy-player-search" : "spy-alliance-search").value.trim();
@@ -211,12 +220,7 @@ async function loadSpyData(type) {
                 headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
             });
             
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error("❌ ERREUR SUPABASE DÉTAILLÉE :", errorText);
-                return showToast("Erreur", "Problème base de données.");
-            }
-
+            if (!res.ok) return showToast("Erreur", "Problème base de données.");
             currentSpyData = await res.json();
         }
 
@@ -252,7 +256,7 @@ function renderSpyResultsContainer() {
 
     let headerHtml = '';
     if (currentSpyType === 'groupes') {
-        headerHtml = `<div class="flex items-center gap-4"><div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">🎯</div><div><h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">Comparateur de Groupes</h3><p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">Analyse Multidimensionnelle</p></div></div>`;
+        headerHtml = `<div class="flex items-center gap-4"><div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">🎯</div><div><h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">Comparateur</h3><p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">Analyse des Groupes</p></div></div>`;
     } else {
         const latest = currentSpyData[currentSpyData.length - 1];
         const title = currentSpyType === 'joueurs' ? latest.pseudo : `[${latest.tag}] ${latest.name || ''}`;
@@ -265,10 +269,7 @@ function renderSpyResultsContainer() {
         <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-6 mt-8">
             ${headerHtml}
             
-            <!-- BARRE D'OUTILS UNIFIÉE -->
             <div class="inline-flex flex-col xl:flex-row bg-white border-2 border-retro-slate rounded-xl shadow-retro-sm overflow-hidden divide-y xl:divide-y-0 xl:divide-x-2 divide-retro-slate m-0">
-                
-                <!-- Dates -->
                 <div class="flex items-center justify-between px-4 py-2.5 hover:bg-retro-cream/30 transition-colors gap-3">
                     <div class="flex items-center gap-2">
                         <i class="fa-regular fa-calendar text-retro-slate/50"></i>
@@ -279,8 +280,6 @@ function renderSpyResultsContainer() {
                         <input type="date" id="spy-dynamic-end" value="${currentSpyEndDate}" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 text-sm font-outfit font-bold text-retro-slate cursor-pointer" onchange="updateSpyPeriod()">
                     </div>
                 </div>
-                
-                <!-- Métrique -->
                 <div class="flex items-center px-4 py-2.5 hover:bg-retro-cream/30 transition-colors cursor-pointer relative">
                     <i class="fa-solid fa-chart-pie text-retro-slate/50 mr-2"></i>
                     <select id="spy-dynamic-metric" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 shadow-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
@@ -288,8 +287,6 @@ function renderSpyResultsContainer() {
                     </select>
                     <i class="fa-solid fa-caret-down text-retro-slate/50 text-xs absolute right-4 pointer-events-none"></i>
                 </div>
-                
-                <!-- Intervalle -->
                 <div class="flex items-center px-4 py-2.5 hover:bg-retro-cream/30 transition-colors cursor-pointer relative">
                     <i class="fa-solid fa-layer-group text-retro-slate/50 mr-2"></i>
                     <select id="spy-dynamic-interval" class="bg-transparent border-none p-0 m-0 outline-none focus:outline-none focus:ring-0 shadow-none text-sm font-outfit font-bold text-retro-slate cursor-pointer appearance-none pr-4 w-full h-full" onchange="updateSpyView()">
@@ -297,9 +294,11 @@ function renderSpyResultsContainer() {
                     </select>
                     <i class="fa-solid fa-caret-down text-retro-slate/50 text-xs absolute right-4 pointer-events-none"></i>
                 </div>
-                
             </div>
         </div>
+
+        <!-- RÉSUMÉ ALLIANCE V (Spécifique Groupes) -->
+        <div id="spy-alliance-v-summary" class="mb-6"></div>
 
         <div id="spy-summary-cards" class="stats-summary mb-6 flex-wrap"></div>
         
@@ -309,9 +308,11 @@ function renderSpyResultsContainer() {
         </div>
         
         <div id="spy-tables-container" class="flex flex-wrap gap-6 mb-8 items-start"></div>
+
+        <!-- COMPOSITION DES GROUPES (Spécifique Groupes) -->
+        <div id="spy-group-composition-container" class="mb-8"></div>
     `;
 
-    // Restaure la métrique
     const metricSelect = document.getElementById('spy-dynamic-metric');
     if (currentSpyMetric && metricSelect.querySelector(`option[value="${currentSpyMetric}"]`)) {
         metricSelect.value = currentSpyMetric;
@@ -345,8 +346,40 @@ function updateSpyView() {
     
     document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
 
+    // --- ENCART ALLIANCE V (Groupes uniquement) ---
+    const vContainer = document.getElementById('spy-alliance-v-summary');
+    if (currentSpyType === 'groupes' && vContainer) {
+        if (currentSpyAllianceVData && currentSpyAllianceVData.length > 0) {
+            const startV = getMetricValue(currentSpyAllianceVData[0], currentSpyMetric);
+            const endV = getMetricValue(currentSpyAllianceVData[currentSpyAllianceVData.length - 1], currentSpyMetric);
+            const diffV = endV - startV;
+            const diffText = diffV >= 0 ? `+${diffV.toLocaleString('fr-FR')}` : diffV.toLocaleString('fr-FR');
+            const diffColor = diffV >= 0 ? '#3aafa9' : '#ff6f61';
+
+            vContainer.innerHTML = `
+                <div class="bg-white border-2 border-[#8e44ad] rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-retro-sm relative overflow-hidden">
+                    <div class="absolute inset-0 bg-[#8e44ad]/5 pointer-events-none"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-12 h-12 bg-[#8e44ad] rounded-full flex items-center justify-center text-white text-xl border-2 border-retro-slate shadow-retro-sm">🛡️</div>
+                        <div>
+                            <h4 class="font-shrikhand text-[#8e44ad] text-xl leading-none mb-1">Alliance [V]</h4>
+                            <span class="font-fredoka text-retro-slate text-sm font-bold opacity-75">Référence sur la période</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6 font-fredoka font-bold relative z-10 bg-white/80 p-2 px-4 rounded-xl border-2 border-retro-slate/10 shadow-sm">
+                        <div class="text-center"><div class="text-[10px] text-retro-slate/50 uppercase tracking-wider mb-0.5">Début</div><div class="text-retro-slate text-lg">${startV.toLocaleString('fr-FR')}</div></div>
+                        <i class="fa-solid fa-arrow-right text-retro-slate/30"></i>
+                        <div class="text-center"><div class="text-[10px] text-retro-slate/50 uppercase tracking-wider mb-0.5">Fin</div><div class="text-retro-slate text-lg">${endV.toLocaleString('fr-FR')}</div></div>
+                        <div class="text-center bg-white px-3 py-1 rounded-lg border border-retro-slate/20 shadow-inner ml-2"><div class="text-[10px] text-retro-slate/50 uppercase tracking-wider mb-0.5">Évolution</div><div class="text-lg" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffText}</div></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            vContainer.innerHTML = '';
+        }
+    }
+
     const dataByEntity = {};
-    
     currentSpyData.forEach(snap => {
         let eId, eName, color;
         if (currentSpyType === 'joueurs') { eId = snap.player_id; eName = snap.pseudo; color = '#3aafa9'; }
@@ -447,6 +480,66 @@ function updateSpyView() {
     });
     
     document.getElementById('spy-tables-container').innerHTML = tablesHtml;
+
+    // --- GRILLE DES COMPOSITIONS (Groupes uniquement) ---
+    const compContainer = document.getElementById('spy-group-composition-container');
+    if (currentSpyType === 'groupes' && compContainer) {
+        let compHtml = `<div class="flex items-center gap-3 mb-6 border-b-4 border-retro-slate/10 pb-3 mt-4">
+                            <div class="w-10 h-10 bg-retro-slate rounded-full flex items-center justify-center text-white text-lg shadow-retro-sm"><i class="fa-solid fa-users"></i></div>
+                            <h4 class="font-shrikhand text-2xl text-retro-slate m-0 leading-none">Composition des Escouades</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">`;
+        
+        const playersByGroup = {};
+        currentSpyGroupPlayers.forEach(p => {
+            if (!playersByGroup[p.group_id]) playersByGroup[p.group_id] = [];
+            playersByGroup[p.group_id].push(p);
+        });
+
+        const sortedActiveGroups = Array.from(spyActiveGroups).sort((a, b) => a - b);
+        
+        sortedActiveGroups.forEach(gid => {
+            const color = SPY_GROUP_COLORS[(gid - 1) % SPY_GROUP_COLORS.length];
+            const players = playersByGroup[gid] || [];
+            
+            // Tri : Étage décroissant, puis alphabétique
+            players.sort((a, b) => {
+                if ((b.floor_level || 0) !== (a.floor_level || 0)) return (b.floor_level || 0) - (a.floor_level || 0);
+                return (a.pseudo || '').localeCompare(b.pseudo || '');
+            });
+
+            compHtml += `
+                <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro relative overflow-hidden" style="border-top-color: ${color}">
+                    <div class="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-10 pointer-events-none" style="background-color: ${color}"></div>
+                    <div class="flex items-center justify-between mb-4 border-b-2 border-retro-slate/5 pb-2">
+                        <h5 class="font-shrikhand text-xl m-0 leading-none" style="color: ${color}">Groupe ${gid}</h5>
+                        <span class="text-xs font-fredoka font-bold text-retro-slate bg-retro-cream px-2 py-1 rounded-lg border border-retro-slate shadow-sm">${players.length} mbrs</span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+            `;
+
+            if (players.length === 0) {
+                compHtml += `<div class="text-sm font-fredoka text-retro-slate/50 italic text-center py-4">Aucun joueur assigné</div>`;
+            } else {
+                players.forEach(p => {
+                    const roleLabel = p.group_role || 'Membre';
+                    const floorLabel = p.floor_level ? `ÉT. ${p.floor_level}` : '?';
+                    compHtml += `
+                        <div class="flex items-center justify-between bg-retro-cream border-2 border-retro-slate rounded-xl px-3 py-2 shadow-retro-sm transition-transform hover:-translate-y-0.5">
+                            <div class="font-bold font-outfit text-retro-slate">${p.pseudo}</div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] font-bold font-outfit uppercase px-2 py-0.5 rounded bg-white border border-retro-slate text-retro-slate shadow-[1px_1px_0_#1d2d44]">${roleLabel}</span>
+                                <span class="text-[10px] font-bold font-outfit uppercase px-2 py-0.5 rounded bg-retro-mint text-white border border-retro-slate shadow-[1px_1px_0_#1d2d44]">${floorLabel}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            compHtml += `</div></div>`;
+        });
+        compHtml += `</div>`;
+        compContainer.innerHTML = compHtml;
+    }
 
     const sortedGlobalTs = Array.from(globalTimeKeys).sort((a, b) => a - b);
     const chartLabels = sortedGlobalTs.map(ts => {
