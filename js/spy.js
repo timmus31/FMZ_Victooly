@@ -271,7 +271,7 @@ function updateSpyView() {
     document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
     document.getElementById('spy-table-metric-col').innerText = metricLabel;
 
-    // --- CARTES DE RÉSUMÉ ---
+    // --- CARTES DE RÉSUMÉ (Toujours basées sur les valeurs brutes de début et de fin) ---
     const startVal = Number(currentSpyData[0][metric]) || 0;
     const endVal = Number(currentSpyData[currentSpyData.length - 1][metric]) || 0;
     const diffVal = endVal - startVal;
@@ -284,20 +284,52 @@ function updateSpyView() {
         <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression Globale</div></div>
     `;
 
-    // --- TABLEAU (Affichage brut des variations uniquement) ---
+    // --- 1. PRÉPARATION DES DONNÉES (Lissage selon l'intervalle) ---
+    let processedData = [];
+    const bucketMs = interval !== 'raw' ? getBucketSize(interval) : 0;
+
+    if (interval === 'raw') {
+        processedData = currentSpyData.map(snap => ({
+            dateObj: new Date(snap.snapshot_date),
+            val: Number(snap[metric]) || 0
+        }));
+    } else {
+        const buckets = {};
+        currentSpyData.forEach(snap => {
+            const ts = new Date(snap.snapshot_date).getTime();
+            const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
+            
+            if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
+            buckets[bucketKey].sum += (Number(snap[metric]) || 0);
+            buckets[bucketKey].count += 1;
+        });
+
+        Object.keys(buckets).sort((a, b) => a - b).forEach(key => {
+            processedData.push({
+                dateObj: new Date(Number(key)),
+                val: Math.round(buckets[key].sum / buckets[key].count)
+            });
+        });
+    }
+
+    // --- 2. TABLEAU (Généré à partir des données lissées) ---
     const tableRows = [];
     let previousVal = null;
 
-    currentSpyData.forEach(snap => {
-        const currentVal = Number(snap[metric]) || 0;
-        
-        if (previousVal === null || currentVal !== previousVal) {
-            const dateLabel = new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+    processedData.forEach(item => {
+        if (previousVal === null || item.val !== previousVal) {
+            // Affichage de l'heure uniquement si l'intervalle est inférieur à 1 jour
+            let formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' };
+            if (interval !== 'raw' && bucketMs >= 24 * 60 * 60 * 1000) {
+                formatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
+            }
+            
+            const dateLabel = item.dateObj.toLocaleString('fr-FR', formatOptions);
             let diffText = "-"; 
             let tableDiffColor = "text-retro-slate/30";
             
             if (previousVal !== null) {
-                const stepDiff = currentVal - previousVal;
+                const stepDiff = item.val - previousVal;
                 if (stepDiff > 0) { 
                     diffText = `+${stepDiff.toLocaleString('fr-FR')}`; 
                     tableDiffColor = "text-retro-mint-dark"; 
@@ -310,54 +342,28 @@ function updateSpyView() {
             tableRows.unshift(`
                 <tr>
                     <td class="font-bold text-retro-slate">${dateLabel}</td>
-                    <td class="text-center font-bold text-retro-slate text-lg">${currentVal.toLocaleString('fr-FR')}</td>
+                    <td class="text-center font-bold text-retro-slate text-lg">${item.val.toLocaleString('fr-FR')}</td>
                     <td class="text-center font-black ${tableDiffColor}">${diffText}</td>
                 </tr>
             `);
         }
-        previousVal = currentVal;
+        previousVal = item.val;
     });
 
     document.getElementById('spy-history-tbody').innerHTML = tableRows.join('');
 
-    // --- GRAPHIQUE (Lissage selon l'intervalle sélectionné) ---
+    // --- 3. GRAPHIQUE (Généré à partir des mêmes données lissées) ---
     let chartLabels = [];
     let chartDataPoints = [];
 
-    if (interval === 'raw') {
-        currentSpyData.forEach(snap => {
-            chartLabels.push(new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' }));
-            chartDataPoints.push(Number(snap[metric]) || 0);
-        });
-    } else {
-        const bucketMs = getBucketSize(interval);
-        const buckets = {};
-
-        currentSpyData.forEach(snap => {
-            const ts = new Date(snap.snapshot_date).getTime();
-            const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
-            
-            if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
-            buckets[bucketKey].sum += (Number(snap[metric]) || 0);
-            buckets[bucketKey].count += 1;
-        });
-
-        const sortedKeys = Object.keys(buckets).sort((a, b) => a - b);
-        
-        sortedKeys.forEach(key => {
-            const avg = Math.round(buckets[key].sum / buckets[key].count);
-            const labelDate = new Date(Number(key));
-            let formatOptions = { day: '2-digit', month: '2-digit' };
-            
-            // On affiche l'heure pour les intervalles infra-journaliers
-            if (bucketMs < 24 * 60 * 60 * 1000) {
-                formatOptions = { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
-            }
-            
-            chartLabels.push(labelDate.toLocaleString('fr-FR', formatOptions));
-            chartDataPoints.push(avg);
-        });
-    }
+    processedData.forEach(item => {
+        let formatOptions = { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
+        if (interval !== 'raw' && bucketMs >= 24 * 60 * 60 * 1000) {
+            formatOptions = { day: '2-digit', month: '2-digit' };
+        }
+        chartLabels.push(item.dateObj.toLocaleString('fr-FR', formatOptions));
+        chartDataPoints.push(item.val);
+    });
 
     renderSpyHistoryChart(chartLabels, chartDataPoints, metricLabel, currentSpyIsPlayer);
 }
