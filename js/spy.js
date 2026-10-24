@@ -1,6 +1,8 @@
 let spyPlayersMap = new Map();
 let spyAlliancesMap = new Set();
 let currentSpyChart = null;
+let currentSpyData = [];
+let currentSpyIsPlayer = true;
 
 async function loadSpyTab() {
     const contentDiv = document.getElementById('content-area');
@@ -24,13 +26,6 @@ async function loadSpyTab() {
                 <input type="text" id="spy-player-search" list="spy-players-list" class="flex-grow min-w-[200px]" placeholder="Commencez à taper un pseudo..." autocomplete="off">
                 <datalist id="spy-players-list"></datalist>
                 
-                <select id="playerMetric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
-                    <option value="field">Terrain de chasse</option>
-                    <option value="building_score">Score Bâtiment</option>
-                    <option value="technology_score">Score Technologie</option>
-                    <option value="trophy_score">Score Trophée</option>
-                </select>
-                
                 <div class="flex items-center gap-2">
                     <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
                     <input type="date" id="playerStartDate" value="${today}" class="w-auto m-0">
@@ -49,14 +44,6 @@ async function loadSpyTab() {
                 <input type="text" id="spy-alliance-search" list="spy-alliances-list" class="flex-grow min-w-[200px]" placeholder="Tag de l'alliance (ex: -V-)..." autocomplete="off">
                 <datalist id="spy-alliances-list"></datalist>
                 
-                <select id="allianceMetric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer">
-                    <option value="total_field">Terrain total</option>
-                    <option value="players_count">Nombre de joueurs</option>
-                    <option value="total_building_score">Score Bâtiment total</option>
-                    <option value="total_technology_score">Score Technologie total</option>
-                    <option value="total_trophy_score">Score Trophée total</option>
-                </select>
-                
                 <div class="flex items-center gap-2">
                     <span class="font-fredoka font-bold text-retro-slate text-sm">Du</span>
                     <input type="date" id="allianceStartDate" value="${today}" class="w-auto m-0">
@@ -69,28 +56,11 @@ async function loadSpyTab() {
         </div>
 
         <!-- Conteneur des résultats -->
-        <div id="spy-results-container" style="display: none;">
-            <div class="flex items-center gap-4 mb-6">
-                <div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm" id="spy-result-icon">🐜</div>
-                <div>
-                    <h3 id="spy-display-title" class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">Cible</h3>
-                    <p id="spy-display-subtitle" class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1"></p>
-                </div>
-            </div>
-            
-            <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
-                <h4 class="font-shrikhand text-lg text-retro-slate mb-2" id="spy-chart-title">📈 Évolution</h4>
-                <canvas id="spyHistoryChart" width="100%" height="40"></canvas>
-            </div>
-            
-            <h4 class="font-shrikhand text-lg text-retro-slate mb-4">📋 Historique des relevés</h4>
-            <div class="table-container mb-8" id="spy-history-table-container"></div>
-        </div>
+        <div id="spy-results-container" style="display: none;"></div>
     `;
 
     const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' };
 
-    // Chargement parallèle des deux index (Joueurs et Alliances)
     try {
         const [resPlayers, resAlliances] = await Promise.all([
             fetch(`${SUPABASE_URL}/rest/v1/rpc/get_history_players`, { method: 'POST', headers: headers }),
@@ -140,16 +110,15 @@ function switchSpySubTab(tabName) {
 }
 
 async function loadSpyData(type) {
-    const isPlayer = type === 'joueurs';
-    const inputVal = document.getElementById(isPlayer ? "spy-player-search" : "spy-alliance-search").value.trim();
+    currentSpyIsPlayer = type === 'joueurs';
+    const inputVal = document.getElementById(currentSpyIsPlayer ? "spy-player-search" : "spy-alliance-search").value.trim();
     
     if (!inputVal) return showToast("Erreur", "Veuillez entrer une cible valide.");
 
     let finalSearchParam = '';
     let searchColumn = '';
 
-    // Vérification stricte dans nos dictionnaires pré-chargés
-    if (isPlayer) {
+    if (currentSpyIsPlayer) {
         const pId = spyPlayersMap.get(inputVal);
         if (!pId) return showToast("Erreur", "Joueur introuvable dans le registre.");
         searchColumn = 'player_id';
@@ -160,61 +129,170 @@ async function loadSpyData(type) {
         finalSearchParam = `eq.${encodeURIComponent(inputVal)}`;
     }
 
-    const metric = document.getElementById(isPlayer ? "playerMetric" : "allianceMetric").value;
-    const startDate = document.getElementById(isPlayer ? "playerStartDate" : "allianceStartDate").value;
-    const endDate = document.getElementById(isPlayer ? "playerEndDate" : "allianceEndDate").value;
+    const startDate = document.getElementById(currentSpyIsPlayer ? "playerStartDate" : "allianceStartDate").value;
+    const endDate = document.getElementById(currentSpyIsPlayer ? "playerEndDate" : "allianceEndDate").value;
 
     const startIso = `${startDate}T00:00:00Z`;
     const endIso = `${endDate}T23:59:59Z`;
-    const tableName = isPlayer ? 'players_history' : 'alliances_history';
+    const tableName = currentSpyIsPlayer ? 'players_history' : 'alliances_history';
 
     const url = `${SUPABASE_URL}/rest/v1/${tableName}?${searchColumn}=${finalSearchParam}&snapshot_date=gte.${startIso}&snapshot_date=lte.${endIso}&order=snapshot_date.asc`;
 
     try {
         const response = await fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' } });
-        const data = await response.json();
+        currentSpyData = await response.json();
 
-        if (data.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée pour cette période.");
-        renderSpyResults(data, metric, isPlayer);
+        if (currentSpyData.length === 0) return showToast("Aucun résultat", "Aucune donnée trouvée pour cette période.");
+        
+        renderSpyResultsContainer();
 
     } catch (error) {
         showToast("Erreur", "Impossible de récupérer l'historique.");
     }
 }
 
-function renderSpyResults(data, metric, isPlayer) {
+function renderSpyResultsContainer() {
     const container = document.getElementById('spy-results-container');
     container.style.display = 'block';
+
+    const firstDate = new Date(currentSpyData[0].snapshot_date);
+    const lastDate = new Date(currentSpyData[currentSpyData.length - 1].snapshot_date);
+    const diffDays = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+
+    let intervalOptions = `<option value="raw">Données brutes</option>`;
     
-    const firstSnapshot = data[0];
-    const latestSnapshot = data[data.length - 1];
-    const selectElem = document.getElementById(isPlayer ? 'playerMetric' : 'allianceMetric');
+    if (diffDays <= 3) {
+        intervalOptions += `
+            <option value="1h">Moyenne / 1H</option>
+            <option value="3h">Moyenne / 3H</option>
+            <option value="6h">Moyenne / 6H</option>
+            <option value="12h">Moyenne / 12H</option>
+        `;
+    } else if (diffDays <= 30) {
+        intervalOptions += `
+            <option value="12h">Moyenne / 12H</option>
+            <option value="1d">Moyenne / 1 Jour</option>
+            <option value="3d">Moyenne / 3 Jours</option>
+            <option value="1w">Moyenne / 1 Semaine</option>
+        `;
+    } else {
+        intervalOptions += `
+            <option value="1d">Moyenne / 1 Jour</option>
+            <option value="3d">Moyenne / 3 Jours</option>
+            <option value="1w">Moyenne / 1 Semaine</option>
+            <option value="1m">Moyenne / 1 Mois</option>
+        `;
+    }
+
+    let metricOptions = '';
+    if (currentSpyIsPlayer) {
+        metricOptions = `
+            <option value="field">Terrain de chasse</option>
+            <option value="building_score">Score Bâtiment</option>
+            <option value="technology_score">Score Technologie</option>
+            <option value="trophy_score">Score Trophée</option>
+        `;
+    } else {
+        metricOptions = `
+            <option value="total_field">Terrain total</option>
+            <option value="players_count">Nombre de joueurs</option>
+            <option value="total_building_score">Score Bâtiment total</option>
+            <option value="total_technology_score">Score Technologie total</option>
+            <option value="total_trophy_score">Score Trophée total</option>
+        `;
+    }
+
+    const latestSnapshot = currentSpyData[currentSpyData.length - 1];
+    const title = currentSpyIsPlayer ? latestSnapshot.pseudo : `[${latestSnapshot.tag}] ${latestSnapshot.name || ''}`;
+    const subtitle = currentSpyIsPlayer ? (latestSnapshot.alliance ? `Alliance [${latestSnapshot.alliance}]` : "Sans Alliance") : `${latestSnapshot.players_count} membres`;
+    const icon = currentSpyIsPlayer ? '🐜' : '🛡️';
+
+    container.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 mt-8">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">${icon}</div>
+                <div>
+                    <h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">${title}</h3>
+                    <p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">${subtitle}</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="spy-dynamic-metric" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">
+                    ${metricOptions}
+                </select>
+                <select id="spy-dynamic-interval" class="bg-white border-2 border-retro-slate rounded-xl p-2 font-outfit outline-none cursor-pointer shadow-retro-sm m-0" onchange="updateSpyView()">
+                    ${intervalOptions}
+                </select>
+            </div>
+        </div>
+
+        <div id="spy-summary-cards" class="stats-summary mb-6 flex-wrap"></div>
+        
+        <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
+            <h4 class="font-shrikhand text-lg text-retro-slate mb-2" id="spy-chart-title">📈 Évolution</h4>
+            <canvas id="spyHistoryChart" width="100%" height="40"></canvas>
+        </div>
+        
+        <h4 class="font-shrikhand text-lg text-retro-slate mb-4">📋 Historique complet des variations</h4>
+        <div class="table-container mb-8">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date du Relevé</th>
+                        <th class="text-center" id="spy-table-metric-col">Valeur</th>
+                        <th class="text-center">Évolution</th>
+                    </tr>
+                </thead>
+                <tbody id="spy-history-tbody"></tbody>
+            </table>
+        </div>
+    `;
+
+    // Sélection automatique du premier intervalle lissé (si disponible)
+    const intSelect = document.getElementById('spy-dynamic-interval');
+    if (intSelect.options.length > 1) {
+        intSelect.selectedIndex = 1;
+    }
+    
+    updateSpyView();
+}
+
+function getBucketSize(intervalStr) {
+    const hoursMap = { '1h': 1, '3h': 3, '6h': 6, '12h': 12, '1d': 24, '3d': 72, '1w': 168, '1m': 720 };
+    return hoursMap[intervalStr] ? hoursMap[intervalStr] * 60 * 60 * 1000 : null;
+}
+
+function updateSpyView() {
+    const metric = document.getElementById('spy-dynamic-metric').value;
+    const interval = document.getElementById('spy-dynamic-interval').value;
+    const selectElem = document.getElementById('spy-dynamic-metric');
     const metricLabel = selectElem.options[selectElem.selectedIndex].text;
     
-    const title = isPlayer ? latestSnapshot.pseudo : `[${latestSnapshot.tag}] ${latestSnapshot.name || ''}`;
-    const subtitle = isPlayer ? (latestSnapshot.alliance ? `Alliance [${latestSnapshot.alliance}]` : "Sans Alliance") : `${latestSnapshot.players_count} membres`;
-    const icon = isPlayer ? '🐜' : '🛡️';
+    document.getElementById('spy-chart-title').innerText = `📈 Évolution : ${metricLabel}`;
+    document.getElementById('spy-table-metric-col').innerText = metricLabel;
 
-    // Calcul du résumé global
-    const startVal = Number(firstSnapshot[metric]) || 0;
-    const endVal = Number(latestSnapshot[metric]) || 0;
+    // --- CARTES DE RÉSUMÉ ---
+    const startVal = Number(currentSpyData[0][metric]) || 0;
+    const endVal = Number(currentSpyData[currentSpyData.length - 1][metric]) || 0;
     const diffVal = endVal - startVal;
     const diffFormatted = diffVal >= 0 ? `+${diffVal.toLocaleString('fr-FR')}` : diffVal.toLocaleString('fr-FR');
     const diffColor = diffVal >= 0 ? '#3aafa9' : '#ff6f61';
 
-    const labels = [];
-    const chartData = [];
+    document.getElementById('spy-summary-cards').innerHTML = `
+        <div class="stat-card"><div class="val">${startVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Initiale</div></div>
+        <div class="stat-card"><div class="val">${endVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Finale</div></div>
+        <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression Globale</div></div>
+    `;
+
+    // --- TABLEAU (Affichage brut des variations uniquement) ---
     const tableRows = [];
     let previousVal = null;
 
-    data.forEach(snap => {
-        const dateLabel = new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+    currentSpyData.forEach(snap => {
         const currentVal = Number(snap[metric]) || 0;
         
-        labels.push(dateLabel);
-        chartData.push(currentVal);
-
         if (previousVal === null || currentVal !== previousVal) {
+            const dateLabel = new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit' });
             let diffText = "-"; 
             let tableDiffColor = "text-retro-slate/30";
             
@@ -240,43 +318,48 @@ function renderSpyResults(data, metric, isPlayer) {
         previousVal = currentVal;
     });
 
-    // Recomposition de l'affichage avec le tableau de résumé
-    container.innerHTML = `
-        <div class="flex items-center gap-4 mb-6">
-            <div class="w-16 h-16 bg-white border-4 border-retro-slate rounded-full flex items-center justify-center text-3xl shadow-retro-sm">${icon}</div>
-            <div>
-                <h3 class="font-shrikhand text-3xl text-retro-slate m-0 leading-none">${title}</h3>
-                <p class="font-fredoka font-bold text-retro-coral tracking-widest uppercase text-sm mt-1">${subtitle}</p>
-            </div>
-        </div>
+    document.getElementById('spy-history-tbody').innerHTML = tableRows.join('');
 
-        <div class="stats-summary mb-6 flex-wrap">
-            <div class="stat-card"><div class="val">${startVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Initiale</div></div>
-            <div class="stat-card"><div class="val">${endVal.toLocaleString('fr-FR')}</div><div class="lbl">Valeur Finale</div></div>
-            <div class="stat-card"><div class="val" style="color:${diffColor}; text-shadow: 1px 1px 0 #1d2d44;">${diffFormatted}</div><div class="lbl">Progression</div></div>
-        </div>
-        
-        <div class="bg-white border-4 border-retro-slate rounded-2xl p-4 shadow-retro mb-8">
-            <h4 class="font-shrikhand text-lg text-retro-slate mb-2">📈 Évolution : ${metricLabel}</h4>
-            <canvas id="spyHistoryChart" width="100%" height="40"></canvas>
-        </div>
-        
-        <h4 class="font-shrikhand text-lg text-retro-slate mb-4">📋 Historique des relevés</h4>
-        <div class="table-container mb-8">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date du Relevé</th>
-                        <th class="text-center">${metricLabel}</th>
-                        <th class="text-center">Évolution</th>
-                    </tr>
-                </thead>
-                <tbody>${tableRows.join('')}</tbody>
-            </table>
-        </div>
-    `;
+    // --- GRAPHIQUE (Lissage selon l'intervalle sélectionné) ---
+    let chartLabels = [];
+    let chartDataPoints = [];
 
-    renderSpyHistoryChart(labels, chartData, metricLabel, isPlayer);
+    if (interval === 'raw') {
+        currentSpyData.forEach(snap => {
+            chartLabels.push(new Date(snap.snapshot_date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' }));
+            chartDataPoints.push(Number(snap[metric]) || 0);
+        });
+    } else {
+        const bucketMs = getBucketSize(interval);
+        const buckets = {};
+
+        currentSpyData.forEach(snap => {
+            const ts = new Date(snap.snapshot_date).getTime();
+            const bucketKey = Math.floor(ts / bucketMs) * bucketMs;
+            
+            if (!buckets[bucketKey]) buckets[bucketKey] = { sum: 0, count: 0 };
+            buckets[bucketKey].sum += (Number(snap[metric]) || 0);
+            buckets[bucketKey].count += 1;
+        });
+
+        const sortedKeys = Object.keys(buckets).sort((a, b) => a - b);
+        
+        sortedKeys.forEach(key => {
+            const avg = Math.round(buckets[key].sum / buckets[key].count);
+            const labelDate = new Date(Number(key));
+            let formatOptions = { day: '2-digit', month: '2-digit' };
+            
+            // On affiche l'heure pour les intervalles infra-journaliers
+            if (bucketMs < 24 * 60 * 60 * 1000) {
+                formatOptions = { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' };
+            }
+            
+            chartLabels.push(labelDate.toLocaleString('fr-FR', formatOptions));
+            chartDataPoints.push(avg);
+        });
+    }
+
+    renderSpyHistoryChart(chartLabels, chartDataPoints, metricLabel, currentSpyIsPlayer);
 }
 
 function renderSpyHistoryChart(labels, dataPoints, metricLabel, isPlayer) {
